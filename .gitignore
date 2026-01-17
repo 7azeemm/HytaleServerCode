@@ -13,23 +13,18 @@ build/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-/bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
 
-### VS Code ###
-/.vscode/
+# ignore everything under `serverCode`
+/serverCode/**
 
-### Mac OS ###
-.DS_Store
+# allow Git to traverse these directories
+!/serverCode/
+!/serverCode/decompiled/
+!/serverCode/decompiled/com
+!/serverCode/decompiled/com/hypixel
 
-### Misc ###
-/run/
+# re-include only the server code
+!/serverCode/decompiled/com/hypixel/hytale
+!/serverCode/decompiled/com/hypixel/hytale/**
+
+run
