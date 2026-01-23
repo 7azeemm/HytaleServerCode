@@ -46,7 +46,12 @@ tasks.register<JavaExec>("runServer") {
     }
 
     mainClass.set("-jar")
-    args(hytaleServerJar.absolutePath, "--assets", hytaleAssets.absolutePath, "--disable-sentry")
+    args(
+        hytaleServerJar.absolutePath,
+        "--assets", hytaleAssets.absolutePath,
+        "--disable-sentry",
+        "--log", "ALL"
+    )
 }
 
 java {

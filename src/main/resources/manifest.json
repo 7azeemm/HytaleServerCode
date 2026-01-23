@@ -1,18 +1,16 @@
 {
-  "Group": "${plugin_group}",
-  "Name": "${plugin_name}",
-  "Version": "${plugin_version}",
-  "Description": "${plugin_description}",
+  "Group": "e",
+  "Name": "eee",
+  "Version": "1.1.1",
+  "Description": "eee",
   "Authors": [
     {
-      "Name": "${plugin_author}"
+      "Name": "$eeee"
     }
   ],
-  "Website": "${plugin_website}",
-  "ServerVersion": "${server_version}",
   "Dependencies": {},
   "OptionalDependencies": {},
   "DisabledByDefault": false,
   "IncludesAssetPack": true,
-  "Main": "${plugin_main_entrypoint}"
+  "Main": "com.example.exampleplugin.ExamplePlugin"
 }
