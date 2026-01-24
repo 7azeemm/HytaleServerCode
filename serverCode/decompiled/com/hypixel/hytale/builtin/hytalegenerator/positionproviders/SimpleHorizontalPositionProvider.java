@@ -3,20 +3,19 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.positionproviders;
 
+import com.hypixel.hytale.builtin.hytalegenerator.delimiters.RangeDouble;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.math.vector.Vector3d;
 import javax.annotation.Nonnull;
 
-public class VerticalEliminatorPositionProvider
+public class SimpleHorizontalPositionProvider
 extends PositionProvider {
-    private final int maxY;
-    private final int minY;
+    private final RangeDouble rangeY;
     @Nonnull
     private final PositionProvider positionProvider;
 
-    public VerticalEliminatorPositionProvider(int minY, int maxY, @Nonnull PositionProvider positionProvider) {
-        this.minY = minY;
-        this.maxY = maxY;
+    public SimpleHorizontalPositionProvider(@Nonnull RangeDouble rangeY, @Nonnull PositionProvider positionProvider) {
+        this.rangeY = rangeY;
         this.positionProvider = positionProvider;
     }
 
@@ -24,7 +23,7 @@ extends PositionProvider {
     public void positionsIn(@Nonnull PositionProvider.Context context) {
         PositionProvider.Context childContext = new PositionProvider.Context(context);
         childContext.consumer = positions -> {
-            if (positions.y < (double)this.minY || positions.y >= (double)this.maxY) {
+            if (!this.rangeY.contains(positions.y)) {
                 return;
             }
             context.consumer.accept((Vector3d)positions);

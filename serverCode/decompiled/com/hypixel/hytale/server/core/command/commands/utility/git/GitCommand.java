@@ -7,10 +7,10 @@ import com.hypixel.hytale.server.core.command.commands.utility.git.UpdateAssetsC
 import com.hypixel.hytale.server.core.command.commands.utility.git.UpdatePrefabsCommand;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractCommandCollection;
 
-public class UpdateCommand
+public class GitCommand
 extends AbstractCommandCollection {
-    public UpdateCommand() {
-        super("update", "server.commands.update.desc");
+    public GitCommand() {
+        super("git", "server.commands.git.desc");
         this.addSubCommand(new UpdateAssetsCommand());
         this.addSubCommand(new UpdatePrefabsCommand());
     }
