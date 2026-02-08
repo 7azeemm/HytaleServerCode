@@ -78,8 +78,8 @@ public class EntityUpdate {
                 throw ProtocolException.arrayTooLong("Updates", updatesCount, 4096000);
             }
             varIntLen = VarInt.length(buf, varPos1);
-            if ((long)(varPos1 + varIntLen) + (long)updatesCount * 159L > (long)buf.readableBytes()) {
-                throw ProtocolException.bufferTooSmall("Updates", varPos1 + varIntLen + updatesCount * 159, buf.readableBytes());
+            if ((long)(varPos1 + varIntLen) + (long)updatesCount * 160L > (long)buf.readableBytes()) {
+                throw ProtocolException.bufferTooSmall("Updates", varPos1 + varIntLen + updatesCount * 160, buf.readableBytes());
             }
             obj.updates = new ComponentUpdate[updatesCount];
             elemPos = varPos1 + varIntLen;

@@ -33,6 +33,7 @@ import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.component.BoundingBox;
 import com.hypixel.hytale.server.core.modules.entity.component.EntityScaleComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
+import com.hypixel.hytale.server.core.modules.entity.component.PropComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.entity.player.PlayerSettings;
 import com.hypixel.hytale.server.core.modules.entity.player.PlayerSkinComponent;
@@ -230,7 +231,7 @@ public class LegacyEntityTrackerSystems {
 
         @Override
         public void tick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-            boolean modelOutdated;
+            boolean isProp;
             EntityTrackerSystems.Visible visibleComponent = archetypeChunk.getComponent(index, this.componentType);
             assert (visibleComponent != null);
             ModelComponent modelComponent = archetypeChunk.getComponent(index, this.modelComponentType);
@@ -242,20 +243,31 @@ public class LegacyEntityTrackerSystems {
                 entityScale = entityScaleComponent.getScale();
                 scaleOutdated = entityScaleComponent.consumeNetworkOutdated();
             }
-            if ((modelOutdated = modelComponent.consumeNetworkOutdated()) || scaleOutdated) {
-                LegacyEntityModel.queueUpdatesFor(archetypeChunk.getReferenceTo(index), modelComponent, entityScale, visibleComponent.visibleTo);
+            boolean modelOutdated = modelComponent.consumeNetworkOutdated();
+            Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
+            boolean bl = isProp = store.getComponent(ref, PropComponent.getComponentType()) != null;
+            if (modelOutdated || scaleOutdated) {
+                LegacyEntityModel.queueUpdatesFor(ref, modelComponent, entityScale, isProp, visibleComponent.visibleTo);
             } else if (!visibleComponent.newlyVisibleTo.isEmpty()) {
-                LegacyEntityModel.queueUpdatesFor(archetypeChunk.getReferenceTo(index), modelComponent, entityScale, visibleComponent.newlyVisibleTo);
+                LegacyEntityModel.queueUpdatesFor(ref, modelComponent, entityScale, isProp, visibleComponent.newlyVisibleTo);
             }
         }
 
-        private static void queueUpdatesFor(Ref<EntityStore> ref, @Nullable ModelComponent model, float entityScale, @Nonnull Map<Ref<EntityStore>, EntityTrackerSystems.EntityViewer> visibleTo) {
+        private static void queueUpdatesFor(Ref<EntityStore> ref, @Nullable ModelComponent model, float entityScale, boolean isProp, @Nonnull Map<Ref<EntityStore>, EntityTrackerSystems.EntityViewer> visibleTo) {
             ComponentUpdate update = new ComponentUpdate();
             update.type = ComponentUpdateType.Model;
             update.model = model != null ? model.getModel().toPacket() : null;
             update.entityScale = entityScale;
             for (EntityTrackerSystems.EntityViewer viewer : visibleTo.values()) {
                 viewer.queueUpdate(ref, update);
+            }
+            if (isProp) {
+                ComponentUpdate propUpdate = new ComponentUpdate();
+                propUpdate.type = ComponentUpdateType.Prop;
+                propUpdate.isProp = true;
+                for (EntityTrackerSystems.EntityViewer viewer : visibleTo.values()) {
+                    viewer.queueUpdate(ref, propUpdate);
+                }
             }
         }
     }

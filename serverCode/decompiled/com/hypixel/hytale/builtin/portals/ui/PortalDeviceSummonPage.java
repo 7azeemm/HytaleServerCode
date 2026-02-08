@@ -69,10 +69,10 @@ public class PortalDeviceSummonPage
 extends InteractiveCustomUIPage<Data> {
     private final PortalDeviceConfig config;
     private final Ref<ChunkStore> blockRef;
+    @Nullable
     private final ItemStack offeredItemStack;
-    private static final Transform DEFAULT_WORLDGEN_SPAWN = new Transform(0.0, 140.0, 0.0);
 
-    public PortalDeviceSummonPage(@Nonnull PlayerRef playerRef, PortalDeviceConfig config, Ref<ChunkStore> blockRef, ItemStack offeredItemStack) {
+    public PortalDeviceSummonPage(@Nonnull PlayerRef playerRef, PortalDeviceConfig config, Ref<ChunkStore> blockRef, @Nullable ItemStack offeredItemStack) {
         super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, Data.CODEC);
         this.config = config;
         this.blockRef = blockRef;
@@ -185,7 +185,7 @@ extends InteractiveCustomUIPage<Data> {
         eventBuilder.addEventBinding(CustomUIEventBindingType.MouseExited, "#SummonButton", EventData.of("Action", "SummonMouseExited"), false);
     }
 
-    private static void updateCustomPills(UICommandBuilder commandBuilder, PortalType portalType) {
+    private static void updateCustomPills(@Nonnull UICommandBuilder commandBuilder, @Nonnull PortalType portalType) {
         List<PillTag> pills = portalType.getDescription().getPillTags();
         for (int i = 0; i < pills.size(); ++i) {
             PillTag pillTag = pills.get(i);
@@ -196,7 +196,7 @@ extends InteractiveCustomUIPage<Data> {
         }
     }
 
-    private static void updateBulletList(UICommandBuilder commandBuilder, String selector, String[] messageKeys) {
+    private static void updateBulletList(@Nonnull UICommandBuilder commandBuilder, @Nonnull String selector, @Nonnull String[] messageKeys) {
         for (int i = 0; i < messageKeys.length; ++i) {
             String messageKey = messageKeys[i];
             String child = selector + "[" + i + "]";
@@ -205,13 +205,15 @@ extends InteractiveCustomUIPage<Data> {
         }
     }
 
-    public static Message createDescription(PortalType portalType, int timeLimitSeconds) {
-        Message msg = Message.empty();
-        Message durationMsg = PortalDeviceSummonPage.formatDurationCrudely(timeLimitSeconds);
-        msg.insert(Message.translation("server.customUI.portalDevice.timeLimit").param("limit", durationMsg.color("#f9cb13")));
-        return msg;
+    @Nonnull
+    public static Message createDescription(@Nonnull PortalType portalType, int timeLimitSeconds) {
+        Message message = Message.empty();
+        Message durationMessage = PortalDeviceSummonPage.formatDurationCrudely(timeLimitSeconds);
+        message.insert(Message.translation("server.customUI.portalDevice.timeLimit").param("limit", durationMessage.color("#f9cb13")));
+        return message;
     }
 
+    @Nonnull
     private static Message formatDurationCrudely(int seconds) {
         if (seconds < 0) {
             return Message.translation("server.customUI.portalDevice.durationUnlimited");
@@ -313,7 +315,8 @@ extends InteractiveCustomUIPage<Data> {
         }, (Executor)originWorld);
     }
 
-    private static CompletableFuture<World> spawnReturnPortal(World world, PortalWorld portalWorld, UUID sampleUuid, String portalBlockType) {
+    @Nonnull
+    private static CompletableFuture<World> spawnReturnPortal(@Nonnull World world, @Nonnull PortalWorld portalWorld, @Nonnull UUID sampleUuid, @Nonnull String portalBlockType) {
         PortalSpawn portalSpawn = portalWorld.getPortalType().getPortalSpawn();
         return PortalDeviceSummonPage.getSpawnTransform(world, sampleUuid, portalSpawn).thenCompose(spawnTransform -> {
             Vector3d spawnPoint = spawnTransform.getPosition();
@@ -333,13 +336,14 @@ extends InteractiveCustomUIPage<Data> {
         });
     }
 
-    private static CompletableFuture<Transform> getSpawnTransform(World world, UUID sampleUuid, @Nullable PortalSpawn portalSpawn) {
+    @Nonnull
+    private static CompletableFuture<Transform> getSpawnTransform(@Nonnull World world, @Nonnull UUID sampleUuid, @Nullable PortalSpawn portalSpawn) {
         ISpawnProvider spawnProvider = world.getWorldConfig().getSpawnProvider();
         if (spawnProvider == null) {
             return CompletableFuture.completedFuture(null);
         }
         Transform worldSpawnPoint = spawnProvider.getSpawnPoint(world, sampleUuid);
-        if (!DEFAULT_WORLDGEN_SPAWN.equals(worldSpawnPoint) || portalSpawn == null) {
+        if (portalSpawn == null) {
             Transform uppedSpawnPoint = worldSpawnPoint.clone();
             uppedSpawnPoint.getPosition().add(0.0, 0.5, 0.0);
             return CompletableFuture.completedFuture(uppedSpawnPoint);
@@ -350,6 +354,7 @@ extends InteractiveCustomUIPage<Data> {
         }, world);
     }
 
+    @Nonnull
     private State computeState(@Nonnull Player player, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         PortalGameplayConfig portalGameplayConfig;
         if (!this.blockRef.isValid()) {
@@ -366,7 +371,7 @@ extends InteractiveCustomUIPage<Data> {
             return Error.INVALID_BLOCK;
         }
         Ref<ChunkStore> chunkRef = blockStateInfo.getChunkRef();
-        if (chunkRef == null || !chunkRef.isValid()) {
+        if (!chunkRef.isValid()) {
             return Error.INVALID_BLOCK;
         }
         WorldChunk worldChunk = chunkStore.getComponent(chunkRef, WorldChunk.getComponentType());
@@ -413,7 +418,7 @@ extends InteractiveCustomUIPage<Data> {
         return new CanSpawnPortal(portalKey, portalType, worldChunk, blockStateInfo, portalDevice, portalGameplayConfig);
     }
 
-    private static void decrementItemInHand(Inventory inventory, int amount) {
+    private static void decrementItemInHand(@Nonnull Inventory inventory, int amount) {
         if (inventory.usingToolsItem()) {
             return;
         }
@@ -430,7 +435,9 @@ extends InteractiveCustomUIPage<Data> {
     }
 
     protected static class Data {
+        @Nonnull
         private static final String KEY_ACTION = "Action";
+        @Nonnull
         public static final BuilderCodec<Data> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(Data.class, Data::new).append(new KeyedCodec<String>("Action", Codec.STRING), (entry, s) -> {
             entry.action = s;
         }, entry -> entry.action).add()).build();

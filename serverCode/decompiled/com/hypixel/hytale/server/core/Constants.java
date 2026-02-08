@@ -4,6 +4,7 @@
 package com.hypixel.hytale.server.core;
 
 import com.hypixel.hytale.common.plugin.PluginManifest;
+import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.asset.common.CommonAssetModule;
@@ -76,6 +77,10 @@ public final class Constants {
             return OPTION_SET.valueOf(Options.UNIVERSE);
         }
         return Path.of("universe", new String[0]);
+    }
+
+    public static boolean shouldSkipModValidation() {
+        return OPTION_SET.has(Options.SKIP_MOD_VALIDATION) || HytaleServer.get().getConfig().shouldSkipModValidation();
     }
 }
 

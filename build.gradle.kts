@@ -9,7 +9,7 @@ version = "0.1.0"
 
 val javaVersion = 25
 val appData = System.getenv("APPDATA") ?: ""
-val hytaleAssets = file("$appData/Hytale/install/pre-release/package/game/latest/Assets.zip")
+val hytaleAssets = file("$appData/Hytale/install/release/package/game/latest/Assets.zip")
 val hytaleServerJar = file("serverCode/HytaleServer.jar")
 
 repositories {

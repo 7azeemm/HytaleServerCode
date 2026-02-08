@@ -5,14 +5,18 @@ package com.hypixel.hytale.server.core.universe.world;
 
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.vector.Vector3d;
+import com.hypixel.hytale.protocol.ItemSoundEvent;
 import com.hypixel.hytale.protocol.Packet;
 import com.hypixel.hytale.protocol.Position;
 import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEvent2D;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEvent3D;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEventEntity;
+import com.hypixel.hytale.server.core.asset.type.item.config.Item;
+import com.hypixel.hytale.server.core.asset.type.itemsound.config.ItemSoundSet;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.EntityUtils;
@@ -27,6 +31,22 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class SoundUtil {
+    public static void playItemSoundEvent(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store, @Nonnull Item item, @Nonnull ItemSoundEvent itemSoundEvent) {
+        ItemSoundSet soundSet = ItemSoundSet.getAssetMap().getAsset(item.getItemSoundSetIndex());
+        if (soundSet == null) {
+            return;
+        }
+        String soundEventId = soundSet.getSoundEventIds().get((Object)itemSoundEvent);
+        if (soundEventId == null) {
+            return;
+        }
+        int soundEventIndex = SoundEvent.getAssetMap().getIndex(soundEventId);
+        if (soundEventIndex == 0) {
+            return;
+        }
+        SoundUtil.playSoundEvent2d(ref, soundEventIndex, SoundCategory.UI, store);
+    }
+
     public static void playSoundEventEntity(int soundEventIndex, int networkId, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         SoundUtil.playSoundEventEntity(soundEventIndex, networkId, 1.0f, 1.0f, componentAccessor);
     }
@@ -146,7 +166,7 @@ public class SoundUtil {
             if (sourceEntity == null) {
                 return true;
             }
-            if (ignoreSource && sourceRef.equals((Ref<EntityStore>)playerRef)) {
+            if (ignoreSource && sourceRef.equals(playerRef)) {
                 return false;
             }
             return !sourceEntity.isHiddenFromLivingEntity(sourceRef, (Ref<EntityStore>)playerRef, componentAccessor);

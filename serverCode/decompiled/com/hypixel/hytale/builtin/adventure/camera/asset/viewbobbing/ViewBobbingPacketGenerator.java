@@ -43,7 +43,7 @@ extends SimpleAssetPacketGenerator<MovementType, ViewBobbing, AssetMap<MovementT
     }
 
     @Nonnull
-    protected static Packet toCachedPacket(UpdateType type, @Nonnull Map<MovementType, ViewBobbing> assets) {
+    protected static Packet toCachedPacket(@Nonnull UpdateType type, @Nonnull Map<MovementType, ViewBobbing> assets) {
         UpdateViewBobbing packet = new UpdateViewBobbing();
         packet.type = type;
         packet.profiles = new EnumMap<MovementType, com.hypixel.hytale.protocol.ViewBobbing>(MovementType.class);

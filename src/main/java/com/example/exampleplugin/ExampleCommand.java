@@ -1,5 +1,6 @@
 package com.example.exampleplugin;
 
+import com.github.luben.zstd.Zstd;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;

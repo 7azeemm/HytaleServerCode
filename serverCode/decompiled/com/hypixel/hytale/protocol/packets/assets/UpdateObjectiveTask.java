@@ -21,7 +21,7 @@ implements Packet {
     public static final int FIXED_BLOCK_SIZE = 21;
     public static final int VARIABLE_FIELD_COUNT = 1;
     public static final int VARIABLE_BLOCK_START = 21;
-    public static final int MAX_SIZE = 16384035;
+    public static final int MAX_SIZE = 0x64000000;
     @Nonnull
     public UUID objectiveUuid = new UUID(0L, 0L);
     public int taskIndex;

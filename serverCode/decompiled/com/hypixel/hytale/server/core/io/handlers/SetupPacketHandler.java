@@ -212,7 +212,7 @@ extends GenericConnectionPacketHandler {
             AssetRegistryLoader.sendAssets(this);
             I18nModule.get().sendTranslations(this, this.language);
             PacketHandler.logConnectionTimings(this.channel, "Send Config Assets", Level.FINE);
-            this.write((Packet)new WorldLoadProgress("Loading world...", 0, 0));
+            this.write((Packet)new WorldLoadProgress(Message.translation("client.general.worldLoad.loadingWorld").getFormattedMessage(), 0, 0));
             this.write((Packet)new WorldLoadFinished());
         })).exceptionally(throwable -> {
             if (!this.channel.isActive()) {

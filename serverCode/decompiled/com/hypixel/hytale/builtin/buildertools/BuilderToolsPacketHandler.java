@@ -39,6 +39,7 @@ import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionTool
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionToolReplyWithClipboard;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionTransform;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionUpdate;
+import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityCollision;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityLight;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityPickupEnabled;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityScale;
@@ -67,9 +68,12 @@ import com.hypixel.hytale.server.core.modules.entity.component.DynamicLight;
 import com.hypixel.hytale.server.core.modules.entity.component.EntityScaleComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
 import com.hypixel.hytale.server.core.modules.entity.component.Interactable;
+import com.hypixel.hytale.server.core.modules.entity.component.NPCMarkerComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDynamicLight;
 import com.hypixel.hytale.server.core.modules.entity.component.PropComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entity.hitboxcollision.HitboxCollision;
+import com.hypixel.hytale.server.core.modules.entity.hitboxcollision.HitboxCollisionConfig;
 import com.hypixel.hytale.server.core.modules.entity.item.PreventPickup;
 import com.hypixel.hytale.server.core.modules.interaction.Interactions;
 import com.hypixel.hytale.server.core.prefab.selection.mask.BlockPattern;
@@ -118,6 +122,7 @@ implements SubPacketHandler {
         this.packetHandler.registerHandler(421, p -> this.handle((BuilderToolSetEntityPickupEnabled)p));
         this.packetHandler.registerHandler(422, p -> this.handle((BuilderToolSetEntityLight)p));
         this.packetHandler.registerHandler(423, p -> this.handle((BuilderToolSetNPCDebug)p));
+        this.packetHandler.registerHandler(425, p -> this.handle((BuilderToolSetEntityCollision)p));
     }
 
     static boolean hasPermission(@Nonnull Player player) {
@@ -412,7 +417,7 @@ implements SubPacketHandler {
                     playerComponent.sendMessage(Message.translation("server.builderTools.selection.large.warning"));
                 }
                 if (prototypeSettings.getBlockChangesForPlaySelectionToolPasteMode() == null) {
-                    s.select(initialSelectionMin, initialSelectionMax, "SelectionTranslatePacket", (ComponentAccessor<EntityStore>)componentAccessor);
+                    s.select(initialSelectionMin, initialSelectionMax, "server.builderTools.selectReasons.selectionTranslatePacket", (ComponentAccessor<EntityStore>)componentAccessor);
                     if (packet.cutOriginal) {
                         s.copyOrCut((Ref<EntityStore>)r, initialSelectionMin.x, initialSelectionMin.y, initialSelectionMin.z, initialSelectionMax.x, initialSelectionMax.y, initialSelectionMax.z, 138, store);
                     } else {
@@ -438,7 +443,7 @@ implements SubPacketHandler {
                     return;
                 }
                 s.transformThenPasteClipboard(prototypeSettings.getBlockChangesForPlaySelectionToolPasteMode(), prototypeSettings.getFluidChangesForPlaySelectionToolPasteMode(), transformationMatrix, rotationOrigin, blockChangeOffsetOrigin, finalKeepEmptyBlocks, (ComponentAccessor<EntityStore>)componentAccessor);
-                s.select(initialSelectionMin, initialSelectionMax, "SelectionTranslatePacket", (ComponentAccessor<EntityStore>)componentAccessor);
+                s.select(initialSelectionMin, initialSelectionMax, "server.builderTools.selectReasons.selectionTranslatePacket", (ComponentAccessor<EntityStore>)componentAccessor);
                 s.transformSelectionPoints(transformationMatrix, rotationOrigin);
                 if (large) {
                     playerComponent.sendMessage(Message.translation("server.builderTools.selection.large.complete"));
@@ -493,7 +498,7 @@ implements SubPacketHandler {
             }
             LOGGER.at(Level.INFO).log("%s: %s", (Object)this.packetHandler.getIdentifier(), (Object)packet);
             BuilderToolsPlugin.addToQueue(playerComponent, playerRef, (r, s, componentAccessor) -> {
-                s.select(this.fromBlockPosition(packet.selectionMin), this.fromBlockPosition(packet.selectionMax), "Extrude", (ComponentAccessor<EntityStore>)componentAccessor);
+                s.select(this.fromBlockPosition(packet.selectionMin), this.fromBlockPosition(packet.selectionMax), "server.builderTools.selectReasons.extrude", (ComponentAccessor<EntityStore>)componentAccessor);
                 s.stack((Ref<EntityStore>)r, new Vector3i(packet.xNormal, packet.yNormal, packet.zNormal), packet.numStacks, true, 0, (ComponentAccessor<EntityStore>)componentAccessor);
             });
         });
@@ -783,6 +788,10 @@ implements SubPacketHandler {
             if (entityReference == null) {
                 return;
             }
+            NPCMarkerComponent npcMarker = store.getComponent(entityReference, NPCMarkerComponent.getComponentType());
+            if (npcMarker == null) {
+                return;
+            }
             UUIDComponent uuidComponent = store.getComponent(entityReference, UUIDComponent.getComponentType());
             if (uuidComponent == null) {
                 return;
@@ -790,6 +799,39 @@ implements SubPacketHandler {
             UUID uuid = uuidComponent.getUuid();
             String command = packet.enabled ? "npc debug set display --entity " + String.valueOf(uuid) : "npc debug clear --entity " + String.valueOf(uuid);
             CommandManager.get().handleCommand(playerComponent, command);
+        });
+    }
+
+    public void handle(@Nonnull BuilderToolSetEntityCollision packet) {
+        PlayerRef playerRef = this.packetHandler.getPlayerRef();
+        Ref<EntityStore> ref = playerRef.getReference();
+        if (ref == null || !ref.isValid()) {
+            throw new RuntimeException("Unable to process BuilderToolSetEntityCollision packet. Player ref is invalid!");
+        }
+        Store<EntityStore> store = ref.getStore();
+        World world = store.getExternalData().getWorld();
+        world.execute(() -> {
+            Player playerComponent = store.getComponent(ref, Player.getComponentType());
+            if (!BuilderToolsPacketHandler.hasPermission(playerComponent)) {
+                return;
+            }
+            Ref<EntityStore> entityReference = world.getEntityStore().getRefFromNetworkId(packet.entityId);
+            if (entityReference == null) {
+                return;
+            }
+            PropComponent propComponent = store.getComponent(entityReference, PropComponent.getComponentType());
+            NPCMarkerComponent npcMarker = store.getComponent(entityReference, NPCMarkerComponent.getComponentType());
+            if (propComponent == null && npcMarker == null) {
+                return;
+            }
+            if (packet.collisionType == null || packet.collisionType.isEmpty()) {
+                store.removeComponent(entityReference, HitboxCollision.getComponentType());
+            } else {
+                HitboxCollisionConfig hitboxCollisionConfig = (HitboxCollisionConfig)HitboxCollisionConfig.getAssetMap().getAsset(packet.collisionType);
+                if (hitboxCollisionConfig != null) {
+                    store.putComponent(entityReference, HitboxCollision.getComponentType(), new HitboxCollision(hitboxCollisionConfig));
+                }
+            }
         });
     }
 }

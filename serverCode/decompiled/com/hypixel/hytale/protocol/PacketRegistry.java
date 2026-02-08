@@ -130,6 +130,7 @@ import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionTool
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionToolReplyWithClipboard;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionTransform;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSelectionUpdate;
+import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityCollision;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityLight;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityPickupEnabled;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolSetEntityScale;
@@ -268,6 +269,7 @@ import com.hypixel.hytale.protocol.packets.world.UpdateTime;
 import com.hypixel.hytale.protocol.packets.world.UpdateTimeSettings;
 import com.hypixel.hytale.protocol.packets.world.UpdateWeather;
 import com.hypixel.hytale.protocol.packets.worldmap.ClearWorldMap;
+import com.hypixel.hytale.protocol.packets.worldmap.CreateUserMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.TeleportToWorldMapMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.TeleportToWorldMapPosition;
 import com.hypixel.hytale.protocol.packets.worldmap.UpdateWorldMap;
@@ -329,7 +331,7 @@ public final class PacketRegistry {
         PacketRegistry.register(17, "PasswordRejected", PasswordRejected.class, 5, 74, false, PasswordRejected::validateStructure, PasswordRejected::deserialize);
         PacketRegistry.register(18, "ClientReferral", ClientReferral.class, 1, 5141, false, ClientReferral::validateStructure, ClientReferral::deserialize);
         PacketRegistry.register(20, "WorldSettings", WorldSettings.class, 5, 0x64000000, true, WorldSettings::validateStructure, WorldSettings::deserialize);
-        PacketRegistry.register(21, "WorldLoadProgress", WorldLoadProgress.class, 9, 16384014, false, WorldLoadProgress::validateStructure, WorldLoadProgress::deserialize);
+        PacketRegistry.register(21, "WorldLoadProgress", WorldLoadProgress.class, 9, 0x64000000, false, WorldLoadProgress::validateStructure, WorldLoadProgress::deserialize);
         PacketRegistry.register(22, "WorldLoadFinished", WorldLoadFinished.class, 0, 0, false, WorldLoadFinished::validateStructure, WorldLoadFinished::deserialize);
         PacketRegistry.register(23, "RequestAssets", RequestAssets.class, 1, 0x64000000, true, RequestAssets::validateStructure, RequestAssets::deserialize);
         PacketRegistry.register(24, "AssetInitialize", AssetInitialize.class, 4, 2121, false, AssetInitialize::validateStructure, AssetInitialize::deserialize);
@@ -374,7 +376,7 @@ public final class PacketRegistry {
         PacketRegistry.register(68, "UpdateUnarmedInteractions", UpdateUnarmedInteractions.class, 2, 20480007, true, UpdateUnarmedInteractions::validateStructure, UpdateUnarmedInteractions::deserialize);
         PacketRegistry.register(69, "TrackOrUpdateObjective", TrackOrUpdateObjective.class, 1, 0x64000000, false, TrackOrUpdateObjective::validateStructure, TrackOrUpdateObjective::deserialize);
         PacketRegistry.register(70, "UntrackObjective", UntrackObjective.class, 16, 16, false, UntrackObjective::validateStructure, UntrackObjective::deserialize);
-        PacketRegistry.register(71, "UpdateObjectiveTask", UpdateObjectiveTask.class, 21, 16384035, false, UpdateObjectiveTask::validateStructure, UpdateObjectiveTask::deserialize);
+        PacketRegistry.register(71, "UpdateObjectiveTask", UpdateObjectiveTask.class, 21, 0x64000000, false, UpdateObjectiveTask::validateStructure, UpdateObjectiveTask::deserialize);
         PacketRegistry.register(72, "UpdateEntityStatTypes", UpdateEntityStatTypes.class, 6, 0x64000000, true, UpdateEntityStatTypes::validateStructure, UpdateEntityStatTypes::deserialize);
         PacketRegistry.register(73, "UpdateEntityUIComponents", UpdateEntityUIComponents.class, 6, 0x64000000, true, UpdateEntityUIComponents::validateStructure, UpdateEntityUIComponents::deserialize);
         PacketRegistry.register(74, "UpdateHitboxCollisionConfig", UpdateHitboxCollisionConfig.class, 6, 36864011, true, UpdateHitboxCollisionConfig::validateStructure, UpdateHitboxCollisionConfig::deserialize);
@@ -403,7 +405,7 @@ public final class PacketRegistry {
         PacketRegistry.register(111, "MouseInteraction", MouseInteraction.class, 44, 20480071, false, MouseInteraction::validateStructure, MouseInteraction::deserialize);
         PacketRegistry.register(112, "DamageInfo", DamageInfo.class, 29, 32768048, false, DamageInfo::validateStructure, DamageInfo::deserialize);
         PacketRegistry.register(113, "ReticleEvent", ReticleEvent.class, 4, 4, false, ReticleEvent::validateStructure, ReticleEvent::deserialize);
-        PacketRegistry.register(114, "DisplayDebug", DisplayDebug.class, 19, 32768037, false, DisplayDebug::validateStructure, DisplayDebug::deserialize);
+        PacketRegistry.register(114, "DisplayDebug", DisplayDebug.class, 23, 32768041, false, DisplayDebug::validateStructure, DisplayDebug::deserialize);
         PacketRegistry.register(115, "ClearDebugShapes", ClearDebugShapes.class, 0, 0, false, ClearDebugShapes::validateStructure, ClearDebugShapes::deserialize);
         PacketRegistry.register(116, "SyncPlayerPreferences", SyncPlayerPreferences.class, 12, 12, false, SyncPlayerPreferences::validateStructure, SyncPlayerPreferences::deserialize);
         PacketRegistry.register(117, "ClientPlaceBlock", ClientPlaceBlock.class, 20, 20, false, ClientPlaceBlock::validateStructure, ClientPlaceBlock::deserialize);
@@ -480,12 +482,13 @@ public final class PacketRegistry {
         PacketRegistry.register(232, "UpdateLanguage", UpdateLanguage.class, 1, 16384006, false, UpdateLanguage::validateStructure, UpdateLanguage::deserialize);
         PacketRegistry.register(233, "WorldSavingStatus", WorldSavingStatus.class, 1, 1, false, WorldSavingStatus::validateStructure, WorldSavingStatus::deserialize);
         PacketRegistry.register(234, "OpenChatWithCommand", OpenChatWithCommand.class, 1, 16384006, false, OpenChatWithCommand::validateStructure, OpenChatWithCommand::deserialize);
-        PacketRegistry.register(240, "UpdateWorldMapSettings", UpdateWorldMapSettings.class, 16, 0x64000000, false, UpdateWorldMapSettings::validateStructure, UpdateWorldMapSettings::deserialize);
+        PacketRegistry.register(240, "UpdateWorldMapSettings", UpdateWorldMapSettings.class, 20, 0x64000000, false, UpdateWorldMapSettings::validateStructure, UpdateWorldMapSettings::deserialize);
         PacketRegistry.register(241, "UpdateWorldMap", UpdateWorldMap.class, 1, 0x64000000, true, UpdateWorldMap::validateStructure, UpdateWorldMap::deserialize);
         PacketRegistry.register(242, "ClearWorldMap", ClearWorldMap.class, 0, 0, false, ClearWorldMap::validateStructure, ClearWorldMap::deserialize);
         PacketRegistry.register(243, "UpdateWorldMapVisible", UpdateWorldMapVisible.class, 1, 1, false, UpdateWorldMapVisible::validateStructure, UpdateWorldMapVisible::deserialize);
         PacketRegistry.register(244, "TeleportToWorldMapMarker", TeleportToWorldMapMarker.class, 1, 16384006, false, TeleportToWorldMapMarker::validateStructure, TeleportToWorldMapMarker::deserialize);
         PacketRegistry.register(245, "TeleportToWorldMapPosition", TeleportToWorldMapPosition.class, 8, 8, false, TeleportToWorldMapPosition::validateStructure, TeleportToWorldMapPosition::deserialize);
+        PacketRegistry.register(246, "CreateUserMarker", CreateUserMarker.class, 13, 32768031, false, CreateUserMarker::validateStructure, CreateUserMarker::deserialize);
         PacketRegistry.register(250, "RequestServerAccess", RequestServerAccess.class, 3, 3, false, RequestServerAccess::validateStructure, RequestServerAccess::deserialize);
         PacketRegistry.register(251, "UpdateServerAccess", UpdateServerAccess.class, 2, 0x64000000, false, UpdateServerAccess::validateStructure, UpdateServerAccess::deserialize);
         PacketRegistry.register(252, "SetServerAccess", SetServerAccess.class, 2, 16384007, false, SetServerAccess::validateStructure, SetServerAccess::deserialize);
@@ -583,6 +586,7 @@ public final class PacketRegistry {
         PacketRegistry.register(421, "BuilderToolSetEntityPickupEnabled", BuilderToolSetEntityPickupEnabled.class, 5, 5, false, BuilderToolSetEntityPickupEnabled::validateStructure, BuilderToolSetEntityPickupEnabled::deserialize);
         PacketRegistry.register(422, "BuilderToolSetEntityLight", BuilderToolSetEntityLight.class, 9, 9, false, BuilderToolSetEntityLight::validateStructure, BuilderToolSetEntityLight::deserialize);
         PacketRegistry.register(423, "BuilderToolSetNPCDebug", BuilderToolSetNPCDebug.class, 5, 5, false, BuilderToolSetNPCDebug::validateStructure, BuilderToolSetNPCDebug::deserialize);
+        PacketRegistry.register(425, "BuilderToolSetEntityCollision", BuilderToolSetEntityCollision.class, 5, 0xFA000A, false, BuilderToolSetEntityCollision::validateStructure, BuilderToolSetEntityCollision::deserialize);
     }
 
     public record PacketInfo(int id, @Nonnull String name, @Nonnull Class<? extends Packet> type, int fixedBlockSize, int maxSize, boolean compressed, @Nonnull BiFunction<ByteBuf, Integer, ValidationResult> validate, @Nonnull BiFunction<ByteBuf, Integer, Packet> deserialize) {

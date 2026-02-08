@@ -54,6 +54,7 @@ public class StateSupport {
     protected Set<Ref<EntityStore>> interactablePlayers;
     protected Set<Ref<EntityStore>> interactedPlayers;
     protected Map<Ref<EntityStore>, String> contextualInteractions;
+    protected String lastHint;
     @Nullable
     protected Ref<EntityStore> interactionIterationTarget;
     @Nullable
@@ -298,13 +299,14 @@ public class StateSupport {
             boolean hasComponent = store.getArchetype(entityRef).contains(Interactable.getComponentType());
             if (interactable) {
                 boolean needsHint;
-                boolean bl = needsHint = !wasInteractable && hint != null;
+                boolean bl = needsHint = hint != null && !hint.equals(this.lastHint);
                 if (!hasComponent) {
                     store.ensureComponent(entityRef, Interactable.getComponentType());
                     boolean bl2 = needsHint = hint != null;
                 }
                 if (needsHint) {
                     this.sendInteractionHintToPlayer(entityRef, playerReference, hint, store);
+                    this.lastHint = hint;
                 }
             } else if (hasComponent && this.interactablePlayers.isEmpty()) {
                 store.removeComponent(entityRef, Interactable.getComponentType());

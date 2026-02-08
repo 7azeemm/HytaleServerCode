@@ -15,6 +15,7 @@ import com.hypixel.hytale.codec.lookup.Priority;
 import com.hypixel.hytale.codec.util.RawJsonReader;
 import com.hypixel.hytale.common.plugin.PluginIdentifier;
 import com.hypixel.hytale.common.semver.SemverRange;
+import com.hypixel.hytale.common.util.java.ManifestUtil;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Constants;
@@ -44,7 +45,7 @@ import javax.annotation.Nullable;
 import org.bson.BsonDocument;
 
 public class HytaleServerConfig {
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
     public static final int DEFAULT_MAX_VIEW_RADIUS = 32;
     @Nonnull
     public static final Path PATH = Path.of("config.json", new String[0]);
@@ -71,6 +72,8 @@ public class HytaleServerConfig {
     private transient Map<PluginIdentifier, ModConfig> legacyPluginConfig;
     @Nonnull
     private Map<PluginIdentifier, ModConfig> modConfig = new ConcurrentHashMap<PluginIdentifier, ModConfig>();
+    @Nullable
+    private Boolean defaultModsEnabled;
     @Nonnull
     private Map<String, Module> unmodifiableModules = Collections.unmodifiableMap(this.modules);
     @Nonnull
@@ -84,6 +87,8 @@ public class HytaleServerConfig {
     private boolean displayTmpTagsInStrings;
     @Nonnull
     private UpdateConfig updateConfig = new UpdateConfig(this);
+    @Nullable
+    private String skipModValidationForVersion;
 
     public String getServerName() {
         return this.serverName;
@@ -203,6 +208,13 @@ public class HytaleServerConfig {
         this.markChanged();
     }
 
+    public boolean getDefaultModsEnabled() {
+        if (this.defaultModsEnabled != null) {
+            return this.defaultModsEnabled;
+        }
+        return !Constants.SINGLEPLAYER;
+    }
+
     @Nonnull
     public PlayerStorageProvider getPlayerStorageProvider() {
         return this.playerStorageProvider;
@@ -236,6 +248,10 @@ public class HytaleServerConfig {
     public void setUpdateConfig(@Nonnull UpdateConfig updateConfig) {
         this.updateConfig = updateConfig;
         this.markChanged();
+    }
+
+    public boolean shouldSkipModValidation() {
+        return this.skipModValidationForVersion != null && this.skipModValidationForVersion.equals(ManifestUtil.getImplementationRevisionId());
     }
 
     public void removeModule(@Nonnull String module) {
@@ -294,7 +310,7 @@ public class HytaleServerConfig {
         Module.BUILDER_CODEC_BUILDER.addField(new KeyedCodec("Modules", new MapCodec<Module, ConcurrentHashMap>(Module.CODEC, ConcurrentHashMap::new, false)), (o, m) -> {
             o.modules = m;
         }, o -> o.modules);
-        CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(HytaleServerConfig.class, HytaleServerConfig::new).versioned()).codecVersion(3)).append(new KeyedCodec<String>("ServerName", Codec.STRING), (o, s) -> {
+        CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(HytaleServerConfig.class, HytaleServerConfig::new).versioned()).codecVersion(4)).append(new KeyedCodec<String>("ServerName", Codec.STRING), (o, s) -> {
             o.serverName = s;
         }, o -> o.serverName).add()).append(new KeyedCodec<String>("MOTD", Codec.STRING), (o, s) -> {
             o.motd = s;
@@ -320,7 +336,9 @@ public class HytaleServerConfig {
             o.legacyPluginConfig = i;
         }, o -> null).setVersionRange(0, 2).add()).append(new KeyedCodec("Mods", new ObjectMapCodec<PluginIdentifier, ModConfig, ConcurrentHashMap>(ModConfig.CODEC, ConcurrentHashMap::new, PluginIdentifier::toString, PluginIdentifier::fromString, false)), (o, i) -> {
             o.modConfig = i;
-        }, o -> o.modConfig).add()).append(new KeyedCodec<Boolean>("DisplayTmpTagsInStrings", Codec.BOOLEAN), (o, displayTmpTagsInStrings) -> {
+        }, o -> o.modConfig).add()).append(new KeyedCodec<Boolean>("DefaultModsEnabled", Codec.BOOLEAN), (o, v) -> {
+            o.defaultModsEnabled = v;
+        }, o -> o.defaultModsEnabled).setVersionRange(4, Integer.MAX_VALUE).add()).append(new KeyedCodec<Boolean>("DisplayTmpTagsInStrings", Codec.BOOLEAN), (o, displayTmpTagsInStrings) -> {
             o.displayTmpTagsInStrings = displayTmpTagsInStrings;
         }, o -> o.displayTmpTagsInStrings).add()).append(new KeyedCodec<PlayerStorageProvider>("PlayerStorage", PlayerStorageProvider.CODEC), (o, obj) -> {
             o.playerStorageProvider = obj;
@@ -328,7 +346,9 @@ public class HytaleServerConfig {
             o.authCredentialStoreConfig = value;
         }, o -> o.authCredentialStoreConfig).add()).append(new KeyedCodec<UpdateConfig>("Update", UpdateConfig.CODEC), (o, value) -> {
             o.updateConfig = value;
-        }, o -> o.updateConfig).add()).afterDecode(config -> {
+        }, o -> o.updateConfig).add()).append(new KeyedCodec<String>("SkipModValidationForVersion", Codec.STRING), (o, v) -> {
+            o.skipModValidationForVersion = v;
+        }, o -> o.skipModValidationForVersion).add()).afterDecode((config, extraInfo) -> {
             config.defaults.hytaleServerConfig = config;
             config.connectionTimeouts.setHytaleServerConfig((HytaleServerConfig)config);
             config.rateLimitConfig.hytaleServerConfig = config;
@@ -339,6 +359,12 @@ public class HytaleServerConfig {
                     config.modConfig.putIfAbsent(entry.getKey(), entry.getValue());
                 }
                 config.legacyPluginConfig = null;
+                config.markChanged();
+            }
+            if (config.defaultModsEnabled == null && extraInfo.getVersion() < 4) {
+                config.defaultModsEnabled = true;
+            }
+            if (extraInfo.getVersion() != 4) {
                 config.markChanged();
             }
         })).build();

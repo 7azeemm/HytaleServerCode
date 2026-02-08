@@ -56,6 +56,7 @@ import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackSlotTransaction;
+import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.modules.collision.CollisionModule;
 import com.hypixel.hytale.server.core.modules.collision.CollisionResult;
@@ -772,6 +773,15 @@ MetricProvider {
         }
         InteractionChain chain = interactionManagerComponent.initChain(InteractionType.EntityStatEffect, context, rootInteraction, true);
         interactionManagerComponent.queueExecuteChain(chain);
+    }
+
+    @Nonnull
+    public ItemStackTransaction giveItem(@Nonnull ItemStack stack, @Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
+        PlayerSettings playerSettings = componentAccessor.getComponent(ref, PlayerSettings.getComponentType());
+        if (playerSettings == null) {
+            playerSettings = PlayerSettings.defaults();
+        }
+        return this.getInventory().getContainerForItemPickup(stack.getItem(), playerSettings).addItemStack(stack);
     }
 
     @Override

@@ -27,6 +27,7 @@ import com.hypixel.hytale.server.core.io.adapter.PacketAdapters;
 import com.hypixel.hytale.server.core.io.handlers.login.AuthenticationPacketHandler;
 import com.hypixel.hytale.server.core.io.handlers.login.PasswordPacketHandler;
 import com.hypixel.hytale.server.core.io.netty.NettyUtil;
+import com.hypixel.hytale.server.core.io.transport.QUICTransport;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
 import com.hypixel.hytale.server.core.receiver.IPacketReceiver;
 import io.netty.channel.Channel;
@@ -221,7 +222,8 @@ implements IPacketReceiver {
 
     public void disconnect(@Nonnull String message) {
         this.disconnectReason.setServerDisconnectReason(message);
-        HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s with the message: %s", (Object)NettyUtil.formatRemoteAddress(this.channel), (Object)message);
+        String sni = this.getSniHostname();
+        HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s (SNI: %s) with the message: %s", NettyUtil.formatRemoteAddress(this.channel), sni, message);
         this.disconnect0(message);
     }
 
@@ -370,6 +372,16 @@ implements IPacketReceiver {
         return socketAddress instanceof DomainSocketAddress || socketAddress instanceof LocalAddress;
     }
 
+    @Nullable
+    public String getSniHostname() {
+        Channel channel = this.channel;
+        if (channel instanceof QuicStreamChannel) {
+            QuicStreamChannel quicStreamChannel = (QuicStreamChannel)channel;
+            return quicStreamChannel.parent().attr(QUICTransport.SNI_HOSTNAME_ATTR).get();
+        }
+        return null;
+    }
+
     @Nonnull
     public DisconnectReason getDisconnectReason() {
         return this.disconnectReason;
@@ -390,13 +402,16 @@ implements IPacketReceiver {
     }
 
     public static void logConnectionTimings(@Nonnull Channel channel, @Nonnull String message, @Nonnull Level level) {
-        long now;
+        String identifier;
         Attribute<Long> loginStartAttribute = channel.attr(LOGIN_START_ATTRIBUTE_KEY);
-        Long before = loginStartAttribute.getAndSet(now = System.nanoTime());
+        long now = System.nanoTime();
+        Long before = loginStartAttribute.getAndSet(now);
+        NettyUtil.TimeoutContext context = channel.attr(NettyUtil.TimeoutContext.KEY).get();
+        String string = identifier = context != null ? context.playerIdentifier() : NettyUtil.formatRemoteAddress(channel);
         if (before == null) {
-            LOGIN_TIMING_LOGGER.at(level).log(message);
+            LOGIN_TIMING_LOGGER.at(level).log("[%s] %s", (Object)identifier, (Object)message);
         } else {
-            LOGIN_TIMING_LOGGER.at(level).log("%s took %s", (Object)message, LazyArgs.lazy(() -> FormatUtil.nanosToString(now - before)));
+            LOGIN_TIMING_LOGGER.at(level).log("[%s] %s took %s", identifier, message, LazyArgs.lazy(() -> FormatUtil.nanosToString(now - before)));
         }
     }
 

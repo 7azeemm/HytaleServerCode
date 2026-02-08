@@ -48,6 +48,7 @@ import com.hypixel.hytale.protocol.packets.window.CloseWindow;
 import com.hypixel.hytale.protocol.packets.window.SendWindowAction;
 import com.hypixel.hytale.protocol.packets.window.UpdateWindow;
 import com.hypixel.hytale.protocol.packets.world.SetPaused;
+import com.hypixel.hytale.protocol.packets.worldmap.CreateUserMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.MapMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.TeleportToWorldMapMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.TeleportToWorldMapPosition;
@@ -56,7 +57,6 @@ import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.HytaleServerConfig;
 import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.NameMatching;
 import com.hypixel.hytale.server.core.asset.common.CommonAssetModule;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
@@ -65,7 +65,6 @@ import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.command.system.CommandManager;
 import com.hypixel.hytale.server.core.console.ConsoleModule;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.entity.entities.player.data.PlayerWorldData;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.PageManager;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ValidatedWindow;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.Window;
@@ -97,9 +96,12 @@ import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.WorldMapTracker;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.core.universe.world.worldmap.WorldMapManager;
+import com.hypixel.hytale.server.core.universe.world.worldmap.markers.utils.MapMarkerUtils;
 import com.hypixel.hytale.server.core.util.MessageUtil;
 import com.hypixel.hytale.server.core.util.PositionUtil;
 import com.hypixel.hytale.server.core.util.ValidateUtil;
@@ -109,7 +111,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -171,28 +172,46 @@ implements IPacketHandler {
         this.registerHandler(211, p -> this.handle((ChatMessage)p));
         this.registerHandler(23, p -> this.handle((RequestAssets)p));
         this.registerHandler(219, p -> this.handle((CustomPageEvent)p));
-        this.registerHandler(32, p -> this.handle((ViewRadius)p));
-        this.registerHandler(232, p -> this.handle((UpdateLanguage)p));
-        this.registerHandler(111, p -> this.handle((MouseInteraction)p));
+        this.registerWorldHandler(32, this::handleViewRadius);
+        this.registerWorldHandler(232, this::handleUpdateLanguage);
+        this.registerWorldHandler(111, this::handleMouseInteraction);
         this.registerHandler(251, p -> this.handle((UpdateServerAccess)p));
         this.registerHandler(252, p -> this.handle((SetServerAccess)p));
-        this.registerHandler(204, p -> this.handle((ClientOpenWindow)p));
-        this.registerHandler(203, p -> this.handle((SendWindowAction)p));
-        this.registerHandler(202, p -> this.handle((CloseWindow)p));
+        this.registerWorldHandler(204, this::handleClientOpenWindow);
+        this.registerWorldHandler(203, this::handleSendWindowAction);
+        this.registerWorldHandler(202, this::handleCloseWindow);
         this.registerHandler(260, p -> this.handle((RequestMachinimaActorModel)p));
-        this.registerHandler(262, p -> this.handle((UpdateMachinimaScene)p));
+        this.registerWorldHandler(262, this::handleUpdateMachinimaScene);
         this.registerHandler(105, p -> this.handle((ClientReady)p));
-        this.registerHandler(166, p -> this.handle((MountMovement)p));
-        this.registerHandler(116, p -> this.handle((SyncPlayerPreferences)p));
-        this.registerHandler(117, p -> this.handle((ClientPlaceBlock)p));
-        this.registerHandler(119, p -> this.handle((RemoveMapMarker)p));
-        this.registerHandler(243, p -> this.handle((UpdateWorldMapVisible)p));
-        this.registerHandler(244, p -> this.handle((TeleportToWorldMapMarker)p));
-        this.registerHandler(245, p -> this.handle((TeleportToWorldMapPosition)p));
+        this.registerWorldHandler(166, this::handleMountMovement);
+        this.registerWorldHandler(116, this::handleSyncPlayerPreferences);
+        this.registerWorldHandler(117, this::handleClientPlaceBlock);
+        this.registerWorldHandler(119, this::handleRemoveMapMarker);
+        this.registerWorldHandler(243, this::handleUpdateWorldMapVisible);
+        this.registerWorldHandler(244, this::handleTeleportToWorldMapMarker);
+        this.registerWorldHandler(245, this::handleTeleportToWorldMapPosition);
+        this.registerWorldHandler(246, this::handleCreateUserMarker);
         this.registerHandler(290, p -> this.handle((SyncInteractionChains)p));
-        this.registerHandler(158, p -> this.handle((SetPaused)p));
-        this.registerHandler(282, p -> this.handle((RequestFlyCameraMode)p));
+        this.registerWorldHandler(158, this::handleSetPaused);
+        this.registerWorldHandler(282, this::handleRequestFlyCameraMode);
         this.packetHandlers.forEach(SubPacketHandler::registerHandlers);
+    }
+
+    private <T extends Packet> void registerWorldHandler(int packetId, @Nonnull WorldPacketHandler<T> handler) {
+        this.registerHandler(packetId, packet -> {
+            Ref<EntityStore> ref = this.playerRef.getReference();
+            if (ref == null) {
+                return;
+            }
+            Store<EntityStore> store = ref.getStore();
+            World world = store.getExternalData().getWorld();
+            world.execute(() -> {
+                if (!ref.isValid()) {
+                    return;
+                }
+                handler.consumer(packet, ref, world, store);
+            });
+        });
     }
 
     @Override
@@ -205,7 +224,7 @@ implements IPacketHandler {
     public void disconnect(@Nonnull String message) {
         this.disconnectReason.setServerDisconnectReason(message);
         if (this.playerRef != null) {
-            HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s at %s with the message: %s", this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.channel), message);
+            HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s at %s (SNI: %s) with the message: %s", this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.channel), this.getSniHostname(), message);
             this.disconnect0(message);
             Universe.get().removePlayer(this.playerRef);
         } else {
@@ -219,18 +238,10 @@ implements IPacketHandler {
         ProtocolUtil.closeApplicationConnection(this.channel);
     }
 
-    public void handle(@Nonnull MouseInteraction packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            InteractionModule.get().doMouseInteraction(ref, store, packet, playerComponent, this.playerRef);
-        });
+    public void handleMouseInteraction(@Nonnull MouseInteraction packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        InteractionModule.get().doMouseInteraction(ref, store, packet, playerComponent, this.playerRef);
     }
 
     public void handle(@Nonnull ClientMovement packet) {
@@ -371,172 +382,110 @@ implements IPacketHandler {
         });
     }
 
-    public void handle(@Nonnull ViewRadius packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            EntityTrackerSystems.EntityViewer entityViewerComponent = store.getComponent(ref, EntityTrackerSystems.EntityViewer.getComponentType());
-            assert (entityViewerComponent != null);
-            int viewRadiusChunks = MathUtil.ceil((float)packet.value / 32.0f);
-            playerComponent.setClientViewRadius(viewRadiusChunks);
-            entityViewerComponent.viewRadiusBlocks = playerComponent.getViewRadius() * 32;
-        });
+    public void handleViewRadius(@Nonnull ViewRadius packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        EntityTrackerSystems.EntityViewer entityViewerComponent = store.getComponent(ref, EntityTrackerSystems.EntityViewer.getComponentType());
+        assert (entityViewerComponent != null);
+        int viewRadiusChunks = MathUtil.ceil((float)packet.value / 32.0f);
+        playerComponent.setClientViewRadius(viewRadiusChunks);
+        entityViewerComponent.viewRadiusBlocks = playerComponent.getViewRadius() * 32;
     }
 
-    public void handle(@Nonnull UpdateLanguage packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
+    public void handleUpdateLanguage(@Nonnull UpdateLanguage packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
         this.playerRef.setLanguage(packet.language);
         I18nModule.get().sendTranslations(this, packet.language);
     }
 
-    protected void handle(@Nonnull ClientOpenWindow packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
+    protected void handleClientOpenWindow(@Nonnull ClientOpenWindow packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
         Supplier<? extends Window> supplier = Window.CLIENT_REQUESTABLE_WINDOW_TYPES.get((Object)packet.type);
         if (supplier == null) {
             throw new RuntimeException("Unable to process ClientOpenWindow packet. Window type is not supported!");
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            UpdateWindow updateWindowPacket = playerComponent.getWindowManager().clientOpenWindow(ref, (Window)supplier.get(), store);
-            if (updateWindowPacket != null) {
-                this.writeNoCache(updateWindowPacket);
-            }
-        });
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        UpdateWindow updateWindowPacket = playerComponent.getWindowManager().clientOpenWindow(ref, supplier.get(), store);
+        if (updateWindowPacket != null) {
+            this.writeNoCache(updateWindowPacket);
+        }
     }
 
-    public void handle(@Nonnull SendWindowAction packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleSendWindowAction(@Nonnull SendWindowAction packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        ValidatedWindow validatedWindow;
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        Window window = playerComponent.getWindowManager().getWindow(packet.id);
+        if (window == null) {
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            ValidatedWindow validatedWindow;
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            Window window = playerComponent.getWindowManager().getWindow(packet.id);
-            if (window == null) {
-                return;
-            }
-            if (window instanceof ValidatedWindow && !(validatedWindow = (ValidatedWindow)((Object)window)).validate(ref, store)) {
-                window.close(ref, store);
-                return;
-            }
-            window.handleAction(this.playerRef.getReference(), store, packet.action);
-        });
+        if (window instanceof ValidatedWindow && !(validatedWindow = (ValidatedWindow)((Object)window)).validate(ref, store)) {
+            window.close(ref, store);
+            return;
+        }
+        window.handleAction(ref, store, packet.action);
     }
 
-    public void handle(@Nonnull SyncPlayerPreferences packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            ComponentType<EntityStore, PlayerSettings> componentType = EntityModule.get().getPlayerSettingsComponentType();
-            store.putComponent(ref, componentType, new PlayerSettings(packet.showEntityMarkers, packet.armorItemsPreferredPickupLocation, packet.weaponAndToolItemsPreferredPickupLocation, packet.usableItemsItemsPreferredPickupLocation, packet.solidBlockItemsPreferredPickupLocation, packet.miscItemsPreferredPickupLocation, new PlayerCreativeSettings(packet.allowNPCDetection, packet.respondToHit), packet.hideHelmet, packet.hideCuirass, packet.hideGauntlets, packet.hidePants));
-            store.getComponent(ref, Player.getComponentType()).invalidateEquipmentNetwork();
-        });
+    public void handleSyncPlayerPreferences(@Nonnull SyncPlayerPreferences packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        ComponentType<EntityStore, PlayerSettings> componentType = EntityModule.get().getPlayerSettingsComponentType();
+        store.putComponent(ref, componentType, new PlayerSettings(packet.showEntityMarkers, packet.armorItemsPreferredPickupLocation, packet.weaponAndToolItemsPreferredPickupLocation, packet.usableItemsItemsPreferredPickupLocation, packet.solidBlockItemsPreferredPickupLocation, packet.miscItemsPreferredPickupLocation, new PlayerCreativeSettings(packet.allowNPCDetection, packet.respondToHit), packet.hideHelmet, packet.hideCuirass, packet.hideGauntlets, packet.hidePants));
+        store.getComponent(ref, Player.getComponentType()).invalidateEquipmentNetwork();
     }
 
-    public void handle(@Nonnull ClientPlaceBlock packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleClientPlaceBlock(@Nonnull ClientPlaceBlock packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Vector3d blockCenter;
+        Vector3d position;
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        Inventory inventory = playerComponent.getInventory();
+        Vector3i targetBlock = new Vector3i(packet.position.x, packet.position.y, packet.position.z);
+        BlockRotation blockRotation = new BlockRotation(packet.rotation.rotationYaw, packet.rotation.rotationPitch, packet.rotation.rotationRoll);
+        TransformComponent transformComponent = store.getComponent(ref, TransformComponent.getComponentType());
+        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(targetBlock.x, targetBlock.z);
+        Ref<ChunkStore> chunkReference = chunkStore.getExternalData().getChunkReference(chunkIndex);
+        if (chunkReference == null) {
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Vector3d blockCenter;
-            Vector3d position;
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            Inventory inventory = playerComponent.getInventory();
-            Vector3i targetBlock = new Vector3i(packet.position.x, packet.position.y, packet.position.z);
-            BlockRotation blockRotation = new BlockRotation(packet.rotation.rotationYaw, packet.rotation.rotationPitch, packet.rotation.rotationRoll);
-            TransformComponent transformComponent = store.getComponent(ref, TransformComponent.getComponentType());
-            if (transformComponent != null && playerComponent.getGameMode() != GameMode.Creative && (position = transformComponent.getPosition()).distanceSquaredTo(blockCenter = new Vector3d((double)targetBlock.x + 0.5, (double)targetBlock.y + 0.5, (double)targetBlock.z + 0.5)) > 36.0) {
-                return;
+        BlockChunk blockChunk = chunkStore.getComponent(chunkReference, BlockChunk.getComponentType());
+        if (blockChunk == null) {
+            return;
+        }
+        BlockSection section = blockChunk.getSectionAtBlockY(targetBlock.y);
+        if (section == null) {
+            return;
+        }
+        if (transformComponent != null && playerComponent.getGameMode() != GameMode.Creative && (position = transformComponent.getPosition()).distanceSquaredTo(blockCenter = new Vector3d((double)targetBlock.x + 0.5, (double)targetBlock.y + 0.5, (double)targetBlock.z + 0.5)) > 49.0) {
+            section.invalidateBlock(targetBlock.x, targetBlock.y, targetBlock.z);
+            return;
+        }
+        ItemStack itemInHand = playerComponent.getInventory().getItemInHand();
+        if (itemInHand == null) {
+            section.invalidateBlock(targetBlock.x, targetBlock.y, targetBlock.z);
+            return;
+        }
+        String heldBlockKey = itemInHand.getBlockKey();
+        if (heldBlockKey == null) {
+            section.invalidateBlock(targetBlock.x, targetBlock.y, targetBlock.z);
+            return;
+        }
+        if (packet.placedBlockId != -1) {
+            String clientPlacedBlockTypeKey = BlockType.getAssetMap().getAsset(packet.placedBlockId).getId();
+            BlockType heldBlockType = (BlockType)BlockType.getAssetMap().getAsset(heldBlockKey);
+            if (heldBlockType != null && BlockPlaceUtils.canPlaceBlock(heldBlockType, clientPlacedBlockTypeKey)) {
+                heldBlockKey = clientPlacedBlockTypeKey;
             }
-            Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(targetBlock.x, targetBlock.z);
-            Ref<ChunkStore> chunkReference = chunkStore.getExternalData().getChunkReference(chunkIndex);
-            if (chunkReference == null) {
-                return;
-            }
-            BlockChunk blockChunk = chunkStore.getComponent(chunkReference, BlockChunk.getComponentType());
-            if (blockChunk == null) {
-                return;
-            }
-            BlockSection section = blockChunk.getSectionAtBlockY(targetBlock.y);
-            if (section == null) {
-                return;
-            }
-            ItemStack itemInHand = playerComponent.getInventory().getItemInHand();
-            if (itemInHand == null) {
-                section.invalidateBlock(targetBlock.x, targetBlock.y, targetBlock.z);
-                return;
-            }
-            String heldBlockKey = itemInHand.getBlockKey();
-            if (heldBlockKey == null) {
-                section.invalidateBlock(targetBlock.x, targetBlock.y, targetBlock.z);
-                return;
-            }
-            if (packet.placedBlockId != -1) {
-                String clientPlacedBlockTypeKey = BlockType.getAssetMap().getAsset(packet.placedBlockId).getId();
-                BlockType heldBlockType = (BlockType)BlockType.getAssetMap().getAsset(heldBlockKey);
-                if (heldBlockType != null && BlockPlaceUtils.canPlaceBlock(heldBlockType, clientPlacedBlockTypeKey)) {
-                    heldBlockKey = clientPlacedBlockTypeKey;
-                }
-            }
-            BlockPlaceUtils.placeBlock(ref, itemInHand, heldBlockKey, inventory.getHotbar(), Vector3i.ZERO, targetBlock, blockRotation, inventory, inventory.getActiveHotbarSlot(), playerComponent.getGameMode() != GameMode.Creative, chunkReference, chunkStore, store);
-        });
+        }
+        BlockPlaceUtils.placeBlock(ref, itemInHand, heldBlockKey, inventory.getHotbar(), Vector3i.ZERO, targetBlock, blockRotation, inventory, inventory.getActiveHotbarSlot(), playerComponent.getGameMode() != GameMode.Creative, chunkReference, chunkStore, store);
     }
 
-    public void handle(@Nonnull RemoveMapMarker packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            PlayerWorldData perWorldData = playerComponent.getPlayerConfigData().getPerWorldData(world.getName());
-            perWorldData.removeLastDeath(packet.markerId);
-        });
+    public void handleRemoveMapMarker(@Nonnull RemoveMapMarker packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        world.getWorldMapManager().handleUserRemoveMarker(this.playerRef, packet);
     }
 
-    public void handle(@Nonnull CloseWindow packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            playerComponent.getWindowManager().closeWindow(ref, packet.id, store);
-        });
+    public void handleCloseWindow(@Nonnull CloseWindow packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        playerComponent.getWindowManager().closeWindow(ref, packet.id, store);
     }
 
     public void handle(@Nonnull UpdateServerAccess packet) {
@@ -575,31 +524,7 @@ implements IPacketHandler {
         this.writeNoCache(new SetMachinimaActorModel(Model.createUnitScaleModel(modelAsset).toPacket(), packet.sceneName, packet.actorName));
     }
 
-    public void handle(@Nonnull UpdateMachinimaScene packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            UpdateMachinimaScene updatePacket = new UpdateMachinimaScene(this.playerRef.getUsername(), packet.sceneName, packet.frame, packet.updateType, packet.scene);
-            if ("*".equals(packet.player)) {
-                for (PlayerRef otherPlayerRef : world.getPlayerRefs()) {
-                    if (Objects.equals(otherPlayerRef, this.playerRef)) continue;
-                    otherPlayerRef.getPacketHandler().writeNoCache(updatePacket);
-                }
-                this.playerRef.sendMessage(Message.translation("server.io.gamepackethandler.sceneUpdateSent"));
-            } else {
-                PlayerRef target = NameMatching.DEFAULT.find(Universe.get().getPlayers(), packet.player, PlayerRef::getUsername);
-                if (target != null && target.getReference().getStore().getExternalData().getWorld() == world) {
-                    target.getPacketHandler().write((Packet)updatePacket);
-                    this.playerRef.sendMessage(Message.translation("server.io.gamepackethander.sceneUpdateSentToPlayer").param("name", target.getUsername()));
-                } else {
-                    this.playerRef.sendMessage(Message.translation("server.io.gamepackethandler.playerNotFound").param("name", packet.player));
-                }
-            }
-        });
+    public void handleUpdateMachinimaScene(@Nonnull UpdateMachinimaScene packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
     }
 
     public void handle(@Nonnull ClientReady packet) {
@@ -625,133 +550,101 @@ implements IPacketHandler {
         }
     }
 
-    public void handle(@Nonnull UpdateWorldMapVisible packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            playerComponent.getWorldMapTracker().setClientHasWorldMapVisible(packet.visible);
-        });
+    public void handleUpdateWorldMapVisible(@Nonnull UpdateWorldMapVisible packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        playerComponent.getWorldMapTracker().setClientHasWorldMapVisible(packet.visible);
     }
 
-    public void handle(@Nonnull TeleportToWorldMapMarker packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleTeleportToWorldMapMarker(@Nonnull TeleportToWorldMapMarker packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
+        if (!worldMapTracker.isAllowTeleportToMarkers()) {
+            this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
-            if (!worldMapTracker.isAllowTeleportToMarkers()) {
-                this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
-                return;
+        MapMarker marker = worldMapTracker.getSentMarkers().get(packet.id);
+        if (marker != null) {
+            Transform transform = PositionUtil.toTransform(marker.transform);
+            if (MapMarkerUtils.isUserMarker(marker)) {
+                int blockZ;
+                int blockX = (int)transform.getPosition().getX();
+                Object chunk = world.getChunk(ChunkUtil.indexChunkFromBlock(blockX, blockZ = (int)transform.getPosition().getZ()));
+                int height = chunk == null ? 319 : (int)((WorldChunk)chunk).getHeight(blockX, blockZ);
+                transform.getPosition().setY(height);
             }
-            MapMarker marker = worldMapTracker.getSentMarkers().get(packet.id);
-            if (marker != null) {
-                Transform transform = PositionUtil.toTransform(marker.transform);
-                Teleport teleportComponent = Teleport.createForPlayer(transform);
-                world.getEntityStore().getStore().addComponent(this.playerRef.getReference(), Teleport.getComponentType(), teleportComponent);
-            }
-        });
+            Teleport teleportComponent = Teleport.createForPlayer(transform);
+            world.getEntityStore().getStore().addComponent(this.playerRef.getReference(), Teleport.getComponentType(), teleportComponent);
+        }
     }
 
-    public void handle(@Nonnull TeleportToWorldMapPosition packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleTeleportToWorldMapPosition(@Nonnull TeleportToWorldMapPosition packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
+        if (!worldMapTracker.isAllowTeleportToCoordinates()) {
+            this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
-            if (!worldMapTracker.isAllowTeleportToCoordinates()) {
-                this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
-                return;
-            }
-            world.getChunkStore().getChunkReferenceAsync(ChunkUtil.indexChunkFromBlock(packet.x, packet.y)).thenAcceptAsync(chunkRef -> {
-                BlockChunk blockChunkComponent = world.getChunkStore().getStore().getComponent((Ref<ChunkStore>)chunkRef, BlockChunk.getComponentType());
-                assert (blockChunkComponent != null);
-                Vector3d position = new Vector3d(packet.x, blockChunkComponent.getHeight(packet.x, packet.y) + 2, packet.y);
-                Teleport teleportComponent = Teleport.createForPlayer(null, position, new Vector3f(0.0f, 0.0f, 0.0f));
-                world.getEntityStore().getStore().addComponent(this.playerRef.getReference(), Teleport.getComponentType(), teleportComponent);
-            }, (Executor)world);
-        });
+        world.getChunkStore().getChunkReferenceAsync(ChunkUtil.indexChunkFromBlock(packet.x, packet.y)).thenAcceptAsync(chunkRef -> {
+            BlockChunk blockChunkComponent = world.getChunkStore().getStore().getComponent((Ref<ChunkStore>)chunkRef, BlockChunk.getComponentType());
+            assert (blockChunkComponent != null);
+            Vector3d position = new Vector3d(packet.x, blockChunkComponent.getHeight(packet.x, packet.y) + 2, packet.y);
+            Teleport teleportComponent = Teleport.createForPlayer(null, position, new Vector3f(0.0f, 0.0f, 0.0f));
+            world.getEntityStore().getStore().addComponent(this.playerRef.getReference(), Teleport.getComponentType(), teleportComponent);
+        }, (Executor)world);
+    }
+
+    public void handleCreateUserMarker(@Nonnull CreateUserMarker packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        WorldMapManager worldMapManager = world.getWorldMapManager();
+        worldMapManager.handleUserCreateMarker(this.playerRef, packet);
     }
 
     public void handle(@Nonnull SyncInteractionChains packet) {
         Collections.addAll(this.interactionPacketQueue, packet.updates);
     }
 
-    public void handle(@Nonnull MountMovement packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleMountMovement(@Nonnull MountMovement packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        Ref<EntityStore> entityReference = world.getEntityStore().getRefFromNetworkId(playerComponent.getMountEntityId());
+        if (entityReference == null || !entityReference.isValid()) {
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            Ref<EntityStore> entityReference = world.getEntityStore().getRefFromNetworkId(playerComponent.getMountEntityId());
-            if (entityReference == null || !entityReference.isValid()) {
-                return;
-            }
-            TransformComponent transformComponent = store.getComponent(entityReference, TransformComponent.getComponentType());
-            assert (transformComponent != null);
-            transformComponent.setPosition(PositionUtil.toVector3d(packet.absolutePosition));
-            transformComponent.setRotation(PositionUtil.toRotation(packet.bodyOrientation));
-            MovementStatesComponent movementStatesComponent = store.getComponent(entityReference, MovementStatesComponent.getComponentType());
-            assert (movementStatesComponent != null);
-            movementStatesComponent.setMovementStates(packet.movementStates);
-        });
+        TransformComponent transformComponent = store.getComponent(entityReference, TransformComponent.getComponentType());
+        assert (transformComponent != null);
+        transformComponent.setPosition(PositionUtil.toVector3d(packet.absolutePosition));
+        transformComponent.setRotation(PositionUtil.toRotation(packet.bodyOrientation));
+        MovementStatesComponent movementStatesComponent = store.getComponent(entityReference, MovementStatesComponent.getComponentType());
+        assert (movementStatesComponent != null);
+        movementStatesComponent.setMovementStates(packet.movementStates);
     }
 
-    public void handle(@Nonnull SetPaused packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
+    public void handleSetPaused(@Nonnull SetPaused packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        if (world.getPlayerCount() != 1 || !Constants.SINGLEPLAYER) {
             return;
         }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            if (world.getPlayerCount() != 1 || !Constants.SINGLEPLAYER) {
-                return;
-            }
-            world.setPaused(packet.paused);
-        });
+        world.setPaused(packet.paused);
     }
 
-    public void handle(@Nonnull RequestFlyCameraMode packet) {
-        Ref<EntityStore> ref = this.playerRef.getReference();
-        if (ref == null || !ref.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = ref.getStore();
-        World world = store.getExternalData().getWorld();
-        world.execute(() -> {
-            Player playerComponent = store.getComponent(ref, Player.getComponentType());
-            assert (playerComponent != null);
-            if (playerComponent.hasPermission("hytale.camera.flycam")) {
-                this.writeNoCache(new SetFlyCameraMode(packet.entering));
-                if (packet.entering) {
-                    this.playerRef.sendMessage(Message.translation("server.general.flyCamera.enabled"));
-                } else {
-                    this.playerRef.sendMessage(Message.translation("server.general.flyCamera.disabled"));
-                }
+    public void handleRequestFlyCameraMode(@Nonnull RequestFlyCameraMode packet, Ref<EntityStore> ref, World world, Store<EntityStore> store) {
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        assert (playerComponent != null);
+        if (playerComponent.hasPermission("hytale.camera.flycam")) {
+            this.writeNoCache(new SetFlyCameraMode(packet.entering));
+            if (packet.entering) {
+                this.playerRef.sendMessage(Message.translation("server.general.flyCamera.enabled"));
             } else {
-                this.playerRef.sendMessage(Message.translation("server.general.flyCamera.noPermission"));
+                this.playerRef.sendMessage(Message.translation("server.general.flyCamera.disabled"));
             }
-        });
+        } else {
+            this.playerRef.sendMessage(Message.translation("server.general.flyCamera.noPermission"));
+        }
+    }
+
+    private static interface WorldPacketHandler<T extends Packet> {
+        public void consumer(T var1, Ref<EntityStore> var2, World var3, Store<EntityStore> var4);
     }
 }
 

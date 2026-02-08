@@ -16,6 +16,7 @@ import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
@@ -58,6 +59,8 @@ public class NPCMemory
 extends Memory {
     @Nonnull
     public static final String ID = "NPC";
+    @Nonnull
+    public static final String ZONE_NAME_UNKNOWN = "???";
     @Nonnull
     public static final BuilderCodec<NPCMemory> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(NPCMemory.class, NPCMemory::new).append(new KeyedCodec<String>("NPCRole", Codec.STRING), (npcMemory, s) -> {
         npcMemory.npcRole = s;
@@ -107,7 +110,7 @@ extends Memory {
     }
 
     @Override
-    @Nullable
+    @Nonnull
     public String getIconPath() {
         return "UI/Custom/Pages/Memories/npcs/" + this.npcRole + ".png";
     }
@@ -143,6 +146,7 @@ extends Memory {
         return this.foundLocationZoneNameKey;
     }
 
+    @Nonnull
     public Message getLocationMessage() {
         if (this.foundLocationGeneralNameKey != null) {
             return Message.translation(this.foundLocationGeneralNameKey);
@@ -150,11 +154,11 @@ extends Memory {
         if (this.foundLocationZoneNameKey != null) {
             return Message.translation("server.map.region." + this.foundLocationZoneNameKey);
         }
-        return Message.raw("???");
+        return Message.raw(ZONE_NAME_UNKNOWN);
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (o == null || this.getClass() != o.getClass()) {
             return false;
         }
@@ -174,6 +178,7 @@ extends Memory {
     }
 
     @Override
+    @Nonnull
     public String toString() {
         return "NPCMemory{npcRole='" + this.npcRole + "', isMemoriesNameOverride=" + this.isMemoriesNameOverridden + "', capturedTimestamp=" + this.capturedTimestamp + "', foundLocationZoneNameKey='" + this.foundLocationZoneNameKey + "}";
     }
@@ -181,21 +186,34 @@ extends Memory {
     public static class GatherMemoriesSystem
     extends EntityTickingSystem<EntityStore> {
         @Nonnull
-        public static final Query<EntityStore> QUERY = Query.and(TransformComponent.getComponentType(), Player.getComponentType(), PlayerMemories.getComponentType());
+        private final ComponentType<EntityStore, TransformComponent> transformComponentType;
+        @Nonnull
+        private final ComponentType<EntityStore, Player> playerComponentType;
+        @Nonnull
+        private final ComponentType<EntityStore, PlayerRef> playerRefComponentType;
+        @Nonnull
+        private final ComponentType<EntityStore, PlayerMemories> playerMemoriesComponentType;
+        @Nonnull
+        private final Query<EntityStore> query;
         private final double radius;
 
-        public GatherMemoriesSystem(double radius) {
+        public GatherMemoriesSystem(@Nonnull ComponentType<EntityStore, TransformComponent> transformComponentType, @Nonnull ComponentType<EntityStore, Player> playerComponentType, @Nonnull ComponentType<EntityStore, PlayerRef> playerRefComponentType, @Nonnull ComponentType<EntityStore, PlayerMemories> playerMemoriesComponentType, double radius) {
+            this.transformComponentType = transformComponentType;
+            this.playerComponentType = playerComponentType;
+            this.playerRefComponentType = playerRefComponentType;
+            this.playerMemoriesComponentType = playerMemoriesComponentType;
+            this.query = Query.and(transformComponentType, playerComponentType, playerRefComponentType, playerMemoriesComponentType);
             this.radius = radius;
         }
 
         @Override
         public void tick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-            Player playerComponent = archetypeChunk.getComponent(index, Player.getComponentType());
+            Player playerComponent = archetypeChunk.getComponent(index, this.playerComponentType);
             assert (playerComponent != null);
             if (playerComponent.getGameMode() != GameMode.Adventure) {
                 return;
             }
-            TransformComponent transformComponent = archetypeChunk.getComponent(index, TransformComponent.getComponentType());
+            TransformComponent transformComponent = archetypeChunk.getComponent(index, this.transformComponentType);
             assert (transformComponent != null);
             Vector3d position = transformComponent.getPosition();
             SpatialResource<Ref<EntityStore>, EntityStore> npcSpatialResource = store.getResource(NPCPlugin.get().getNpcSpatialResource());
@@ -204,21 +222,20 @@ extends Memory {
             if (results.isEmpty()) {
                 return;
             }
-            PlayerRef playerRefComponent = archetypeChunk.getComponent(index, PlayerRef.getComponentType());
+            PlayerRef playerRefComponent = archetypeChunk.getComponent(index, this.playerRefComponentType);
             assert (playerRefComponent != null);
             Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
             MemoriesPlugin memoriesPlugin = MemoriesPlugin.get();
-            PlayerMemories playerMemoriesComponent = archetypeChunk.getComponent(index, PlayerMemories.getComponentType());
+            PlayerMemories playerMemoriesComponent = archetypeChunk.getComponent(index, this.playerMemoriesComponentType);
             assert (playerMemoriesComponent != null);
             NPCMemory temp = new NPCMemory();
             World world = commandBuffer.getExternalData().getWorld();
             String foundLocationZoneNameKey = GatherMemoriesSystem.findLocationZoneName(world, position);
             for (Ref ref2 : results) {
+                MemoriesGameplayConfig memoriesGameplayConfig;
+                Role role;
                 NPCEntity npcComponent = commandBuffer.getComponent(ref2, NPCEntity.getComponentType());
-                if (npcComponent == null) continue;
-                Role role = npcComponent.getRole();
-                assert (role != null);
-                if (!role.isMemory()) continue;
+                if (npcComponent == null || (role = npcComponent.getRole()) == null || !role.isMemory()) continue;
                 temp.isMemoriesNameOverridden = role.isMemoriesNameOverriden();
                 temp.npcRole = temp.isMemoriesNameOverridden ? role.getMemoriesNameOverride() : npcComponent.getRoleName();
                 temp.memoryTitleKey = role.getNameTranslationKey();
@@ -230,9 +247,7 @@ extends Memory {
                 NotificationUtil.sendNotification(playerRefComponent.getPacketHandler(), Message.translation("server.memories.general.collected").param("memoryTitle", Message.translation(temp.getTitle())), null, "NotificationIcons/MemoriesIcon.png");
                 temp = new NPCMemory();
                 TransformComponent npcTransformComponent = commandBuffer.getComponent(ref2, TransformComponent.getComponentType());
-                assert (npcTransformComponent != null);
-                MemoriesGameplayConfig memoriesGameplayConfig = MemoriesGameplayConfig.get(store.getExternalData().getWorld().getGameplayConfig());
-                if (memoriesGameplayConfig == null) continue;
+                if (npcTransformComponent == null || (memoriesGameplayConfig = MemoriesGameplayConfig.get(store.getExternalData().getWorld().getGameplayConfig())) == null) continue;
                 ItemStack memoryItemStack = new ItemStack(memoriesGameplayConfig.getMemoriesCatchItemId());
                 Vector3d memoryItemHolderPosition = npcTransformComponent.getPosition().clone();
                 BoundingBox boundingBoxComponent = commandBuffer.getComponent(ref2, BoundingBox.getComponentType());
@@ -249,7 +264,7 @@ extends Memory {
             }
         }
 
-        private static String findLocationZoneName(World world, Vector3d position) {
+        private static String findLocationZoneName(@Nonnull World world, @Nonnull Vector3d position) {
             InstanceDiscoveryConfig discovery;
             IWorldGen worldGen = world.getChunkStore().getGenerator();
             if (worldGen instanceof ChunkGenerator) {
@@ -262,10 +277,10 @@ extends Memory {
             if (instanceConfig != null && (discovery = instanceConfig.getDiscovery()) != null && discovery.getTitleKey() != null) {
                 return discovery.getTitleKey();
             }
-            return "???";
+            return NPCMemory.ZONE_NAME_UNKNOWN;
         }
 
-        private static void displayCatchEntityParticles(MemoriesGameplayConfig memoriesGameplayConfig, Vector3d targetPosition, Ref<EntityStore> targetRef, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+        private static void displayCatchEntityParticles(@Nonnull MemoriesGameplayConfig memoriesGameplayConfig, @Nonnull Vector3d targetPosition, @Nonnull Ref<EntityStore> targetRef, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
             ModelParticle particle = memoriesGameplayConfig.getMemoriesCatchEntityParticle();
             if (particle == null) {
                 return;
@@ -282,7 +297,7 @@ extends Memory {
             spatialStructure.ordered(targetPosition, memoriesGameplayConfig.getMemoriesCatchParticleViewDistance(), results);
             for (Ref ref : results) {
                 PlayerRef playerRefComponent = commandBuffer.getComponent(ref, PlayerRef.getComponentType());
-                assert (playerRefComponent != null);
+                if (playerRefComponent == null) continue;
                 playerRefComponent.getPacketHandler().write((Packet)packet);
             }
         }
@@ -290,7 +305,7 @@ extends Memory {
         @Override
         @Nonnull
         public Query<EntityStore> getQuery() {
-            return QUERY;
+            return this.query;
         }
     }
 }

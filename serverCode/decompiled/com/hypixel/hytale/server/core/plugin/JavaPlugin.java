@@ -34,8 +34,8 @@ extends PluginBase {
     }
 
     @Override
-    protected void start0() {
-        super.start0();
+    protected void setup0() {
+        super.setup0();
         if (this.getManifest().includesAssetPack()) {
             String id;
             AssetModule assetModule = AssetModule.get();

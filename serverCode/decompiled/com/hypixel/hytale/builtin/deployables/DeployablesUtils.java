@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class DeployablesUtils {
+    @Nonnull
     private static final String DEPLOYABLE_MAX_STAT_MODIFIER = "DEPLOYABLE_MAX";
 
     @Nonnull
@@ -108,12 +109,12 @@ public class DeployablesUtils {
             return;
         }
         for (Map.Entry<String, DeployableConfig.StatConfig> statEntry : stats.entrySet()) {
+            EntityStatType statType;
             DeployableConfig.StatConfig statConfig = statEntry.getValue();
             int statIndex = EntityStatType.getAssetMap().getIndex(statEntry.getKey());
             EntityStatValue stat = entityStatMapComponent.get(statIndex);
-            if (stat == null) continue;
-            EntityStatType asset = EntityStatType.getAssetMap().getAsset(statIndex);
-            StaticModifier modifier = new StaticModifier(Modifier.ModifierTarget.MAX, StaticModifier.CalculationType.ADDITIVE, statConfig.getMax() - asset.getMax());
+            if (stat == null || (statType = EntityStatType.getAssetMap().getAsset(statIndex)) == null) continue;
+            StaticModifier modifier = new StaticModifier(Modifier.ModifierTarget.MAX, StaticModifier.CalculationType.ADDITIVE, statConfig.getMax() - statType.getMax());
             entityStatMapComponent.putModifier(statIndex, DEPLOYABLE_MAX_STAT_MODIFIER, modifier);
             float initialValue = statConfig.getInitial();
             if (initialValue == Float.MAX_VALUE) {

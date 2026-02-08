@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 
 public final class PortalSpawnFinder {
     @Nullable
-    public static Transform computeSpawnTransform(World world, PortalSpawn config) {
+    public static Transform computeSpawnTransform(@Nonnull World world, @Nonnull PortalSpawn config) {
         Vector3d spawn = PortalSpawnFinder.findSpawnByThrowingDarts(world, config);
         if (spawn == null) {
             spawn = PortalSpawnFinder.findFallbackPositionOnGround(world, config);
@@ -48,7 +48,7 @@ public final class PortalSpawnFinder {
     }
 
     @Nullable
-    private static Vector3d findSpawnByThrowingDarts(World world, PortalSpawn config) {
+    private static Vector3d findSpawnByThrowingDarts(@Nonnull World world, @Nonnull PortalSpawn config) {
         Vector3d center = config.getCenter().toVector3d();
         center.setY(config.getCheckSpawnY());
         int halfwayThrows = config.getChunkDartThrows() / 2;
@@ -69,13 +69,13 @@ public final class PortalSpawnFinder {
     }
 
     @Nullable
-    private static Vector3d findGroundWithinChunk(WorldChunk chunk, PortalSpawn config, boolean checkIfPortalFitsNice) {
+    private static Vector3d findGroundWithinChunk(@Nonnull WorldChunk chunk, @Nonnull PortalSpawn config, boolean checkIfPortalFitsNice) {
         int chunkBlockX = ChunkUtil.minBlock(chunk.getX());
         int chunkBlockZ = ChunkUtil.minBlock(chunk.getZ());
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < config.getChecksPerChunk(); ++i) {
-            int x = chunkBlockX + rand.nextInt(2, 14);
-            int z = chunkBlockZ + rand.nextInt(2, 14);
+            int x = chunkBlockX + random.nextInt(2, 14);
+            int z = chunkBlockZ + random.nextInt(2, 14);
             Vector3d point = PortalSpawnFinder.findWithGroundBelow(chunk, x, config.getCheckSpawnY(), z, config.getScanHeight(), false);
             if (point == null || checkIfPortalFitsNice && !FitsAPortal.check(chunk.getWorld(), point)) continue;
             return point;
@@ -84,13 +84,22 @@ public final class PortalSpawnFinder {
     }
 
     @Nullable
-    private static Vector3d findWithGroundBelow(WorldChunk chunk, int x, int y, int z, int scanHeight, boolean fluidsAreAcceptable) {
+    private static Vector3d findWithGroundBelow(@Nonnull WorldChunk chunk, int x, int y, int z, int scanHeight, boolean fluidsAreAcceptable) {
         World world = chunk.getWorld();
         ChunkStore chunkStore = world.getChunkStore();
         Ref<ChunkStore> chunkRef = chunk.getReference();
+        if (chunkRef == null || !chunkRef.isValid()) {
+            return null;
+        }
         Store<ChunkStore> chunkStoreAccessor = chunkStore.getStore();
         ChunkColumn chunkColumnComponent = chunkStoreAccessor.getComponent(chunkRef, ChunkColumn.getComponentType());
+        if (chunkColumnComponent == null) {
+            return null;
+        }
         BlockChunk blockChunkComponent = chunkStoreAccessor.getComponent(chunkRef, BlockChunk.getComponentType());
+        if (blockChunkComponent == null) {
+            return null;
+        }
         for (int dy = 0; dy < scanHeight; ++dy) {
             boolean selfValid;
             Material selfMat = PortalSpawnFinder.getMaterial(chunkStoreAccessor, chunkColumnComponent, blockChunkComponent, x, y - dy, z);
@@ -103,6 +112,7 @@ public final class PortalSpawnFinder {
         return null;
     }
 
+    @Nonnull
     private static Material getMaterial(@Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ChunkColumn chunkColumnComponent, @Nonnull BlockChunk blockChunkComponent, double x, double y, double z) {
         int blockX = (int)x;
         int blockY = (int)y;
@@ -125,9 +135,13 @@ public final class PortalSpawnFinder {
     }
 
     @Nullable
-    private static Vector3d findFallbackPositionOnGround(World world, PortalSpawn config) {
+    private static Vector3d findFallbackPositionOnGround(@Nonnull World world, @Nonnull PortalSpawn config) {
         Vector3i center = config.getCenter();
-        Object centerChunk = world.getChunk(ChunkUtil.indexChunkFromBlock(center.x, center.z));
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(center.x, center.z);
+        Object centerChunk = world.getChunk(chunkIndex);
+        if (centerChunk == null) {
+            return null;
+        }
         return PortalSpawnFinder.findWithGroundBelow(centerChunk, 0, 319, 0, 319, true);
     }
 

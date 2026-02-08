@@ -81,9 +81,9 @@ extends PacketHandler {
         this.receivedConnect = true;
         this.clearTimeout();
         PacketHandler.logConnectionTimings(this.channel, "Connect", Level.FINE);
-        if (packet.protocolCrc != 1789265863) {
+        if (packet.protocolCrc != 672031543) {
             int clientBuild = packet.protocolBuildNumber;
-            int serverBuild = 2;
+            int serverBuild = 12;
             int errorCode = clientBuild < serverBuild ? 5 : 6;
             String serverVersion = ManifestUtil.getImplementationVersion();
             ProtocolUtil.closeApplicationConnection(this.channel, errorCode, serverVersion != null ? serverVersion : "unknown");

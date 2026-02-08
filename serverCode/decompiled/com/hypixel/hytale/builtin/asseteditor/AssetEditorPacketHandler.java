@@ -394,7 +394,7 @@ extends GenericPacketHandler {
 
     private boolean lacksPermission(int token) {
         if (!this.editorClient.hasPermission("hytale.editor.asset")) {
-            this.editorClient.sendFailureReply(token, Messages.USAGE_DENIED_MESSAGE);
+            this.editorClient.sendFailureReply(token, Messages.USAGE_DENIED);
             return true;
         }
         return false;
@@ -406,7 +406,7 @@ extends GenericPacketHandler {
 
     private boolean lacksPermission(String permissionId) {
         if (!this.editorClient.hasPermission(permissionId)) {
-            this.editorClient.sendPopupNotification(AssetEditorPopupNotificationType.Error, Messages.USAGE_DENIED_MESSAGE);
+            this.editorClient.sendPopupNotification(AssetEditorPopupNotificationType.Error, Messages.USAGE_DENIED);
             return true;
         }
         return false;
@@ -414,7 +414,7 @@ extends GenericPacketHandler {
 
     private boolean lacksPermission(int token, String permissionId) {
         if (!this.editorClient.hasPermission(permissionId)) {
-            this.editorClient.sendFailureReply(token, Messages.USAGE_DENIED_MESSAGE);
+            this.editorClient.sendFailureReply(token, Messages.USAGE_DENIED);
             return true;
         }
         return false;

@@ -16,6 +16,10 @@ extends Pattern {
     private final Pattern airPattern;
     @Nonnull
     private final SpaceSize readSpaceSize;
+    @Nonnull
+    private final Vector3i rCeilingPosition;
+    @Nonnull
+    private final Pattern.Context rCeilingContext;
 
     public CeilingPattern(@Nonnull Pattern ceilingPattern, @Nonnull Pattern airPattern) {
         this.ceilingPattern = ceilingPattern;
@@ -23,17 +27,19 @@ extends Pattern {
         SpaceSize ceilingSpace = ceilingPattern.readSpace();
         ceilingSpace.moveBy(new Vector3i(0, 1, 0));
         this.readSpaceSize = SpaceSize.merge(ceilingSpace, airPattern.readSpace());
+        this.rCeilingPosition = new Vector3i();
+        this.rCeilingContext = new Pattern.Context();
     }
 
     @Override
     public boolean matches(@Nonnull Pattern.Context context) {
-        Vector3i ceilingPosition = new Vector3i(context.position.x, context.position.y + 1, context.position.z);
-        if (!context.materialSpace.isInsideSpace(context.position) || !context.materialSpace.isInsideSpace(ceilingPosition)) {
+        this.rCeilingPosition.assign(context.position);
+        if (!context.materialSpace.isInsideSpace(context.position) || !context.materialSpace.isInsideSpace(this.rCeilingPosition)) {
             return false;
         }
-        Pattern.Context ceilingContext = new Pattern.Context(context);
-        ceilingContext.position = ceilingPosition;
-        return this.airPattern.matches(context) && this.ceilingPattern.matches(ceilingContext);
+        this.rCeilingContext.assign(context);
+        this.rCeilingContext.position = this.rCeilingPosition;
+        return this.airPattern.matches(context) && this.ceilingPattern.matches(this.rCeilingContext);
     }
 
     @Override

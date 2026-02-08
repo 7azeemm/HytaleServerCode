@@ -13,6 +13,7 @@ import javax.annotation.Nonnull;
 
 public class CeilingPatternAsset
 extends PatternAsset {
+    @Nonnull
     public static final BuilderCodec<CeilingPatternAsset> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(CeilingPatternAsset.class, CeilingPatternAsset::new, PatternAsset.ABSTRACT_CODEC).append(new KeyedCodec("Ceiling", PatternAsset.CODEC, true), (t, k) -> {
         t.ceiling = k;
     }, k -> k.ceiling).add()).append(new KeyedCodec("Origin", PatternAsset.CODEC, true), (t, k) -> {

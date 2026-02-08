@@ -449,7 +449,7 @@ extends JavaPlugin {
             Packet[] packets = new Packet[2 + parts.length * 2];
             packets[0] = new AssetInitialize(thisAsset.toPacket(), allBytes.length);
             for (int partIndex = 0; partIndex < parts.length; ++partIndex) {
-                packets[1 + partIndex * 2] = new WorldLoadProgress("Loading asset " + thisAsset.getName(), thisPercent, 100 * partIndex / parts.length);
+                packets[1 + partIndex * 2] = new WorldLoadProgress(Message.translation("client.general.worldLoad.loadingAsset").param("assetName", thisAsset.getName()).getFormattedMessage(), thisPercent, 100 * partIndex / parts.length);
                 packets[1 + partIndex * 2 + 1] = new AssetPart(parts[partIndex]);
             }
             packets[packets.length - 1] = new AssetFinalize();

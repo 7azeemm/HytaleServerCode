@@ -19,10 +19,15 @@ import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.component.system.tick.TickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.vector.Transform;
+import com.hypixel.hytale.math.vector.Vector3d;
+import com.hypixel.hytale.math.vector.Vector3f;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.entity.Frozen;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.modules.debug.DebugUtils;
 import com.hypixel.hytale.server.core.modules.entity.component.BoundingBox;
+import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.NewSpawnComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -33,12 +38,15 @@ import com.hypixel.hytale.server.core.modules.entity.system.TransformSystems;
 import com.hypixel.hytale.server.core.modules.interaction.InteractionModule;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.core.util.TargetUtil;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import com.hypixel.hytale.server.npc.components.StepComponent;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import com.hypixel.hytale.server.npc.movement.controllers.MotionController;
 import com.hypixel.hytale.server.npc.role.Role;
 import com.hypixel.hytale.server.npc.role.RoleDebugDisplay;
+import com.hypixel.hytale.server.npc.role.RoleDebugFlags;
+import com.hypixel.hytale.server.npc.role.support.DebugSupport;
 import com.hypixel.hytale.server.npc.role.support.EntitySupport;
 import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import com.hypixel.hytale.server.npc.systems.BalancingInitialisationSystem;
@@ -46,6 +54,7 @@ import com.hypixel.hytale.server.npc.systems.SteeringSystem;
 import com.hypixel.hytale.server.npc.systems.SteppableTickingSystem;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -55,6 +64,9 @@ public class RoleSystems {
 
     public static class RoleDebugSystem
     extends SteppableTickingSystem {
+        private static final float DEBUG_SHAPE_TIME = 0.1f;
+        private static final float SENSOR_VIS_OPACITY = 0.4f;
+        private static final double FULL_CIRCLE_EPSILON = 0.01;
         @Nonnull
         private final ComponentType<EntityStore, NPCEntity> npcComponentType;
         @Nonnull
@@ -79,7 +91,7 @@ public class RoleSystems {
         @Override
         @Nonnull
         public Query<EntityStore> getQuery() {
-            return this.npcComponentType;
+            return Query.and(this.npcComponentType, TransformComponent.getComponentType(), BoundingBox.getComponentType());
         }
 
         @Override
@@ -87,10 +99,103 @@ public class RoleSystems {
             NPCEntity npcComponent = archetypeChunk.getComponent(index, this.npcComponentType);
             assert (npcComponent != null);
             Role role = npcComponent.getRole();
-            RoleDebugDisplay debugDisplay = role.getDebugSupport().getDebugDisplay();
+            if (role == null) {
+                return;
+            }
+            DebugSupport debugSupport = role.getDebugSupport();
+            RoleDebugDisplay debugDisplay = debugSupport.getDebugDisplay();
             if (debugDisplay != null) {
                 debugDisplay.display(role, index, archetypeChunk, commandBuffer);
             }
+            if (debugSupport.isDebugFlagSet(RoleDebugFlags.VisMarkedTargets)) {
+                RoleDebugSystem.renderMarkedTargetArrows(role, index, archetypeChunk, commandBuffer);
+            }
+            if (debugSupport.hasSensorVisData()) {
+                Ref<EntityStore> npcRef = archetypeChunk.getReferenceTo(index);
+                RoleDebugSystem.renderSensorVisualization(debugSupport, npcRef, commandBuffer);
+            }
+        }
+
+        private static void renderMarkedTargetArrows(@Nonnull Role role, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            Ref<EntityStore> npcRef = archetypeChunk.getReferenceTo(index);
+            Transform npcLook = TargetUtil.getLook(npcRef, commandBuffer);
+            Vector3d npcEyePosition = npcLook.getPosition();
+            World world = commandBuffer.getExternalData().getWorld();
+            MarkedEntitySupport markedEntitySupport = role.getMarkedEntitySupport();
+            Ref<EntityStore>[] entityTargets = markedEntitySupport.getEntityTargets();
+            for (int slotIndex = 0; slotIndex < entityTargets.length; ++slotIndex) {
+                Ref<EntityStore> targetRef = entityTargets[slotIndex];
+                if (targetRef == null || !targetRef.isValid()) continue;
+                Transform targetLook = TargetUtil.getLook(targetRef, commandBuffer);
+                Vector3d targetEyePosition = targetLook.getPosition();
+                Vector3d direction = new Vector3d(targetEyePosition.x - npcEyePosition.x, targetEyePosition.y - npcEyePosition.y, targetEyePosition.z - npcEyePosition.z);
+                Vector3f color = DebugUtils.INDEXED_COLORS[slotIndex % DebugUtils.INDEXED_COLORS.length];
+                DebugUtils.addArrow(world, npcEyePosition, direction, color, 0.1f, false);
+            }
+        }
+
+        private static void renderSensorVisualization(@Nonnull DebugSupport debugSupport, @Nonnull Ref<EntityStore> npcRef, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            List<DebugSupport.SensorVisData> sensorDataList = debugSupport.getSensorVisData();
+            if (sensorDataList == null) {
+                return;
+            }
+            TransformComponent transformComponent = commandBuffer.getComponent(npcRef, TransformComponent.getComponentType());
+            assert (transformComponent != null);
+            Vector3d npcPosition = transformComponent.getPosition();
+            BoundingBox boundingBoxComponent = commandBuffer.getComponent(npcRef, BoundingBox.getComponentType());
+            assert (boundingBoxComponent != null);
+            double npcMidHeight = boundingBoxComponent.getBoundingBox().max.y / 2.0;
+            HeadRotation headRotation = commandBuffer.getComponent(npcRef, HeadRotation.getComponentType());
+            double heading = headRotation != null ? (double)headRotation.getRotation().getYaw() : (double)transformComponent.getRotation().getYaw();
+            sensorDataList.sort((a, b) -> Double.compare(b.range(), a.range()));
+            World world = commandBuffer.getExternalData().getWorld();
+            double discStackOffset = 0.1;
+            for (int i = 0; i < sensorDataList.size(); ++i) {
+                DebugSupport.SensorVisData sensorData = sensorDataList.get(i);
+                Vector3f color = DebugUtils.INDEXED_COLORS[sensorData.colorIndex() % DebugUtils.INDEXED_COLORS.length];
+                double height = npcPosition.y + npcMidHeight + (double)i * 0.1;
+                if (sensorData.viewAngle() > 0.0 && sensorData.viewAngle() < 6.273185482025147) {
+                    double sectorHeading = -heading + Math.PI;
+                    DebugUtils.addSector(world, npcPosition.x, height, npcPosition.z, sectorHeading, sensorData.range(), sensorData.viewAngle(), sensorData.minRange(), color, 0.4f, 0.1f, false);
+                    continue;
+                }
+                DebugUtils.addDisc(world, npcPosition.x, height, npcPosition.z, sensorData.range(), sensorData.minRange(), color, 0.4f, 0.1f, false);
+            }
+            Map<Ref<EntityStore>, List<DebugSupport.EntityVisData>> entityDataMap = debugSupport.getEntityVisData();
+            if (entityDataMap != null) {
+                double markerOffset = 0.3;
+                double sphereStackOffset = 0.3;
+                double defaultEntityHeight = 2.0;
+                for (Map.Entry<Ref<EntityStore>, List<DebugSupport.EntityVisData>> entry : entityDataMap.entrySet()) {
+                    TransformComponent entityTransform;
+                    Ref<EntityStore> entityRef = entry.getKey();
+                    List<DebugSupport.EntityVisData> checks = entry.getValue();
+                    if (checks.isEmpty() || !entityRef.isValid() || (entityTransform = commandBuffer.getComponent(entityRef, TransformComponent.getComponentType())) == null) continue;
+                    Vector3d entityPosition = entityTransform.getPosition();
+                    BoundingBox entityBoundingBox = commandBuffer.getComponent(entityRef, BoundingBox.getComponentType());
+                    double entityHeight = entityBoundingBox != null ? entityBoundingBox.getBoundingBox().max.y : 2.0;
+                    double markerBaseHeight = entityHeight + 0.3;
+                    boolean anyMatched = false;
+                    for (DebugSupport.EntityVisData check : checks) {
+                        if (!check.matched()) continue;
+                        anyMatched = true;
+                        break;
+                    }
+                    int sphereCount = 0;
+                    for (DebugSupport.EntityVisData check : checks) {
+                        if (!check.matched()) continue;
+                        Vector3f sensorColor = DebugUtils.INDEXED_COLORS[check.sensorColorIndex() % DebugUtils.INDEXED_COLORS.length];
+                        double sphereHeight = markerBaseHeight + (double)sphereCount * 0.3;
+                        DebugUtils.addSphere(world, entityPosition.x, entityPosition.y + sphereHeight, entityPosition.z, sensorColor, 0.2, 0.1f);
+                        ++sphereCount;
+                    }
+                    if (!anyMatched) {
+                        DebugUtils.addCube(world, entityPosition.x, entityPosition.y + markerBaseHeight, entityPosition.z, DebugUtils.COLOR_GRAY, 0.2, 0.1f);
+                    }
+                    DebugUtils.addLine(world, npcPosition.x, npcPosition.y + npcMidHeight, npcPosition.z, entityPosition.x, entityPosition.y + markerBaseHeight, entityPosition.z, DebugUtils.COLOR_GRAY, 0.03, 0.1f, false);
+                }
+            }
+            debugSupport.clearSensorVisData();
         }
     }
 
@@ -323,7 +428,7 @@ public class RoleSystems {
             assert (npcComponent != null);
             Role role = npcComponent.getRole();
             role.getStateSupport().activate();
-            role.getDebugSupport().activate();
+            role.getDebugSupport().notifyDebugFlagsListeners(role.getDebugSupport().getDebugFlags());
             ModelComponent modelComponent = holder.getComponent(this.modelComponentType);
             assert (modelComponent != null);
             BoundingBox boundingBoxComponent = holder.getComponent(this.boundingBoxComponentType);

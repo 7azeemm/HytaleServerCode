@@ -206,6 +206,47 @@ public class FlockMembershipSystems {
         }
     }
 
+    public static class FilterPlayerFlockDamageSystem
+    extends DamageEventSystem {
+        @Nonnull
+        private final Query<EntityStore> query = Query.and(Player.getComponentType(), FlockMembership.getComponentType());
+
+        @Override
+        @Nullable
+        public SystemGroup<EntityStore> getGroup() {
+            return DamageModule.get().getFilterDamageGroup();
+        }
+
+        @Override
+        @Nonnull
+        public Query<EntityStore> getQuery() {
+            return this.query;
+        }
+
+        @Override
+        public void handle(int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Damage damage) {
+            FlockMembership flockMembership = archetypeChunk.getComponent(index, FlockMembership.getComponentType());
+            assert (flockMembership != null);
+            Damage.Source source = damage.getSource();
+            if (!(source instanceof Damage.EntitySource)) {
+                return;
+            }
+            Damage.EntitySource entitySource = (Damage.EntitySource)source;
+            Ref<EntityStore> flockRef = flockMembership.getFlockRef();
+            if (flockRef == null || !flockRef.isValid()) {
+                return;
+            }
+            Ref<EntityStore> sourceRef = entitySource.getRef();
+            if (!sourceRef.isValid()) {
+                return;
+            }
+            EntityGroup group = store.getComponent(flockRef, EntityGroup.getComponentType());
+            if (group != null && group.isMember(sourceRef)) {
+                damage.setCancelled(true);
+            }
+        }
+    }
+
     public static class RefChange
     extends RefChangeSystem<EntityStore, FlockMembership> {
         @Nonnull
