@@ -217,7 +217,7 @@ implements NetworkSerializer<Objective, com.hypixel.hytale.protocol.ObjectiveTas
 
     private void shutdownEventRegistry() {
         if (this.eventRegistry != null) {
-            this.eventRegistry.shutdown();
+            this.eventRegistry.shutdownAndCleanup(true);
             this.eventRegistry = null;
         }
     }

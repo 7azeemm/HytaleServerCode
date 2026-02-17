@@ -34,7 +34,6 @@ import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.item.config.PortalKey;
 import com.hypixel.hytale.server.core.asset.type.portalworld.PillTag;
 import com.hypixel.hytale.server.core.asset.type.portalworld.PortalDescription;
-import com.hypixel.hytale.server.core.asset.type.portalworld.PortalSpawn;
 import com.hypixel.hytale.server.core.asset.type.portalworld.PortalType;
 import com.hypixel.hytale.server.core.asset.util.ColorParseUtil;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
@@ -56,6 +55,8 @@ import com.hypixel.hytale.server.core.universe.world.spawn.ISpawnProvider;
 import com.hypixel.hytale.server.core.universe.world.spawn.IndividualSpawnProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -317,8 +318,7 @@ extends InteractiveCustomUIPage<Data> {
 
     @Nonnull
     private static CompletableFuture<World> spawnReturnPortal(@Nonnull World world, @Nonnull PortalWorld portalWorld, @Nonnull UUID sampleUuid, @Nonnull String portalBlockType) {
-        PortalSpawn portalSpawn = portalWorld.getPortalType().getPortalSpawn();
-        return PortalDeviceSummonPage.getSpawnTransform(world, sampleUuid, portalSpawn).thenCompose(spawnTransform -> {
+        return PortalDeviceSummonPage.getSpawnTransform(world, sampleUuid).thenCompose(spawnTransform -> {
             Vector3d spawnPoint = spawnTransform.getPosition();
             return ((CompletableFuture)world.getChunkAsync(ChunkUtil.indexChunkFromBlock((int)spawnPoint.x, (int)spawnPoint.z)).thenAccept(chunk -> {
                 for (int dy = 0; dy < 3; ++dy) {
@@ -337,21 +337,27 @@ extends InteractiveCustomUIPage<Data> {
     }
 
     @Nonnull
-    private static CompletableFuture<Transform> getSpawnTransform(@Nonnull World world, @Nonnull UUID sampleUuid, @Nullable PortalSpawn portalSpawn) {
+    private static CompletableFuture<Transform> getSpawnTransform(@Nonnull World world, @Nonnull UUID sampleUuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<Vector3d> hintedSpawns = PortalDeviceSummonPage.fetchHintedSpawns(world, sampleUuid);
+            return PortalSpawnFinder.computeSpawnTransform(world, hintedSpawns);
+        }, world);
+    }
+
+    private static List<Vector3d> fetchHintedSpawns(World world, UUID sampleUuid) {
         ISpawnProvider spawnProvider = world.getWorldConfig().getSpawnProvider();
         if (spawnProvider == null) {
-            return CompletableFuture.completedFuture(null);
+            return Collections.emptyList();
         }
-        Transform worldSpawnPoint = spawnProvider.getSpawnPoint(world, sampleUuid);
-        if (portalSpawn == null) {
-            Transform uppedSpawnPoint = worldSpawnPoint.clone();
-            uppedSpawnPoint.getPosition().add(0.0, 0.5, 0.0);
-            return CompletableFuture.completedFuture(uppedSpawnPoint);
+        Transform[] spawnTransforms = spawnProvider.getSpawnPoints();
+        if (spawnTransforms != null && spawnTransforms.length > 0) {
+            return Arrays.stream(spawnTransforms).map(Transform::getPosition).toList();
         }
-        return CompletableFuture.supplyAsync(() -> {
-            Transform computedSpawn = PortalSpawnFinder.computeSpawnTransform(world, portalSpawn);
-            return computedSpawn == null ? worldSpawnPoint : computedSpawn;
-        }, world);
+        Transform spawnPoint = spawnProvider.getSpawnPoint(world, sampleUuid);
+        if (spawnPoint != null) {
+            return Collections.singletonList(spawnPoint.getPosition());
+        }
+        return Collections.emptyList();
     }
 
     @Nonnull

@@ -32,7 +32,6 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.math.vector.Vector3f;
 import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockMount;
-import com.hypixel.hytale.protocol.ComponentUpdate;
 import com.hypixel.hytale.protocol.ComponentUpdateType;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.protocol.MountController;
@@ -717,8 +716,6 @@ public class MountSystems {
 
         private static void queueUpdatesFor(@Nonnull Ref<EntityStore> ref, @Nonnull Map<Ref<EntityStore>, EntityTrackerSystems.EntityViewer> visibleTo, @Nonnull MountedComponent component) {
             MountedUpdate mountedUpdate;
-            ComponentUpdate update = new ComponentUpdate();
-            update.type = ComponentUpdateType.Mounted;
             Ref<EntityStore> mountedToEntity = component.getMountedToEntity();
             Ref<ChunkStore> mountedToBlock = component.getMountedToBlock();
             Vector3f offset = component.getAttachmentOffset();
@@ -747,9 +744,8 @@ public class MountSystems {
             } else {
                 throw new UnsupportedOperationException("Couldn't create MountedUpdate packet for MountedComponent");
             }
-            update.mounted = mountedUpdate;
             for (EntityTrackerSystems.EntityViewer viewer : visibleTo.values()) {
-                viewer.queueUpdate(ref, update);
+                viewer.queueUpdate(ref, mountedUpdate);
             }
         }
     }

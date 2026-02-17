@@ -39,7 +39,7 @@ public interface FileIO {
     }
 
     @Nonnull
-    public static FileIOSystem openFileIOSystem(@Nonnull FileIOSystem fs) {
+    public static <FS extends FileIOSystem> FS openFileIOSystem(@Nonnull FS fs) {
         FileIOSystem.Provider.set(fs);
         return fs;
     }
@@ -80,16 +80,19 @@ public interface FileIO {
         FileIOSystem fs = FileIOSystem.Provider.get();
         Path assetDirPath = FileIO.relativize(path, fs.baseRoot());
         ObjectArrayList<AssetPath> paths = new ObjectArrayList<AssetPath>();
-        ObjectOpenHashSet<AssetPath> visited = new ObjectOpenHashSet<AssetPath>();
+        ObjectOpenHashSet visited = new ObjectOpenHashSet();
+        ObjectOpenHashSet<AssetPath> disabled = new ObjectOpenHashSet<AssetPath>();
         for (Path root : fs.roots().paths) {
             Path rootAssetDirPath = FileIO.append(root, assetDirPath);
             if (!Files.exists(rootAssetDirPath, new LinkOption[0]) || !Files.isDirectory(rootAssetDirPath, new LinkOption[0])) continue;
             try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(rootAssetDirPath);){
+                visited.addAll(disabled);
+                disabled.clear();
                 for (Path filepath : dirStream) {
                     AssetPath assetPath = AssetPath.fromAbsolute(root, filepath);
                     AssetPath disabledPath = (AssetPath)disableOp.apply(assetPath);
                     if (disabledPath != assetPath) {
-                        visited.add(disabledPath);
+                        disabled.add(disabledPath);
                         continue;
                     }
                     if (!matcher.test(assetPath) || !visited.add(assetPath)) continue;

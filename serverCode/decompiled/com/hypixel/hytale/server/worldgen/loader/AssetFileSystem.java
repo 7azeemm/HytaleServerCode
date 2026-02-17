@@ -4,7 +4,6 @@
 package com.hypixel.hytale.server.worldgen.loader;
 
 import com.hypixel.hytale.assetstore.AssetPack;
-import com.hypixel.hytale.builtin.worldgen.FeatureFlags;
 import com.hypixel.hytale.builtin.worldgen.WorldGenPlugin;
 import com.hypixel.hytale.procedurallib.file.AssetLoader;
 import com.hypixel.hytale.procedurallib.file.AssetPath;
@@ -39,6 +38,7 @@ implements FileIOSystem {
     };
     private final Path root;
     private final FileIOSystem.PathArray packRoots;
+    private final List<AssetPack> packs;
     private final Object2ObjectMap<Path, AssetPath> files = new Object2ObjectOpenCustomHashMap<Path, AssetPath>(PATH_STRATEGY);
     private final Object2ObjectMap<AssetPath, Resource<?>> resources = new Object2ObjectOpenHashMap();
 
@@ -46,7 +46,8 @@ implements FileIOSystem {
         Path root = AssetModule.get().getBaseAssetPack().getRoot();
         Path assetPath = FileIO.relativize(config.path(), root);
         this.root = root;
-        this.packRoots = new FileIOSystem.PathArray(AssetFileSystem.getAssetRoots(config, packRoot -> FileIO.exists(packRoot, assetPath)));
+        this.packs = AssetFileSystem.getAssetPacks(config, packRoot -> FileIO.exists(packRoot, assetPath));
+        this.packRoots = new FileIOSystem.PathArray(AssetFileSystem.getAssetRoots(this.packs));
     }
 
     @Override
@@ -94,27 +95,37 @@ implements FileIOSystem {
         FileIO.closeFileIOSystem(this);
     }
 
-    public static Path[] getAssetRoots(@Nonnull WorldGenConfig config, @Nonnull Predicate<Path> filter) {
+    public List<AssetPack> packs() {
+        return this.packs;
+    }
+
+    public static List<AssetPack> getAssetPacks(@Nonnull WorldGenConfig config, @Nonnull Predicate<Path> filter) {
         AssetPack pack;
         int i;
         AssetModule assets = AssetModule.get();
-        List<AssetPack> packs = assets.getAssetPacks();
-        ObjectArrayList<Path> roots = new ObjectArrayList<Path>(packs.size());
         Path versionsDir = WorldGenPlugin.getVersionsPath();
-        for (i = packs.size() - 1; i >= 1; --i) {
-            pack = packs.get(i);
+        List<AssetPack> allPacks = assets.getAssetPacks();
+        ObjectArrayList<AssetPack> packs = new ObjectArrayList<AssetPack>(allPacks.size());
+        for (i = allPacks.size() - 1; i >= 1; --i) {
+            pack = allPacks.get(i);
             if (FileIO.startsWith(pack.getRoot(), versionsDir) || !filter.test(pack.getRoot())) continue;
-            roots.add(packs.get(i).getRoot());
+            packs.add(allPacks.get(i));
         }
-        if (FeatureFlags.VERSION_OVERRIDES) {
-            for (i = packs.size() - 1; i >= 1; --i) {
-                pack = packs.get(i);
-                if (!FileIO.startsWith(pack.getRoot(), versionsDir) || pack.getManifest().getVersion().compareTo(config.version()) > 0 || !filter.test(pack.getRoot())) continue;
-                roots.add(packs.get(i).getRoot());
-            }
+        for (i = allPacks.size() - 1; i >= 1; --i) {
+            pack = allPacks.get(i);
+            if (!FileIO.startsWith(pack.getRoot(), versionsDir) || pack.getManifest().getVersion().compareTo(config.version()) > 0 || !filter.test(pack.getRoot())) continue;
+            packs.add(allPacks.get(i));
         }
-        roots.add(packs.getFirst().getRoot());
-        return (Path[])roots.toArray(Path[]::new);
+        packs.add(allPacks.getFirst());
+        return List.copyOf(packs);
+    }
+
+    public static Path[] getAssetRoots(@Nonnull List<AssetPack> packs) {
+        Path[] roots = new Path[packs.size()];
+        for (int i = 0; i < packs.size(); ++i) {
+            roots[i] = packs.get(i).getRoot();
+        }
+        return roots;
     }
 
     public record Resource<T>(@Nonnull T value, @Nonnull Class<T> type) {

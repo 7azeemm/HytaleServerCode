@@ -24,9 +24,9 @@ import com.hypixel.hytale.metrics.MetricsRegistry;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MovementStates;
-import com.hypixel.hytale.protocol.Packet;
 import com.hypixel.hytale.protocol.SavedMovementStates;
 import com.hypixel.hytale.protocol.SoundCategory;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.player.SetBlockPlacementOverride;
 import com.hypixel.hytale.protocol.packets.player.SetGameMode;
 import com.hypixel.hytale.protocol.packets.player.SetMovementStates;
@@ -203,7 +203,7 @@ MetricProvider {
                     Store<EntityStore> store = ref.getStore();
                     ChunkTracker tracker = store.getComponent(ref, ChunkTracker.getComponentType());
                     if (tracker != null) {
-                        tracker.clear();
+                        tracker.unloadAll(this.playerRef);
                     }
                     this.playerRef.removeFromStore();
                 }
@@ -216,7 +216,7 @@ MetricProvider {
                     Store<EntityStore> store = ref.getStore();
                     ChunkTracker tracker = store.getComponent(ref, ChunkTracker.getComponentType());
                     if (tracker != null) {
-                        tracker.clear();
+                        tracker.unloadAll(this.playerRef);
                     }
                     this.playerRef.removeFromStore();
                 });
@@ -288,7 +288,7 @@ MetricProvider {
 
     public void sendInventory() {
         this.getInventory().consumeIsDirty();
-        this.playerRef.getPacketHandler().write((Packet)this.getInventory().toPacket());
+        this.playerRef.getPacketHandler().write((ToClientPacket)this.getInventory().toPacket());
     }
 
     @Nonnull

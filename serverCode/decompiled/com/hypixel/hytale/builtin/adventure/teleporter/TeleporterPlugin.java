@@ -9,6 +9,7 @@ import com.hypixel.hytale.builtin.adventure.teleporter.interaction.server.UsedTe
 import com.hypixel.hytale.builtin.adventure.teleporter.page.TeleporterSettingsPageSupplier;
 import com.hypixel.hytale.builtin.adventure.teleporter.system.ClearUsedTeleporterSystem;
 import com.hypixel.hytale.builtin.adventure.teleporter.system.CreateWarpWhenTeleporterPlacedSystem;
+import com.hypixel.hytale.builtin.adventure.teleporter.system.TurnOffTeleportersSystem;
 import com.hypixel.hytale.builtin.teleport.TeleportPlugin;
 import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.CommandBuffer;
@@ -65,7 +66,8 @@ extends JavaPlugin {
         ComponentType<EntityStore, PendingTeleport> pendingTeleportComponentType = PendingTeleport.getComponentType();
         chunkStoreRegistry.registerSystem(new TeleporterOwnedWarpRefChangeSystem(this.teleporterComponentType));
         chunkStoreRegistry.registerSystem(new TeleporterOwnedWarpRefSystem(this.teleporterComponentType));
-        chunkStoreRegistry.registerSystem(new CreateWarpWhenTeleporterPlacedSystem(placedByInteractionComponentType, this.teleporterComponentType, blockStateInfoComponentType, playerRefComponentType));
+        chunkStoreRegistry.registerSystem(new TurnOffTeleportersSystem());
+        this.getChunkStoreRegistry().registerSystem(new CreateWarpWhenTeleporterPlacedSystem(placedByInteractionComponentType, this.teleporterComponentType, blockStateInfoComponentType, playerRefComponentType));
         this.usedTeleporterComponentType = entityStoreRegistry.registerComponent(UsedTeleporter.class, UsedTeleporter::new);
         entityStoreRegistry.registerSystem(new ClearUsedTeleporterSystem(this.usedTeleporterComponentType, transformComponentType, teleportRecordComponentType, teleportComponentType, pendingTeleportComponentType));
         this.getCodecRegistry(Interaction.CODEC).register("Teleporter", TeleporterInteraction.class, TeleporterInteraction.CODEC);
@@ -140,19 +142,6 @@ extends JavaPlugin {
 
         @Override
         public void onEntityAdded(@Nonnull Ref<ChunkStore> ref, @Nonnull AddReason reason, @Nonnull Store<ChunkStore> store, @Nonnull CommandBuffer<ChunkStore> commandBuffer) {
-            switch (reason) {
-                case SPAWN: {
-                    break;
-                }
-                case LOAD: {
-                    Teleporter teleporterComponent = commandBuffer.getComponent(ref, this.teleporterComponentType);
-                    if (teleporterComponent == null) {
-                        return;
-                    }
-                    String ownedWarp = teleporterComponent.getOwnedWarp();
-                    if (ownedWarp != null && !ownedWarp.isEmpty() && TeleportPlugin.get().getWarps().containsKey(ownedWarp.toLowerCase())) break;
-                }
-            }
         }
 
         @Override

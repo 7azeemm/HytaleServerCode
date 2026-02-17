@@ -142,8 +142,7 @@ extends SimpleInstantInteraction {
         }
         UUID playerUUID = uuidComponent.getUuid();
         CreativeHubEntityConfig hubEntityConfig = componentAccessor.getComponent(playerRef, CreativeHubEntityConfig.getComponentType());
-        originalWorld.execute(playerRefComponent::removeFromStore);
-        ((CompletableFuture)worldFuture.orTimeout(1L, TimeUnit.MINUTES).thenCompose(world -> {
+        ((CompletableFuture)((CompletableFuture)CompletableFuture.runAsync(playerRefComponent::removeFromStore, originalWorld).thenCombine(worldFuture.orTimeout(1L, TimeUnit.MINUTES), (v, world) -> world)).thenCompose(world -> {
             PlayerWorldData worldData = (PlayerWorldData)perWorldData.get(world.getName());
             if (worldData != null && worldData.getLastPosition() != null) {
                 return world.addPlayer(playerRefComponent, worldData.getLastPosition(), Boolean.TRUE, Boolean.FALSE);

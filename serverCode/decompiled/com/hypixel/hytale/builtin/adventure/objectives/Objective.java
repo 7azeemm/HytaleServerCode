@@ -23,7 +23,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.function.consumer.TriConsumer;
 import com.hypixel.hytale.math.vector.Vector3d;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.assets.TrackOrUpdateObjective;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
@@ -246,7 +246,7 @@ implements NetworkSerializable<com.hypixel.hytale.protocol.Objective> {
             this.forEachParticipant((participantReference, trackOrUpdateObjective) -> {
                 PlayerRef playerRefComponent = store.getComponent((Ref<EntityStore>)participantReference, PlayerRef.getComponentType());
                 if (playerRefComponent != null) {
-                    playerRefComponent.getPacketHandler().writeNoCache((Packet)trackOrUpdateObjective);
+                    playerRefComponent.getPacketHandler().writeNoCache((ToClientPacket)trackOrUpdateObjective);
                 }
             }, trackObjectivePacket);
             this.checkTaskSetCompletion(store);
@@ -318,7 +318,7 @@ implements NetworkSerializable<com.hypixel.hytale.protocol.Objective> {
             this.forEachParticipant((participantReference, packet) -> {
                 PlayerRef playerRefComponent = store.getComponent((Ref<EntityStore>)participantReference, PlayerRef.getComponentType());
                 if (playerRefComponent != null) {
-                    playerRefComponent.getPacketHandler().writeNoCache((Packet)packet);
+                    playerRefComponent.getPacketHandler().writeNoCache((ToClientPacket)packet);
                 }
             }, updatePacket);
         });

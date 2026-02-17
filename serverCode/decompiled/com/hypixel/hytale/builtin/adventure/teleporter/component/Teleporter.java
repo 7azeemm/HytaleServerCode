@@ -42,6 +42,8 @@ implements Component<ChunkStore> {
     }, teleporter -> teleporter.isCustomName).add()).append(new KeyedCodec<String>("WarpNameWordList", Codec.STRING), (teleporter, s) -> {
         teleporter.warpNameWordListKey = s;
     }, teleporter -> teleporter.warpNameWordListKey).documentation("The ID of the Word list to select default warp names from").add()).build();
+    public static final String ACTIVATE_STATE = "Active";
+    public static final String INACTIVE_STATE = "default";
     @Nullable
     private UUID worldUuid;
     @Nullable

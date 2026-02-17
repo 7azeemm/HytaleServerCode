@@ -21,7 +21,7 @@ import com.hypixel.hytale.codec.schema.SchemaContext;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.common.util.FormatUtil;
 import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Options;
@@ -293,8 +293,8 @@ public class AssetRegistryLoader {
      * WARNING - Removed try catching itself - possible behaviour change.
      */
     public static void sendAssets(@Nonnull PacketHandler packetHandler) {
-        Consumer<Packet[]> packetConsumer = packetHandler::write;
-        Consumer<Packet> singlePacketConsumer = packetHandler::write;
+        Consumer<ToClientPacket[]> packetConsumer = packetHandler::write;
+        Consumer<ToClientPacket> singlePacketConsumer = packetHandler::write;
         HytaleAssetStore.SETUP_PACKET_CONSUMERS.add(singlePacketConsumer);
         try {
             for (AssetStore<?, ?, ?> assetStore : AssetRegistry.getStoreMap().values()) {

@@ -26,8 +26,10 @@ import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.metrics.MetricProvider;
 import com.hypixel.hytale.metrics.MetricResults;
 import com.hypixel.hytale.metrics.MetricsRegistry;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.NetworkChannel;
 import com.hypixel.hytale.protocol.PlayerSkin;
+import com.hypixel.hytale.protocol.ToClientPacket;
+import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
 import com.hypixel.hytale.protocol.packets.setup.ServerTags;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
@@ -37,6 +39,7 @@ import com.hypixel.hytale.server.core.NameMatching;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.command.system.CommandRegistry;
+import com.hypixel.hytale.server.core.config.BackupConfig;
 import com.hypixel.hytale.server.core.cosmetics.CosmeticsModule;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
@@ -89,6 +92,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.provider.EmptyChunk
 import com.hypixel.hytale.server.core.universe.world.storage.provider.IChunkStorageProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.provider.IndexedStorageChunkStorageProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.provider.MigrationChunkStorageProvider;
+import com.hypixel.hytale.server.core.universe.world.storage.provider.RocksDbChunkStorageProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.resources.DefaultResourceStorageProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.resources.DiskResourceStorageProvider;
 import com.hypixel.hytale.server.core.universe.world.storage.resources.EmptyResourceStorageProvider;
@@ -108,6 +112,9 @@ import com.hypixel.hytale.server.core.util.backup.BackupTask;
 import com.hypixel.hytale.server.core.util.io.FileUtil;
 import com.hypixel.hytale.sneakythrow.SneakyThrow;
 import io.netty.channel.Channel;
+import io.netty.handler.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicStreamChannel;
+import io.netty.handler.codec.quic.QuicStreamType;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.io.IOException;
@@ -166,7 +173,6 @@ MetricProvider {
     private final Map<String, World> unmodifiableWorlds = Collections.unmodifiableMap(this.worlds);
     private PlayerStorage playerStorage;
     private WorldConfigProvider worldConfigProvider;
-    private ResourceType<ChunkStore, IndexedStorageChunkStorageProvider.IndexedStorageCache> indexedStorageCacheResourceType;
     private ResourceType<ChunkStore, WorldMarkersResource> worldMarkersResourceType;
     private CompletableFuture<Void> universeReady;
     private final AtomicBoolean isBackingUp = new AtomicBoolean(false);
@@ -177,6 +183,7 @@ MetricProvider {
 
     public Universe(@Nonnull JavaPluginInit init) {
         super(init);
+        BackupConfig backupConfig;
         instance = this;
         if (!Files.isDirectory(this.path, new LinkOption[0]) && !Options.getOptionSet().has(Options.BARE)) {
             try {
@@ -186,8 +193,8 @@ MetricProvider {
                 throw new RuntimeException("Failed to create universe directory", e);
             }
         }
-        if (Options.getOptionSet().has(Options.BACKUP)) {
-            int frequencyMinutes = Math.max(Options.getOptionSet().valueOf(Options.BACKUP_FREQUENCY_MINUTES), 1);
+        if ((backupConfig = HytaleServer.get().getConfig().getBackupConfig()).isConfigured()) {
+            int frequencyMinutes = backupConfig.getFrequencyMinutes();
             this.getLogger().at(Level.INFO).log("Scheduled backup to run every %d minute(s)", frequencyMinutes);
             HytaleServer.SCHEDULED_EXECUTOR.scheduleWithFixedDelay(() -> {
                 if (!this.isBackingUp.compareAndSet(false, true)) {
@@ -215,12 +222,16 @@ MetricProvider {
 
     @Nonnull
     public CompletableFuture<Void> runBackup() {
+        Path backupDir = HytaleServer.get().getConfig().getBackupConfig().getDirectory();
+        if (backupDir == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Backup directory not configured"));
+        }
         return ((CompletableFuture)CompletableFuture.allOf((CompletableFuture[])this.worlds.values().stream().map(world -> CompletableFuture.supplyAsync(() -> {
             Store<ChunkStore> componentStore = world.getChunkStore().getStore();
             ChunkSavingSystems.Data data = componentStore.getResource(ChunkStore.SAVE_RESOURCE);
             data.isSaving = false;
             return data;
-        }, world).thenCompose(ChunkSavingSystems.Data::waitForSavingChunks)).toArray(CompletableFuture[]::new)).thenCompose(aVoid -> BackupTask.start(this.path, Options.getOptionSet().valueOf(Options.BACKUP_DIRECTORY)))).thenCompose(success -> CompletableFuture.allOf((CompletableFuture[])this.worlds.values().stream().map(world -> CompletableFuture.runAsync(() -> {
+        }, world).thenCompose(ChunkSavingSystems.Data::waitForSavingChunks)).toArray(CompletableFuture[]::new)).thenCompose(aVoid -> BackupTask.start(this.path, backupDir))).thenCompose(success -> CompletableFuture.allOf((CompletableFuture[])this.worlds.values().stream().map(world -> CompletableFuture.runAsync(() -> {
             Store<ChunkStore> componentStore = world.getChunkStore().getStore();
             ChunkSavingSystems.Data data = componentStore.getResource(ChunkStore.SAVE_RESOURCE);
             data.isSaving = true;
@@ -243,16 +254,15 @@ MetricProvider {
         IWorldGenProvider.CODEC.register(Priority.DEFAULT, "Void", (Class<IWorldGenProvider>)VoidWorldGenProvider.class, VoidWorldGenProvider.CODEC);
         IWorldMapProvider.CODEC.register("Disabled", DisabledWorldMapProvider.class, DisabledWorldMapProvider.CODEC);
         IWorldMapProvider.CODEC.register(Priority.DEFAULT, "WorldGen", (Class<IWorldMapProvider>)WorldGenWorldMapProvider.class, WorldGenWorldMapProvider.CODEC);
-        IChunkStorageProvider.CODEC.register(Priority.DEFAULT, "Hytale", (Class<IChunkStorageProvider>)DefaultChunkStorageProvider.class, DefaultChunkStorageProvider.CODEC);
+        IChunkStorageProvider.CODEC.register(Priority.DEFAULT, "Hytale", (Class<IChunkStorageProvider<?>>)DefaultChunkStorageProvider.class, DefaultChunkStorageProvider.CODEC);
         IChunkStorageProvider.CODEC.register("Migration", MigrationChunkStorageProvider.class, MigrationChunkStorageProvider.CODEC);
         IChunkStorageProvider.CODEC.register("IndexedStorage", IndexedStorageChunkStorageProvider.class, IndexedStorageChunkStorageProvider.CODEC);
+        IChunkStorageProvider.CODEC.register("RocksDb", RocksDbChunkStorageProvider.class, RocksDbChunkStorageProvider.CODEC);
         IChunkStorageProvider.CODEC.register("Empty", EmptyChunkStorageProvider.class, EmptyChunkStorageProvider.CODEC);
         IResourceStorageProvider.CODEC.register(Priority.DEFAULT, "Hytale", (Class<IResourceStorageProvider>)DefaultResourceStorageProvider.class, DefaultResourceStorageProvider.CODEC);
         IResourceStorageProvider.CODEC.register("Disk", DiskResourceStorageProvider.class, DiskResourceStorageProvider.CODEC);
         IResourceStorageProvider.CODEC.register("Empty", EmptyResourceStorageProvider.class, EmptyResourceStorageProvider.CODEC);
-        this.indexedStorageCacheResourceType = chunkStoreRegistry.registerResource(IndexedStorageChunkStorageProvider.IndexedStorageCache.class, IndexedStorageChunkStorageProvider.IndexedStorageCache::new);
         this.worldMarkersResourceType = chunkStoreRegistry.registerResource(WorldMarkersResource.class, "SharedUserMapMarkers", WorldMarkersResource.CODEC);
-        chunkStoreRegistry.registerSystem(new IndexedStorageChunkStorageProvider.IndexedStorageCacheSetupSystem());
         chunkStoreRegistry.registerSystem(new WorldPregenerateSystem());
         entityStoreRegistry.registerSystem(new WorldConfigSaveSystem());
         this.playerRefComponentType = entityStoreRegistry.registerComponent(PlayerRef.class, () -> {
@@ -375,10 +385,6 @@ MetricProvider {
         return this.universeReady;
     }
 
-    public ResourceType<ChunkStore, IndexedStorageChunkStorageProvider.IndexedStorageCache> getIndexedStorageCacheResourceType() {
-        return this.indexedStorageCacheResourceType;
-    }
-
     public ResourceType<ChunkStore, WorldMarkersResource> getWorldMarkersResourceType() {
         return this.worldMarkersResourceType;
     }
@@ -423,7 +429,7 @@ MetricProvider {
                     throw new IllegalArgumentException("Unknown chunkStorageType '" + chunkStorageType + "'");
                 }
                 provider = (IChunkStorageProvider)providerCodec.getDefaultValue();
-                worldConfig.setChunkStorageProvider((IChunkStorageProvider)provider);
+                worldConfig.setChunkStorageProvider((IChunkStorageProvider<?>)provider);
                 worldConfig.markChanged();
             }
             return this.makeWorld(name, savePath, (WorldConfig)worldConfig);
@@ -647,10 +653,24 @@ MetricProvider {
 
     @Nonnull
     public CompletableFuture<PlayerRef> addPlayer(@Nonnull Channel channel, @Nonnull String language, @Nonnull ProtocolVersion protocolVersion, @Nonnull UUID uuid, @Nonnull String username, @Nonnull PlayerAuthentication auth, int clientViewRadiusChunks, @Nullable PlayerSkin skin) {
+        CompletableFuture<Object> setupFuture;
         GamePacketHandler playerConnection = new GamePacketHandler(channel, protocolVersion, auth);
         playerConnection.setQueuePackets(false);
         this.getLogger().at(Level.INFO).log("Adding player '%s (%s)", (Object)username, (Object)uuid);
-        return ((CompletableFuture)this.playerStorage.load(uuid).exceptionally(throwable -> {
+        if (channel instanceof QuicStreamChannel) {
+            QuicStreamChannel streamChannel = (QuicStreamChannel)channel;
+            QuicChannel conn = streamChannel.parent();
+            conn.attr(ProtocolUtil.STREAM_CHANNEL_KEY).set(NetworkChannel.Default);
+            streamChannel.updatePriority(PacketHandler.DEFAULT_STREAM_PRIORITIES.get((Object)NetworkChannel.Default));
+            CompletableFuture<Void> chunkFuture = NettyUtil.createStream(conn, QuicStreamType.UNIDIRECTIONAL, NetworkChannel.Chunks, PacketHandler.DEFAULT_STREAM_PRIORITIES.get((Object)NetworkChannel.Chunks), playerConnection);
+            CompletableFuture<Void> worldMapFuture = NettyUtil.createStream(conn, QuicStreamType.UNIDIRECTIONAL, NetworkChannel.WorldMap, PacketHandler.DEFAULT_STREAM_PRIORITIES.get((Object)NetworkChannel.WorldMap), playerConnection);
+            setupFuture = CompletableFuture.allOf(chunkFuture, worldMapFuture);
+        } else {
+            playerConnection.setChannel(NetworkChannel.WorldMap, channel);
+            playerConnection.setChannel(NetworkChannel.Chunks, channel);
+            setupFuture = CompletableFuture.completedFuture(null);
+        }
+        return ((CompletableFuture)((CompletableFuture)setupFuture.thenCombine(this.playerStorage.load(uuid), (setupResult, playerData) -> playerData)).exceptionally(throwable -> {
             throw new RuntimeException("Exception when adding player to universe:", (Throwable)throwable);
         })).thenCompose(holder -> {
             World world;
@@ -706,7 +726,7 @@ MetricProvider {
                 playerComponent.sendMessage(Message.translation("server.universe.failedToFindWorld").param("lastWorldName", lastWorldName).param("name", world.getName()));
             }
             PacketHandler.logConnectionTimings(channel, "Processed Referral", Level.FINEST);
-            playerRefComponent.getPacketHandler().write((Packet)new ServerTags(AssetRegistry.getClientTags()));
+            playerRefComponent.getPacketHandler().write((ToClientPacket)new ServerTags(AssetRegistry.getClientTags()));
             CompletableFuture<PlayerRef> addPlayerFuture = world.addPlayer(playerRefComponent, null, false, false);
             if (addPlayerFuture == null) {
                 this.players.remove(uuid, playerRefComponent);
@@ -844,19 +864,19 @@ MetricProvider {
         }
     }
 
-    public void broadcastPacket(@Nonnull Packet packet) {
+    public void broadcastPacket(@Nonnull ToClientPacket packet) {
         for (PlayerRef player : this.players.values()) {
             player.getPacketHandler().write(packet);
         }
     }
 
-    public void broadcastPacketNoCache(@Nonnull Packet packet) {
+    public void broadcastPacketNoCache(@Nonnull ToClientPacket packet) {
         for (PlayerRef player : this.players.values()) {
             player.getPacketHandler().writeNoCache(packet);
         }
     }
 
-    public void broadcastPacket(Packet ... packets) {
+    public void broadcastPacket(ToClientPacket ... packets) {
         for (PlayerRef player : this.players.values()) {
             player.getPacketHandler().write(packets);
         }

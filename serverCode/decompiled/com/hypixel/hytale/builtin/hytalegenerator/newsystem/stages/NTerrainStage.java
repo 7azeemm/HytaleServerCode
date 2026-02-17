@@ -350,7 +350,6 @@ implements NStage {
                 boolean solidity;
                 position.y = y;
                 positionAbove.y = y + 1;
-                positionBelow.y = y - 1;
                 i = y - this.bottom;
                 float density = this.densityBuffer.get(position);
                 boolean bl = solidity = (double)density > 0.0;
@@ -369,6 +368,8 @@ implements NStage {
             }
             for (y = this.bottom; y <= this.top; ++y) {
                 boolean solidity;
+                position.y = y;
+                positionBelow.y = y - 1;
                 i = y - this.bottom;
                 double density = this.densityBuffer.get(position);
                 boolean bl = solidity = density > 0.0;

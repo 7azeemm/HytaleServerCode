@@ -26,7 +26,7 @@ import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
 import com.hypixel.hytale.metrics.ExecutorMetricsRegistry;
 import com.hypixel.hytale.metrics.metric.HistoricMetric;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.entities.SetEntitySeed;
 import com.hypixel.hytale.protocol.packets.player.JoinWorld;
 import com.hypixel.hytale.protocol.packets.player.SetClientId;
@@ -376,6 +376,7 @@ IMessageReceiver {
             this.consumeTaskQueue();
             this.entityStore.shutdown();
             this.consumeTaskQueue();
+            this.eventRegistry.shutdownAndCleanup(true);
         }
         finally {
             this.logger.at(Level.INFO).log("Saving Config...");
@@ -822,9 +823,9 @@ IMessageReceiver {
         float timeDilationModifier = timeResource.getTimeDilationModifier();
         int maxViewRadius = HytaleServer.get().getConfig().getMaxViewRadius();
         packetHandler.write(new ViewRadius(maxViewRadius * 32), new SetEntitySeed(this.entitySeed.get()), new SetClientId(playerComponent.getNetworkId()), new SetTimeDilation(timeDilationModifier));
-        packetHandler.write((Packet)new UpdateFeatures(this.features));
-        packetHandler.write((Packet)this.worldConfig.getClientEffects().createSunSettingsPacket());
-        packetHandler.write((Packet)this.worldConfig.getClientEffects().createPostFxSettingsPacket());
+        packetHandler.write((ToClientPacket)new UpdateFeatures(this.features));
+        packetHandler.write((ToClientPacket)this.worldConfig.getClientEffects().createSunSettingsPacket());
+        packetHandler.write((ToClientPacket)this.worldConfig.getClientEffects().createPostFxSettingsPacket());
         UUID playerUuid = playerRefComponent.getUuid();
         Store<EntityStore> store = this.entityStore.getStore();
         WorldTimeResource worldTimeResource = store.getResource(WorldTimeResource.getResourceType());
@@ -864,12 +865,12 @@ IMessageReceiver {
             LegacyEntityTrackerSystems.clear(playerComponent, holder);
             ChunkTracker chunkTrackerComponent = holder.getComponent(ChunkTracker.getComponentType());
             if (chunkTrackerComponent != null) {
-                chunkTrackerComponent.clear();
+                chunkTrackerComponent.unloadAll(playerRefComponent);
             }
         }
         playerComponent.getPageManager().clearCustomPageAcknowledgements();
         JoinWorld packet = new JoinWorld(clearWorld, fadeInOut, this.worldConfig.getUuid());
-        packetHandler.write((Packet)packet);
+        packetHandler.write((ToClientPacket)packet);
         packetHandler.tryFlush();
         HytaleLogger.getLogger().at(Level.INFO).log("%s: Sent %s", (Object)packetHandler.getIdentifier(), (Object)packet);
         packetHandler.setQueuePackets(true);
@@ -913,7 +914,7 @@ IMessageReceiver {
     public void broadcastFeatures() {
         UpdateFeatures packet = new UpdateFeatures(this.features);
         for (PlayerRef playerRef : this.playerRefs) {
-            playerRef.getPacketHandler().write((Packet)packet);
+            playerRef.getPacketHandler().write((ToClientPacket)packet);
         }
     }
 
@@ -925,7 +926,7 @@ IMessageReceiver {
     public void updateEntitySeed(@Nonnull Store<EntityStore> store) {
         int newEntitySeed = this.random.nextInt();
         this.entitySeed.set(newEntitySeed);
-        PlayerUtil.broadcastPacketToPlayers(store, (Packet)new SetEntitySeed(newEntitySeed));
+        PlayerUtil.broadcastPacketToPlayers(store, (ToClientPacket)new SetEntitySeed(newEntitySeed));
     }
 
     public void markGCHasRun() {

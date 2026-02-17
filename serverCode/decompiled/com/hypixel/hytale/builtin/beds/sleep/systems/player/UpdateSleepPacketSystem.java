@@ -19,7 +19,7 @@ import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.world.SleepClock;
 import com.hypixel.hytale.protocol.packets.world.SleepMultiplayer;
 import com.hypixel.hytale.protocol.packets.world.UpdateSleepState;
@@ -84,7 +84,7 @@ extends DelayedEntitySystem<EntityStore> {
         if ((packet = sleepTrackerComponent.generatePacketToSend(packet)) != null) {
             PlayerRef playerRefComponent = archetypeChunk.getComponent(index, this.playerRefComponentType);
             assert (playerRefComponent != null);
-            playerRefComponent.getPacketHandler().write((Packet)packet);
+            playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
         }
     }
 

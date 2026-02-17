@@ -17,7 +17,7 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.world.UpdateEnvironmentMusic;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -59,7 +59,7 @@ public class ForcedMusicSystems {
             ambienceTrackerComponent.setForcedMusicIndex(desired);
             UpdateEnvironmentMusic pooledPacket = ambienceTrackerComponent.getMusicPacket();
             pooledPacket.environmentIndex = desired;
-            playerRefComponent.getPacketHandler().write((Packet)pooledPacket);
+            playerRefComponent.getPacketHandler().write((ToClientPacket)pooledPacket);
         }
 
         @Override
@@ -97,7 +97,7 @@ public class ForcedMusicSystems {
             assert (playerRefComponent != null);
             UpdateEnvironmentMusic pooledPacket = ambienceTrackerComponent.getMusicPacket();
             pooledPacket.environmentIndex = 0;
-            playerRefComponent.getPacketHandler().write((Packet)pooledPacket);
+            playerRefComponent.getPacketHandler().write((ToClientPacket)pooledPacket);
         }
 
         @Override

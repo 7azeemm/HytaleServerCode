@@ -43,6 +43,7 @@ extends PositionProvider {
             for (Delimiter d : this.delimiters) {
                 if (!d.isInside(value)) continue;
                 context.consumer.accept((Vector3d)p);
+                return;
             }
         };
         this.positionProvider.positionsIn(childContext);

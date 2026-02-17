@@ -17,8 +17,9 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.GameMode;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.NetworkChannel;
 import com.hypixel.hytale.protocol.SoundCategory;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.worldmap.ClearWorldMap;
 import com.hypixel.hytale.protocol.packets.worldmap.MapChunk;
 import com.hypixel.hytale.protocol.packets.worldmap.MapImage;
@@ -99,7 +100,7 @@ implements Tickable {
             this.started = true;
             LOGGER.at(Level.INFO).log("Started Generating Map!");
         }
-        if ((world = this.player.getWorld()) == null) {
+        if ((world = this.player.getWorld()) == null || !this.player.getPlayerConnection().getChannel(NetworkChannel.WorldMap).isWritable()) {
             return;
         }
         if (this.transformComponent == null) {
@@ -379,7 +380,7 @@ implements Tickable {
         if (list != null) {
             UpdateWorldMap packet = new UpdateWorldMap((MapChunk[])list.toArray(MapChunk[]::new), null, null);
             LOGGER.at(Level.FINE).log("Sending world map update to %s - %d chunks", (Object)this.player.getUuid(), list.size());
-            this.player.getPlayerConnection().write((Packet)packet);
+            this.player.getPlayerConnection().write((ToClientPacket)packet);
         }
     }
 
@@ -408,7 +409,7 @@ implements Tickable {
         finally {
             this.loadedLock.writeLock().unlock();
         }
-        this.player.getPlayerConnection().write((Packet)new ClearWorldMap());
+        this.player.getPlayerConnection().write((ToClientPacket)new ClearWorldMap());
     }
 
     public void clearChunks(@Nonnull LongSet chunkIndices) {
@@ -445,7 +446,7 @@ implements Tickable {
             worldMapSettingsPacket.allowShowOnMapToggle = worldMapConfig.canTogglePlayersInMap();
             worldMapSettingsPacket.allowCompassTrackingToggle = worldMapConfig.canTrackPlayersInCompass();
             worldMapSettingsPacket.allowRemovingOtherPlayersMarkers = worldMapConfig.getUserMapMarkerConfig().isAllowDeleteOtherPlayersSharedMarkers();
-            playerRefComponent.getPacketHandler().write((Packet)worldMapSettingsPacket);
+            playerRefComponent.getPacketHandler().write((ToClientPacket)worldMapSettingsPacket);
         });
     }
 

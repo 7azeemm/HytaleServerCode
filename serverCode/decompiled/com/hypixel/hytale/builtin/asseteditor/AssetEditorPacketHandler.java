@@ -15,7 +15,7 @@ import com.hypixel.hytale.common.util.CompletableFutureUtil;
 import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.HostAddress;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorActivateButton;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorCreateAsset;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorCreateAssetPack;
@@ -101,7 +101,7 @@ extends GenericPacketHandler {
     @Override
     @Nonnull
     public String getIdentifier() {
-        return "{Editor(" + NettyUtil.formatRemoteAddress(this.channel) + "), " + String.valueOf(this.editorClient.getUuid()) + ", " + this.editorClient.getUsername() + "}";
+        return "{Editor(" + NettyUtil.formatRemoteAddress(this.getChannel()) + "), " + String.valueOf(this.editorClient.getUuid()) + ", " + this.editorClient.getUsername() + "}";
     }
 
     @Override
@@ -137,6 +137,7 @@ extends GenericPacketHandler {
         this.registerHandler(316, p -> this.handle((AssetEditorCreateAssetPack)p));
         this.registerHandler(315, p -> this.handle((AssetEditorUpdateAssetPack)p));
         this.registerHandler(317, p -> this.handle((AssetEditorDeleteAssetPack)p));
+        this.registerHandler(232, p -> this.handle((UpdateLanguage)p));
     }
 
     public void handle(@Nonnull AssetEditorSubscribeModifiedAssetsChanges packet) {
@@ -249,7 +250,7 @@ extends GenericPacketHandler {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Tried to request unknown autocomplete dataset for asset editor: %s", packet.dataset);
                 return;
             }
-            this.editorClient.getPacketHandler().write((Packet)new AssetEditorFetchAutoCompleteDataReply(packet.token, event.getResults()));
+            this.editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorFetchAutoCompleteDataReply(packet.token, event.getResults()));
         }));
     }
 
@@ -289,7 +290,7 @@ extends GenericPacketHandler {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Tried to request unknown dataset list for asset editor: %s", packet.name);
                 return;
             }
-            this.editorClient.getPacketHandler().write((Packet)new AssetEditorRequestDatasetReply(packet.name, event.getResults()));
+            this.editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorRequestDatasetReply(packet.name, event.getResults()));
         }));
     }
 
@@ -341,7 +342,7 @@ extends GenericPacketHandler {
         if (player == null) {
             return;
         }
-        player.getPacketHandler().write((Packet)new UpdateEditorTimeOverride(packet.gameTime, packet.paused));
+        player.getPacketHandler().write((ToClientPacket)new UpdateEditorTimeOverride(packet.gameTime, packet.paused));
     }
 
     public void handle(@Nonnull AssetEditorUpdateWeatherPreviewLock packet) {
@@ -388,8 +389,8 @@ extends GenericPacketHandler {
                 this.disconnectReason.setClientDisconnectType(DisconnectType.Crash);
             }
         }
-        LOGGER.at(Level.INFO).log("%s - %s at %s left with reason: %s - %s", this.editorClient.getUuid(), this.editorClient.getUsername(), NettyUtil.formatRemoteAddress(this.channel), packet.type.name(), packet.reason);
-        this.channel.close();
+        LOGGER.at(Level.INFO).log("%s - %s at %s left with reason: %s - %s", this.editorClient.getUuid(), this.editorClient.getUsername(), NettyUtil.formatRemoteAddress(this.getChannel()), packet.type.name(), packet.reason);
+        this.getChannel().close();
     }
 
     private boolean lacksPermission(int token) {

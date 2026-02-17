@@ -21,7 +21,7 @@ import com.hypixel.hytale.component.ComponentRegistryProxy;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.ResourceType;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.interaction.DismountNPC;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager;
@@ -164,7 +164,7 @@ extends JavaPlugin {
         if (playerRef == null) {
             return;
         }
-        playerRef.getPacketHandler().write((Packet)new DismountNPC());
+        playerRef.getPacketHandler().write((ToClientPacket)new DismountNPC());
         MovementManager movementManagerComponent = store.getComponent(ref, MovementManager.getComponentType());
         assert (movementManagerComponent != null);
         movementManagerComponent.resetDefaultsAndUpdate(ref, store);

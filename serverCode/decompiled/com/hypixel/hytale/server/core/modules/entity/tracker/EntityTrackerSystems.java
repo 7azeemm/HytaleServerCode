@@ -27,6 +27,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.ComponentUpdate;
 import com.hypixel.hytale.protocol.ComponentUpdateType;
+import com.hypixel.hytale.protocol.EntityEffectsUpdate;
 import com.hypixel.hytale.protocol.packets.entities.EntityUpdates;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
@@ -337,8 +338,7 @@ public class EntityTrackerSystems {
         }
 
         private static void queueFullUpdate(@Nonnull Ref<EntityStore> ref, @Nonnull EffectControllerComponent effectControllerComponent, @Nonnull Map<Ref<EntityStore>, EntityViewer> visibleTo) {
-            ComponentUpdate update = new ComponentUpdate();
-            update.type = ComponentUpdateType.EntityEffects;
+            EntityEffectsUpdate update = new EntityEffectsUpdate();
             update.entityEffectUpdates = effectControllerComponent.createInitUpdates();
             for (EntityViewer viewer : visibleTo.values()) {
                 viewer.queueUpdate(ref, update);
@@ -346,8 +346,7 @@ public class EntityTrackerSystems {
         }
 
         private static void queueUpdatesFor(@Nonnull Ref<EntityStore> ref, @Nonnull EffectControllerComponent effectControllerComponent, @Nonnull Map<Ref<EntityStore>, EntityViewer> visibleTo, @Nonnull Map<Ref<EntityStore>, EntityViewer> exclude) {
-            ComponentUpdate update = new ComponentUpdate();
-            update.type = ComponentUpdateType.EntityEffects;
+            EntityEffectsUpdate update = new EntityEffectsUpdate();
             update.entityEffectUpdates = effectControllerComponent.consumeChanges();
             if (exclude.isEmpty()) {
                 for (EntityViewer viewer : visibleTo.values()) {

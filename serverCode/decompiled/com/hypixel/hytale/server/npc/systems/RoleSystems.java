@@ -19,6 +19,8 @@ import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.component.system.tick.TickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.matrix.Matrix4d;
+import com.hypixel.hytale.math.shape.Box;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
@@ -67,6 +69,12 @@ public class RoleSystems {
         private static final float DEBUG_SHAPE_TIME = 0.1f;
         private static final float SENSOR_VIS_OPACITY = 0.4f;
         private static final double FULL_CIRCLE_EPSILON = 0.01;
+        private static final float LEASH_SPHERE_RADIUS = 0.3f;
+        private static final float LEASH_RING_OUTER_RADIUS = 0.5f;
+        private static final float LEASH_RING_INNER_RADIUS = 0.4f;
+        private static final float NPC_RING_THICKNESS = 0.1f;
+        private static final float NPC_RING_OFFSET = 0.1f;
+        private static final float LEASH_LINE_THICKNESS = 0.05f;
         @Nonnull
         private final ComponentType<EntityStore, NPCEntity> npcComponentType;
         @Nonnull
@@ -110,9 +118,21 @@ public class RoleSystems {
             if (debugSupport.isDebugFlagSet(RoleDebugFlags.VisMarkedTargets)) {
                 RoleDebugSystem.renderMarkedTargetArrows(role, index, archetypeChunk, commandBuffer);
             }
-            if (debugSupport.hasSensorVisData()) {
+            boolean hasSensorVis = debugSupport.hasSensorVisData();
+            boolean hasLeashVis = debugSupport.isDebugFlagSet(RoleDebugFlags.VisLeashPosition);
+            if (hasSensorVis || hasLeashVis) {
                 Ref<EntityStore> npcRef = archetypeChunk.getReferenceTo(index);
-                RoleDebugSystem.renderSensorVisualization(debugSupport, npcRef, commandBuffer);
+                TransformComponent transformComponent = archetypeChunk.getComponent(index, TransformComponent.getComponentType());
+                assert (transformComponent != null);
+                BoundingBox boundingBoxComponent = archetypeChunk.getComponent(index, BoundingBox.getComponentType());
+                assert (boundingBoxComponent != null);
+                World world = commandBuffer.getExternalData().getWorld();
+                if (hasSensorVis) {
+                    RoleDebugSystem.renderSensorVisualization(debugSupport, npcRef, transformComponent, boundingBoxComponent, world, commandBuffer);
+                }
+                if (hasLeashVis) {
+                    RoleDebugSystem.renderLeashPositionVisualization(npcComponent, npcRef, transformComponent, boundingBoxComponent, world);
+                }
             }
         }
 
@@ -134,21 +154,16 @@ public class RoleSystems {
             }
         }
 
-        private static void renderSensorVisualization(@Nonnull DebugSupport debugSupport, @Nonnull Ref<EntityStore> npcRef, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+        private static void renderSensorVisualization(@Nonnull DebugSupport debugSupport, @Nonnull Ref<EntityStore> npcRef, @Nonnull TransformComponent transformComponent, @Nonnull BoundingBox boundingBoxComponent, @Nonnull World world, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
             List<DebugSupport.SensorVisData> sensorDataList = debugSupport.getSensorVisData();
             if (sensorDataList == null) {
                 return;
             }
-            TransformComponent transformComponent = commandBuffer.getComponent(npcRef, TransformComponent.getComponentType());
-            assert (transformComponent != null);
             Vector3d npcPosition = transformComponent.getPosition();
-            BoundingBox boundingBoxComponent = commandBuffer.getComponent(npcRef, BoundingBox.getComponentType());
-            assert (boundingBoxComponent != null);
             double npcMidHeight = boundingBoxComponent.getBoundingBox().max.y / 2.0;
             HeadRotation headRotation = commandBuffer.getComponent(npcRef, HeadRotation.getComponentType());
             double heading = headRotation != null ? (double)headRotation.getRotation().getYaw() : (double)transformComponent.getRotation().getYaw();
             sensorDataList.sort((a, b) -> Double.compare(b.range(), a.range()));
-            World world = commandBuffer.getExternalData().getWorld();
             double discStackOffset = 0.1;
             for (int i = 0; i < sensorDataList.size(); ++i) {
                 DebugSupport.SensorVisData sensorData = sensorDataList.get(i);
@@ -196,6 +211,59 @@ public class RoleSystems {
                 }
             }
             debugSupport.clearSensorVisData();
+        }
+
+        private static void renderLeashPositionVisualization(@Nonnull NPCEntity npcComponent, @Nonnull Ref<EntityStore> npcRef, @Nonnull TransformComponent transformComponent, @Nonnull BoundingBox boundingBoxComponent, @Nonnull World world) {
+            if (!npcComponent.requiresLeashPosition()) {
+                return;
+            }
+            Box boundingBox = boundingBoxComponent.getBoundingBox();
+            double npcWidth = boundingBox.max.x - boundingBox.min.x;
+            double npcDepth = boundingBox.max.z - boundingBox.min.z;
+            double npcRingOuterRadius = Math.max(npcWidth, npcDepth) / 2.0 + (double)0.1f;
+            double npcRingInnerRadius = npcRingOuterRadius - (double)0.1f;
+            int colorIndex = Math.abs(npcRef.getIndex()) % DebugUtils.INDEXED_COLORS.length;
+            Vector3f color = DebugUtils.INDEXED_COLORS[colorIndex];
+            Vector3d leashPoint = npcComponent.getLeashPoint();
+            DebugUtils.addSphere(world, leashPoint, color, 0.3f, 0.1f);
+            Vector3d npcPosition = transformComponent.getPosition();
+            double npcMidHeight = boundingBox.max.y / 2.0;
+            double npcMidY = npcPosition.y + npcMidHeight;
+            double dirX = npcPosition.x - leashPoint.x;
+            double dirZ = npcPosition.z - leashPoint.z;
+            double horizontalDist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+            if (horizontalDist > 0.001) {
+                double verticalDist = npcMidY - leashPoint.y;
+                double pitchAngle = Math.atan2(verticalDist, horizontalDist);
+                double yawAngle = Math.atan2(dirZ, dirX);
+                RoleDebugSystem.addChainRing(world, leashPoint.x, leashPoint.y, leashPoint.z, 0.5, 0.4f, yawAngle, -pitchAngle, color);
+                RoleDebugSystem.addChainRing(world, npcPosition.x, npcMidY, npcPosition.z, npcRingOuterRadius, npcRingInnerRadius, yawAngle + Math.PI, pitchAngle, color);
+                double hDirX = dirX / horizontalDist;
+                double hDirZ = dirZ / horizontalDist;
+                double cosPitch = Math.cos(pitchAngle);
+                double sinPitch = Math.sin(pitchAngle);
+                double leashEdgeX = leashPoint.x + hDirX * 0.5 * cosPitch;
+                double leashEdgeY = leashPoint.y + sinPitch * 0.5;
+                double leashEdgeZ = leashPoint.z + hDirZ * 0.5 * cosPitch;
+                double npcEdgeX = npcPosition.x - hDirX * npcRingOuterRadius * cosPitch;
+                double npcEdgeY = npcMidY - sinPitch * npcRingOuterRadius;
+                double npcEdgeZ = npcPosition.z - hDirZ * npcRingOuterRadius * cosPitch;
+                DebugUtils.addLine(world, leashEdgeX, leashEdgeY, leashEdgeZ, npcEdgeX, npcEdgeY, npcEdgeZ, color, 0.05f, 0.1f, false);
+            } else {
+                DebugUtils.addDisc(world, leashPoint.x, leashPoint.y, leashPoint.z, 0.5, 0.4f, color, 0.8f, 0.1f, false);
+                DebugUtils.addDisc(world, npcPosition.x, npcMidY, npcPosition.z, npcRingOuterRadius, npcRingInnerRadius, color, 0.8f, 0.1f, false);
+                DebugUtils.addLine(world, leashPoint.x, leashPoint.y, leashPoint.z, npcPosition.x, npcMidY, npcPosition.z, color, 0.05f, 0.1f, false);
+            }
+        }
+
+        private static void addChainRing(@Nonnull World world, double x, double y, double z, double outerRadius, double innerRadius, double yawAngle, double pitchAngle, @Nonnull Vector3f color) {
+            Matrix4d matrix = new Matrix4d();
+            matrix.identity();
+            matrix.translate(x, y, z);
+            Matrix4d tmp = new Matrix4d();
+            matrix.rotateAxis(yawAngle, 0.0, 1.0, 0.0, tmp);
+            matrix.rotateAxis(pitchAngle, 0.0, 0.0, 1.0, tmp);
+            DebugUtils.addDisc(world, matrix, outerRadius, innerRadius, color, 0.8f, 0.1f, false);
         }
     }
 

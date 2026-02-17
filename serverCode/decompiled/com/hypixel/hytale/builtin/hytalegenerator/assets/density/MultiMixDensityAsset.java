@@ -40,7 +40,7 @@ extends DensityAsset {
         }
         ArrayList<MultiMixDensity.Key> keys = new ArrayList<MultiMixDensity.Key>(this.keyAssets.length);
         for (KeyAsset keyAsset : this.keyAssets) {
-            if (keyAsset.densityIndex <= 0) {
+            if (keyAsset.densityIndex < 0) {
                 keys.add(new MultiMixDensity.Key(keyAsset.value, null));
                 continue;
             }

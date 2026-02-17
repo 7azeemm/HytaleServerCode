@@ -6,6 +6,7 @@ package com.hypixel.hytale.server.core.modules.singleplayer.commands;
 import com.hypixel.hytale.protocol.packets.serveraccess.Access;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
@@ -30,6 +31,10 @@ extends CommandBase {
 
     @Override
     protected void executeSync(@Nonnull CommandContext context) {
+        if (Options.getOptionSet().valueOf(Options.AUTH_MODE) == Options.AuthMode.OFFLINE) {
+            context.sendMessage(Message.translation("server.commands.play.offlineMode"));
+            return;
+        }
         if (!Constants.SINGLEPLAYER) {
             switch (this.commandAccess) {
                 case Private: {

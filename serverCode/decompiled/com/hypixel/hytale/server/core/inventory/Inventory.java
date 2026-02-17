@@ -15,9 +15,9 @@ import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.InteractionChainData;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.ItemArmorSlot;
-import com.hypixel.hytale.protocol.Packet;
 import com.hypixel.hytale.protocol.PickupLocation;
 import com.hypixel.hytale.protocol.SmartMoveType;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.inventory.UpdatePlayerInventory;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -326,7 +326,7 @@ implements NetworkSerializable<UpdatePlayerInventory> {
                 context.getMetaStore().putMetaObject(Interaction.TARGET_SLOT, interactionSlot);
                 context.getMetaStore().putMetaObject(ChangeActiveSlotInteraction.PLACE_MOVED_ITEM, () -> {
                     fromContainer.moveItemStackFromSlotToSlot((short)fromSlotId, quantity, toContainer, (short)toSlotId);
-                    playerRefComponent.getPacketHandler().write((Packet)this.toPacket());
+                    playerRefComponent.getPacketHandler().write((ToClientPacket)this.toPacket());
                 });
                 String interactions = context.getRootInteractionId(InteractionType.SwapFrom);
                 InteractionChainData data = new InteractionChainData(-1, UUIDUtil.EMPTY_UUID, null, null, null, -interactionSlot - 1, null);
@@ -514,6 +514,10 @@ implements NetworkSerializable<UpdatePlayerInventory> {
 
     public CombinedItemContainer getCombinedBackpackStorageHotbar() {
         return this.combinedBackpackStorageHotbar;
+    }
+
+    public CombinedItemContainer getCombinedBackpackStorageHotbarFirst() {
+        return this.combinedHotbarStorageBackpack;
     }
 
     public CombinedItemContainer getCombinedArmorHotbarUtilityStorage() {

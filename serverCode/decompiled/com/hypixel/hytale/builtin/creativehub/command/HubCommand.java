@@ -31,7 +31,7 @@ extends AbstractPlayerCommand {
 
     public HubCommand() {
         super("hub", "server.commands.hub.desc");
-        this.addAliases("converge", "convergence");
+        this.addAliases("cosmos", "crossroads");
         this.setPermissionGroup(GameMode.Creative);
     }
 

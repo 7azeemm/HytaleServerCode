@@ -488,6 +488,12 @@ public class HytaleServer {
         }
     }
 
+    public void reportSingleplayerStatus(String message, double progress) {
+        if (Constants.SINGLEPLAYER) {
+            HytaleLoggerBackend.rawLog("-=|" + message + "|" + progress);
+        }
+    }
+
     public void reportSaveProgress(@Nonnull World world, int saved, int total) {
         if (!this.isShuttingDown()) {
             return;

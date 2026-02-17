@@ -50,7 +50,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.event.EventRegistry;
 import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorAsset;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorAssetListUpdate;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorAssetPackSetup;
@@ -90,6 +90,7 @@ import com.hypixel.hytale.server.core.asset.AssetPackRegisterEvent;
 import com.hypixel.hytale.server.core.asset.AssetPackUnregisterEvent;
 import com.hypixel.hytale.server.core.asset.AssetRegistryLoader;
 import com.hypixel.hytale.server.core.asset.common.events.CommonAssetMonitorEvent;
+import com.hypixel.hytale.server.core.config.ModConfig;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.io.ServerManager;
 import com.hypixel.hytale.server.core.io.handlers.InitialPacketHandler;
@@ -342,7 +343,7 @@ extends JavaPlugin {
         dataSource.shutdown();
         for (Set<EditorClient> clients : this.uuidToEditorClients.values()) {
             for (EditorClient client : clients) {
-                client.getPacketHandler().write((Packet)new AssetEditorDeleteAssetPack(event.getAssetPack().getName()));
+                client.getPacketHandler().write((ToClientPacket)new AssetEditorDeleteAssetPack(event.getAssetPack().getName()));
             }
         }
     }
@@ -354,10 +355,10 @@ extends JavaPlugin {
         I18nModule i18nModule = I18nModule.get();
         Map<String, Map<String, String>> changed = event.getChangedMessages();
         Map<String, Map<String, String>> removed = event.getRemovedMessages();
-        Object2ObjectOpenHashMap<String, Packet[]> updatePackets = new Object2ObjectOpenHashMap<String, Packet[]>();
+        Object2ObjectOpenHashMap<String, ToClientPacket[]> updatePackets = new Object2ObjectOpenHashMap<String, ToClientPacket[]>();
         for (EditorClient client : this.clientOpenAssetPathMapping.keySet()) {
             String languageKey = client.getLanguage();
-            Packet[] packets = (UpdateTranslations[])updatePackets.get(languageKey);
+            ToClientPacket[] packets = (UpdateTranslations[])updatePackets.get(languageKey);
             if (packets == null) {
                 packets = i18nModule.getUpdatePacketsForChanges(languageKey, changed, removed);
                 updatePackets.put(languageKey, packets);
@@ -508,7 +509,7 @@ extends JavaPlugin {
                 if (!clientsWithOpenAssetPath.isEmpty()) {
                     AssetEditorAssetUpdated updatePacket = new AssetEditorAssetUpdated(assetPath.toPacket(), dataSource.getAssetBytes(relativePath));
                     for (EditorClient editorClient : clientsWithOpenAssetPath) {
-                        editorClient.getPacketHandler().write((Packet)updatePacket);
+                        editorClient.getPacketHandler().write((ToClientPacket)updatePacket);
                     }
                 }
                 return false;
@@ -637,8 +638,8 @@ extends JavaPlugin {
         boolean canEditAssetPacks = editorClient.hasPermission("hytale.editor.packs.edit");
         boolean canCreateAssetPacks = editorClient.hasPermission("hytale.editor.packs.create");
         boolean canDeleteAssetPacks = editorClient.hasPermission("hytale.editor.packs.delete");
-        editorClient.getPacketHandler().write((Packet)new AssetEditorCapabilities(false, canEditAssets, canCreateAssetPacks, canEditAssetPacks, canDeleteAssetPacks));
-        editorClient.getPacketHandler().write((Packet)this.setupSchemasPacket);
+        editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorCapabilities(false, canEditAssets, canCreateAssetPacks, canEditAssetPacks, canDeleteAssetPacks));
+        editorClient.getPacketHandler().write((ToClientPacket)this.setupSchemasPacket);
         this.assetTypeRegistry.sendPacket(editorClient);
         AssetEditorAssetPackSetup packSetupPacket = new AssetEditorAssetPackSetup();
         packSetupPacket.packs = new Object2ObjectOpenHashMap<String, AssetPackManifest>();
@@ -647,7 +648,7 @@ extends JavaPlugin {
             PluginManifest manifest = dataSource.getManifest();
             packSetupPacket.packs.put(dataSourceEntry.getKey(), AssetEditorPlugin.toManifestPacket(manifest));
         }
-        editorClient.getPacketHandler().write((Packet)packSetupPacket);
+        editorClient.getPacketHandler().write((ToClientPacket)packSetupPacket);
         for (DataSource dataSource : this.assetPackDataSources.values()) {
             dataSource.getAssetTree().sendPackets(editorClient);
         }
@@ -794,8 +795,8 @@ extends JavaPlugin {
             String newPackId = newPackIdentifier.toString();
             Path packPath = dataSource.getRootPath();
             HytaleServerConfig serverConfig = HytaleServer.get().getConfig();
-            HytaleServerConfig.ModConfig.setBoot(serverConfig, newPackIdentifier, true);
-            Map<PluginIdentifier, HytaleServerConfig.ModConfig> modConfig = serverConfig.getModConfig();
+            HytaleServerConfig.setBoot(serverConfig, newPackIdentifier, true);
+            Map<PluginIdentifier, ModConfig> modConfig = serverConfig.getModConfig();
             modConfig.remove(PluginIdentifier.fromString(packId));
             serverConfig.markChanged();
             if (serverConfig.consumeHasChanged()) {
@@ -803,7 +804,7 @@ extends JavaPlugin {
             }
             AssetModule assetModule = AssetModule.get();
             assetModule.unregisterPack(packId);
-            assetModule.registerPack(newPackId, packPath, manifest);
+            assetModule.registerPack(newPackId, packPath, manifest, false);
         }
     }
 
@@ -873,12 +874,12 @@ extends JavaPlugin {
             Path manifestPath = packPath.resolve("manifest.json");
             BsonUtil.writeSync(manifestPath, PluginManifest.CODEC, manifest, this.getLogger());
             HytaleServerConfig serverConfig = HytaleServer.get().getConfig();
-            HytaleServerConfig.ModConfig.setBoot(serverConfig, new PluginIdentifier(manifest), true);
+            HytaleServerConfig.setBoot(serverConfig, new PluginIdentifier(manifest), true);
             serverConfig.markChanged();
             if (serverConfig.consumeHasChanged()) {
                 HytaleServerConfig.save(serverConfig).join();
             }
-            AssetModule.get().registerPack(packId, packPath, manifest);
+            AssetModule.get().registerPack(packId, packPath, manifest, false);
             editorClient.sendSuccessReply(requestToken, Messages.PACK_CREATED);
             this.getLogger().at(Level.INFO).log("Created new pack: %s at %s", (Object)packId, (Object)packPath);
         }
@@ -910,7 +911,7 @@ extends JavaPlugin {
         AssetPackManifest manifestPacket = AssetEditorPlugin.toManifestPacket(manifest);
         for (Set<EditorClient> clients : this.uuidToEditorClients.values()) {
             for (EditorClient client : clients) {
-                client.getPacketHandler().write((Packet)new AssetEditorUpdateAssetPack(packId, manifestPacket));
+                client.getPacketHandler().write((ToClientPacket)new AssetEditorUpdateAssetPack(packId, manifestPacket));
             }
         }
     }
@@ -923,33 +924,33 @@ extends JavaPlugin {
             if (dataSource == null) {
                 this.getLogger().at(Level.WARNING).log("%s has no valid data source", assetPath);
                 asset = new AssetEditorAsset(null, assetPath.toPacket());
-                editorClient.getPacketHandler().write((Packet)new AssetEditorExportAssetInitialize(asset, null, 0, true));
+                editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportAssetInitialize(asset, null, 0, true));
                 continue;
             }
             if (!this.isValidPath(dataSource, assetPath)) {
                 this.getLogger().at(Level.WARNING).log("%s is an invalid path", assetPath);
                 asset = new AssetEditorAsset(null, assetPath.toPacket());
-                editorClient.getPacketHandler().write((Packet)new AssetEditorExportAssetInitialize(asset, null, 0, true));
+                editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportAssetInitialize(asset, null, 0, true));
                 continue;
             }
             if (this.assetTypeRegistry.getAssetTypeHandlerForPath(assetPath.path()) == null) {
                 this.getLogger().at(Level.WARNING).log("%s is not a valid asset type", assetPath);
                 asset = new AssetEditorAsset(null, assetPath.toPacket());
-                editorClient.getPacketHandler().write((Packet)new AssetEditorExportAssetInitialize(asset, null, 0, true));
+                editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportAssetInitialize(asset, null, 0, true));
                 continue;
             }
             if (!dataSource.doesAssetExist(assetPath.path())) {
-                editorClient.getPacketHandler().write((Packet)new AssetEditorExportDeleteAssets(new AssetEditorAsset[]{new AssetEditorAsset(null, assetPath.toPacket())}));
+                editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportDeleteAssets(new AssetEditorAsset[]{new AssetEditorAsset(null, assetPath.toPacket())}));
                 continue;
             }
             byte[] bytes = dataSource.getAssetBytes(assetPath.path());
             if (bytes == null) {
                 this.getLogger().at(Level.WARNING).log("Tried to load %s for export but failed", assetPath);
-                editorClient.getPacketHandler().write((Packet)new AssetEditorExportAssetInitialize(new AssetEditorAsset(null, assetPath.toPacket()), null, 0, false));
+                editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportAssetInitialize(new AssetEditorAsset(null, assetPath.toPacket()), null, 0, false));
                 continue;
             }
             byte[][] parts = ArrayUtil.split(bytes, 0x280000);
-            Packet[] packets = new Packet[2 + parts.length];
+            ToClientPacket[] packets = new ToClientPacket[2 + parts.length];
             packets[0] = new AssetEditorExportAssetInitialize(new AssetEditorAsset(null, assetPath.toPacket()), null, bytes.length, false);
             for (int partIndex = 0; partIndex < parts.length; ++partIndex) {
                 packets[1 + partIndex] = new AssetEditorExportAssetPart(parts[partIndex]);
@@ -959,7 +960,7 @@ extends JavaPlugin {
             Instant timestamp = dataSource.getLastModificationTimestamp(assetPath.path());
             exportedAssets.add(new TimestampedAssetReference(assetPath.toPacket(), timestamp != null ? timestamp.toString() : null));
         }
-        editorClient.getPacketHandler().write((Packet)new AssetEditorExportComplete((TimestampedAssetReference[])exportedAssets.toArray(TimestampedAssetReference[]::new)));
+        editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorExportComplete((TimestampedAssetReference[])exportedAssets.toArray(TimestampedAssetReference[]::new)));
     }
 
     public void handleSelectAsset(@Nonnull EditorClient editorClient, @Nullable AssetPath assetPath) {
@@ -997,7 +998,7 @@ extends JavaPlugin {
         long stamp = this.globalEditLock.readLock();
         try {
             AssetEditorLastModifiedAssets packet = this.buildAssetEditorLastModifiedAssetsPacket();
-            editorClient.getPacketHandler().write((Packet)packet);
+            editorClient.getPacketHandler().write((ToClientPacket)packet);
         }
         finally {
             this.globalEditLock.unlockRead(stamp);
@@ -1221,7 +1222,7 @@ extends JavaPlugin {
             undoRedo.undoStack.poll();
             undoRedo.redoStack.push(command);
             this.updateJsonAssetForConnectedClients(assetPath, new JsonUpdateCommand[]{undoCommand}, editorClient);
-            editorClient.getPacketHandler().write((Packet)new AssetEditorUndoRedoReply(requestToken, undoCommand));
+            editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorUndoRedoReply(requestToken, undoCommand));
             this.sendModifiedAssetsUpdateToConnectedUsers();
             ((JsonTypeHandler)assetTypeHandler).loadAssetFromDocument(assetPath, dataSource.getFullPathToAssetData(assetPath.path()), asset.clone(), new AssetUpdateQuery(rebuildCacheBuilder.build()), editorClient);
         }
@@ -1291,7 +1292,7 @@ extends JavaPlugin {
             undoRedo.redoStack.poll();
             undoRedo.undoStack.push(command);
             this.updateJsonAssetForConnectedClients(assetPath, new JsonUpdateCommand[]{command}, editorClient);
-            editorClient.getPacketHandler().write((Packet)new AssetEditorUndoRedoReply(requestToken, command));
+            editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorUndoRedoReply(requestToken, command));
             this.sendModifiedAssetsUpdateToConnectedUsers();
             ((JsonTypeHandler)assetTypeHandler).loadAssetFromDocument(assetPath, dataSource.getFullPathToAssetData(assetPath.path()), asset.clone(), new AssetUpdateQuery(rebuildCacheBuilder.build()), editorClient);
         }
@@ -1330,7 +1331,7 @@ extends JavaPlugin {
                 return;
             }
             this.getLogger().at(Level.INFO).log("Got '%s'", assetPath);
-            editorClient.getPacketHandler().write((Packet)new AssetEditorFetchAssetReply(requestToken, asset));
+            editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorFetchAssetReply(requestToken, asset));
         }
         finally {
             this.globalEditLock.unlockRead(stamp);
@@ -1365,7 +1366,7 @@ extends JavaPlugin {
             BsonDocument bson = BsonDocument.parse(new String(asset, StandardCharsets.UTF_8));
             Object2ObjectOpenHashMap<com.hypixel.hytale.protocol.packets.asseteditor.AssetPath, String> assets = new Object2ObjectOpenHashMap<com.hypixel.hytale.protocol.packets.asseteditor.AssetPath, String>();
             assets.put(assetPath.toPacket(), BsonUtil.translateBsonToJson(bson).getAsJsonObject().toString());
-            editorClient.getPacketHandler().write((Packet)new AssetEditorFetchJsonAssetWithParentsReply(requestToken, assets));
+            editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorFetchJsonAssetWithParentsReply(requestToken, assets));
         }
         finally {
             this.globalEditLock.unlockRead(stamp);
@@ -1390,17 +1391,18 @@ extends JavaPlugin {
         }
         AssetStoreTypeHandler assetStoreTypeHandler = (AssetStoreTypeHandler)assetTypeHandler;
         AssetStore assetStore = assetStoreTypeHandler.getAssetStore();
+        Object assetMap = assetStore.getAssetMap();
         Object key = assetStore.decodeFilePathKey(assetPath.path());
-        Set children = ((AssetMap)assetStore.getAssetMap()).getChildren(key);
+        Set children = ((AssetMap)assetMap).getChildren(key);
         HashSet<String> childrenIds = new HashSet<String>();
         if (children != null) {
             for (Object child : children) {
-                if (((AssetMap)assetStore.getAssetMap()).getPath(child) == null) continue;
+                if (((AssetMap)assetMap).getPath(child) == null) continue;
                 childrenIds.add(child.toString());
             }
         }
         this.getLogger().at(Level.INFO).log("Children ids for '%s': %s", (Object)key.toString(), childrenIds);
-        editorClient.getPacketHandler().write((Packet)new AssetEditorRequestChildrenListReply(assetPath.toPacket(), (String[])childrenIds.toArray(String[]::new)));
+        editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorRequestChildrenListReply(assetPath.toPacket(), (String[])childrenIds.toArray(String[]::new)));
     }
 
     /*
@@ -1740,18 +1742,18 @@ extends JavaPlugin {
         if (!this.clientsSubscribedToModifiedAssetsChanges.isEmpty()) {
             AssetEditorLastModifiedAssets lastModifiedAssetsPacket = this.buildAssetEditorLastModifiedAssetsPacket();
             for (EditorClient p : this.clientsSubscribedToModifiedAssetsChanges) {
-                p.getPacketHandler().write((Packet)lastModifiedAssetsPacket);
+                p.getPacketHandler().write((ToClientPacket)lastModifiedAssetsPacket);
             }
         }
     }
 
-    private void sendPacketToAllEditorUsers(@Nonnull Packet packet) {
+    private void sendPacketToAllEditorUsers(@Nonnull ToClientPacket packet) {
         for (EditorClient editorClient : this.clientOpenAssetPathMapping.keySet()) {
             editorClient.getPacketHandler().write(packet);
         }
     }
 
-    private void sendPacketToAllEditorUsersExcept(@Nonnull Packet packet, EditorClient ignoreEditorClient) {
+    private void sendPacketToAllEditorUsersExcept(@Nonnull ToClientPacket packet, EditorClient ignoreEditorClient) {
         for (EditorClient editorClient : this.clientOpenAssetPathMapping.keySet()) {
             if (editorClient.equals(ignoreEditorClient)) continue;
             editorClient.getPacketHandler().write(packet);
@@ -1772,7 +1774,7 @@ extends JavaPlugin {
         AssetEditorAssetUpdated updatePacket = new AssetEditorAssetUpdated(assetPath.toPacket(), bytes);
         for (Map.Entry<EditorClient, AssetPath> entry : this.clientOpenAssetPathMapping.entrySet()) {
             if (entry.getKey().equals(ignoreEditorClient) || !assetPath.equals(entry.getValue())) continue;
-            entry.getKey().getPacketHandler().write((Packet)updatePacket);
+            entry.getKey().getPacketHandler().write((ToClientPacket)updatePacket);
         }
     }
 
@@ -1784,7 +1786,7 @@ extends JavaPlugin {
         AssetEditorJsonAssetUpdated updatePacket = new AssetEditorJsonAssetUpdated(assetPath.toPacket(), commands);
         for (Map.Entry<EditorClient, AssetPath> connectedPlayer : this.clientOpenAssetPathMapping.entrySet()) {
             if (connectedPlayer.getKey().equals(ignoreEditorClient) || !assetPath.equals(connectedPlayer.getValue())) continue;
-            connectedPlayer.getKey().getPacketHandler().write((Packet)updatePacket);
+            connectedPlayer.getKey().getPacketHandler().write((ToClientPacket)updatePacket);
         }
     }
 

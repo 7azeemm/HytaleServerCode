@@ -27,7 +27,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.GameMode;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.entities.SpawnModelParticles;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelParticle;
@@ -39,7 +39,6 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.modules.entity.item.PickupItemComponent;
 import com.hypixel.hytale.server.core.modules.entity.tracker.NetworkId;
-import com.hypixel.hytale.server.core.modules.i18n.I18nModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -62,21 +61,18 @@ extends Memory {
     @Nonnull
     public static final String ZONE_NAME_UNKNOWN = "???";
     @Nonnull
-    public static final BuilderCodec<NPCMemory> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(NPCMemory.class, NPCMemory::new).append(new KeyedCodec<String>("NPCRole", Codec.STRING), (npcMemory, s) -> {
+    public static final BuilderCodec<NPCMemory> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(NPCMemory.class, NPCMemory::new).append(new KeyedCodec<String>("NPCRole", Codec.STRING), (npcMemory, s) -> {
         npcMemory.npcRole = s;
     }, npcMemory -> npcMemory.npcRole).addValidator(Validators.nonNull()).add()).append(new KeyedCodec<String>("TranslationKey", Codec.STRING), (npcMemory, s) -> {
         npcMemory.memoryTitleKey = s;
-    }, npcMemory -> npcMemory.memoryTitleKey).add()).append(new KeyedCodec<Boolean>("IsMemoriesNameOverridden", Codec.BOOLEAN), (npcMemory, aBoolean) -> {
-        npcMemory.isMemoriesNameOverridden = aBoolean;
-    }, npcMemory -> npcMemory.isMemoriesNameOverridden).add()).append(new KeyedCodec<Long>("CapturedTimestamp", Codec.LONG), (npcMemory, aDouble) -> {
+    }, npcMemory -> npcMemory.memoryTitleKey).add()).append(new KeyedCodec<Long>("CapturedTimestamp", Codec.LONG), (npcMemory, aDouble) -> {
         npcMemory.capturedTimestamp = aDouble;
     }, npcMemory -> npcMemory.capturedTimestamp).add()).append(new KeyedCodec<String>("FoundLocationZoneNameKey", Codec.STRING), (npcMemory, s) -> {
         npcMemory.foundLocationZoneNameKey = s;
     }, npcMemory -> npcMemory.foundLocationZoneNameKey).add()).append(new KeyedCodec<String>("FoundLocationNameKey", Codec.STRING), (npcMemory, s) -> {
         npcMemory.foundLocationGeneralNameKey = s;
-    }, npcMemory -> npcMemory.foundLocationGeneralNameKey).add()).afterDecode(NPCMemory::processConfig)).build();
+    }, npcMemory -> npcMemory.foundLocationGeneralNameKey).add()).build();
     private String npcRole;
-    private boolean isMemoriesNameOverridden;
     private long capturedTimestamp;
     private String foundLocationZoneNameKey;
     private String foundLocationGeneralNameKey;
@@ -85,11 +81,9 @@ extends Memory {
     private NPCMemory() {
     }
 
-    public NPCMemory(@Nonnull String npcRole, @Nonnull String nameTranslationKey, boolean isMemoriesNameOverridden) {
+    public NPCMemory(@Nonnull String npcRole, @Nonnull String nameTranslationKey) {
         this.npcRole = npcRole;
         this.memoryTitleKey = nameTranslationKey;
-        this.isMemoriesNameOverridden = isMemoriesNameOverridden;
-        this.processConfig();
     }
 
     @Override
@@ -113,18 +107,6 @@ extends Memory {
     @Nonnull
     public String getIconPath() {
         return "UI/Custom/Pages/Memories/npcs/" + this.npcRole + ".png";
-    }
-
-    public void processConfig() {
-        if (this.isMemoriesNameOverridden) {
-            this.memoryTitleKey = "server.npcRoles." + this.npcRole + ".name";
-            if (I18nModule.get().getMessage("en-US", this.memoryTitleKey) == null) {
-                this.memoryTitleKey = "server.memories.names." + this.npcRole;
-            }
-        }
-        if (this.memoryTitleKey == null || this.memoryTitleKey.isEmpty()) {
-            this.memoryTitleKey = "server.npcRoles." + this.npcRole + ".name";
-        }
     }
 
     @Override
@@ -166,21 +148,20 @@ extends Memory {
             return false;
         }
         NPCMemory npcMemory = (NPCMemory)o;
-        return this.isMemoriesNameOverridden == npcMemory.isMemoriesNameOverridden && Objects.equals(this.npcRole, npcMemory.npcRole);
+        return Objects.equals(this.npcRole, npcMemory.npcRole);
     }
 
     @Override
     public int hashCode() {
         int result = super.hashCode();
         result = 31 * result + Objects.hashCode(this.npcRole);
-        result = 31 * result + Boolean.hashCode(this.isMemoriesNameOverridden);
         return result;
     }
 
     @Override
     @Nonnull
     public String toString() {
-        return "NPCMemory{npcRole='" + this.npcRole + "', isMemoriesNameOverride=" + this.isMemoriesNameOverridden + "', capturedTimestamp=" + this.capturedTimestamp + "', foundLocationZoneNameKey='" + this.foundLocationZoneNameKey + "}";
+        return "NPCMemory{npcRole='" + this.npcRole + "', capturedTimestamp=" + this.capturedTimestamp + "', foundLocationZoneNameKey='" + this.foundLocationZoneNameKey + "}";
     }
 
     public static class GatherMemoriesSystem
@@ -236,14 +217,12 @@ extends Memory {
                 Role role;
                 NPCEntity npcComponent = commandBuffer.getComponent(ref2, NPCEntity.getComponentType());
                 if (npcComponent == null || (role = npcComponent.getRole()) == null || !role.isMemory()) continue;
-                temp.isMemoriesNameOverridden = role.isMemoriesNameOverriden();
-                temp.npcRole = temp.isMemoriesNameOverridden ? role.getMemoriesNameOverride() : npcComponent.getRoleName();
+                String memoriesNameOverride = role.getMemoriesNameOverride();
+                temp.npcRole = memoriesNameOverride != null && !memoriesNameOverride.isEmpty() ? memoriesNameOverride : npcComponent.getRoleName();
                 temp.memoryTitleKey = role.getNameTranslationKey();
                 temp.capturedTimestamp = System.currentTimeMillis();
                 temp.foundLocationGeneralNameKey = foundLocationZoneNameKey;
-                if (memoriesPlugin.hasRecordedMemory(temp)) continue;
-                temp.processConfig();
-                if (!playerMemoriesComponent.recordMemory(temp)) continue;
+                if (memoriesPlugin.hasRecordedMemory(temp) || !playerMemoriesComponent.recordMemory(temp)) continue;
                 NotificationUtil.sendNotification(playerRefComponent.getPacketHandler(), Message.translation("server.memories.general.collected").param("memoryTitle", Message.translation(temp.getTitle())), null, "NotificationIcons/MemoriesIcon.png");
                 temp = new NPCMemory();
                 TransformComponent npcTransformComponent = commandBuffer.getComponent(ref2, TransformComponent.getComponentType());
@@ -298,7 +277,7 @@ extends Memory {
             for (Ref ref : results) {
                 PlayerRef playerRefComponent = commandBuffer.getComponent(ref, PlayerRef.getComponentType());
                 if (playerRefComponent == null) continue;
-                playerRefComponent.getPacketHandler().write((Packet)packet);
+                playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
             }
         }
 

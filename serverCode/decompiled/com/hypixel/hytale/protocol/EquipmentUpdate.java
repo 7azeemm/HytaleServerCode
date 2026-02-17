@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.protocol;
 
+import com.hypixel.hytale.protocol.ComponentUpdate;
 import com.hypixel.hytale.protocol.io.PacketIO;
 import com.hypixel.hytale.protocol.io.ProtocolException;
 import com.hypixel.hytale.protocol.io.ValidationResult;
@@ -13,7 +14,8 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class Equipment {
+public class EquipmentUpdate
+extends ComponentUpdate {
     public static final int NULLABLE_BIT_FIELD_SIZE = 1;
     public static final int FIXED_BLOCK_SIZE = 1;
     public static final int VARIABLE_FIELD_COUNT = 3;
@@ -26,24 +28,24 @@ public class Equipment {
     @Nullable
     public String leftHandItemId;
 
-    public Equipment() {
+    public EquipmentUpdate() {
     }
 
-    public Equipment(@Nullable String[] armorIds, @Nullable String rightHandItemId, @Nullable String leftHandItemId) {
+    public EquipmentUpdate(@Nullable String[] armorIds, @Nullable String rightHandItemId, @Nullable String leftHandItemId) {
         this.armorIds = armorIds;
         this.rightHandItemId = rightHandItemId;
         this.leftHandItemId = leftHandItemId;
     }
 
-    public Equipment(@Nonnull Equipment other) {
+    public EquipmentUpdate(@Nonnull EquipmentUpdate other) {
         this.armorIds = other.armorIds;
         this.rightHandItemId = other.rightHandItemId;
         this.leftHandItemId = other.leftHandItemId;
     }
 
     @Nonnull
-    public static Equipment deserialize(@Nonnull ByteBuf buf, int offset) {
-        Equipment obj = new Equipment();
+    public static EquipmentUpdate deserialize(@Nonnull ByteBuf buf, int offset) {
+        EquipmentUpdate obj = new EquipmentUpdate();
         byte nullBits = buf.getByte(offset);
         if ((nullBits & 1) != 0) {
             int varPos0 = offset + 13 + buf.getIntLE(offset + 1);
@@ -134,7 +136,8 @@ public class Equipment {
         return maxEnd;
     }
 
-    public void serialize(@Nonnull ByteBuf buf) {
+    @Override
+    public int serialize(@Nonnull ByteBuf buf) {
         int startPos = buf.writerIndex();
         byte nullBits = 0;
         if (this.armorIds != null) {
@@ -178,8 +181,10 @@ public class Equipment {
         } else {
             buf.setIntLE(leftHandItemIdOffsetSlot, -1);
         }
+        return buf.writerIndex() - startPos;
     }
 
+    @Override
     public int computeSize() {
         int size = 13;
         if (this.armorIds != null) {
@@ -276,8 +281,8 @@ public class Equipment {
         return ValidationResult.OK;
     }
 
-    public Equipment clone() {
-        Equipment copy = new Equipment();
+    public EquipmentUpdate clone() {
+        EquipmentUpdate copy = new EquipmentUpdate();
         copy.armorIds = this.armorIds != null ? Arrays.copyOf(this.armorIds, this.armorIds.length) : null;
         copy.rightHandItemId = this.rightHandItemId;
         copy.leftHandItemId = this.leftHandItemId;
@@ -288,10 +293,10 @@ public class Equipment {
         if (this == obj) {
             return true;
         }
-        if (!(obj instanceof Equipment)) {
+        if (!(obj instanceof EquipmentUpdate)) {
             return false;
         }
-        Equipment other = (Equipment)obj;
+        EquipmentUpdate other = (EquipmentUpdate)obj;
         return Arrays.equals(this.armorIds, other.armorIds) && Objects.equals(this.rightHandItemId, other.rightHandItemId) && Objects.equals(this.leftHandItemId, other.leftHandItemId);
     }
 

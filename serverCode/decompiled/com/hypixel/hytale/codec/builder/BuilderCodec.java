@@ -299,7 +299,7 @@ ValidatableCodec<T> {
         return t;
     }
 
-    public void decodeJson0(@Nonnull RawJsonReader reader, T t, ExtraInfo extraInfo) throws IOException {
+    private void decodeJson0(@Nonnull RawJsonReader reader, T t, ExtraInfo extraInfo) throws IOException {
         reader.expect('{');
         reader.consumeWhiteSpace();
         if (reader.tryConsume('}')) {

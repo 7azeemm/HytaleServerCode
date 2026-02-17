@@ -271,6 +271,9 @@ extends Prop {
                 if (!this.materialMask.canReplace(materialHash, worldMaterialHash = (worldMaterial = (Material)materialSpace.getContent(worldX, worldY, worldZ)).hashMaterialIds())) {
                     return;
                 }
+                if (filler != 0) {
+                    return;
+                }
                 materialSpace.set(material, worldX, worldY, worldZ);
             }, (cx, cz, entityWrappers, buffer) -> {
                 if (!this.loadEntities) {

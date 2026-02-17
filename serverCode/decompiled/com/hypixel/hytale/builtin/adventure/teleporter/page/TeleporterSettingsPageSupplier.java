@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 public class TeleporterSettingsPageSupplier
 implements OpenCustomUIInteraction.CustomPageSupplier {
     @Nonnull
-    public static final BuilderCodec<TeleporterSettingsPageSupplier> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(TeleporterSettingsPageSupplier.class, TeleporterSettingsPageSupplier::new).appendInherited(new KeyedCodec<Boolean>("Create", Codec.BOOLEAN), (supplier, b) -> {
+    public static final BuilderCodec<TeleporterSettingsPageSupplier> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(TeleporterSettingsPageSupplier.class, TeleporterSettingsPageSupplier::new).appendInherited(new KeyedCodec<Boolean>("Create", Codec.BOOLEAN), (supplier, b) -> {
         supplier.create = b;
     }, supplier -> supplier.create, (supplier, parent) -> {
         supplier.create = parent.create;
@@ -38,15 +38,9 @@ implements OpenCustomUIInteraction.CustomPageSupplier {
         supplier.mode = o;
     }, supplier -> supplier.mode, (supplier, parent) -> {
         supplier.mode = parent.mode;
-    }).add()).appendInherited(new KeyedCodec<String>("ActiveState", Codec.STRING), (supplier, o) -> {
-        supplier.activeState = o;
-    }, supplier -> supplier.activeState, (supplier, parent) -> {
-        supplier.activeState = parent.activeState;
     }).add()).build();
     private boolean create = true;
     private TeleporterSettingsPage.Mode mode = TeleporterSettingsPage.Mode.FULL;
-    @Nullable
-    private String activeState;
 
     @Override
     @Nullable
@@ -79,7 +73,7 @@ implements OpenCustomUIInteraction.CustomPageSupplier {
         if (blockRef == null || !blockRef.isValid()) {
             return null;
         }
-        return new TeleporterSettingsPage(playerRef, blockRef, this.mode, this.activeState);
+        return new TeleporterSettingsPage(playerRef, blockRef, this.mode);
     }
 }
 

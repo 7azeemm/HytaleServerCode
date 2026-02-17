@@ -22,7 +22,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.component.system.tick.RunWhenPausedSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.world.ServerSetFluid;
 import com.hypixel.hytale.protocol.packets.world.ServerSetFluids;
 import com.hypixel.hytale.protocol.packets.world.SetFluidCmd;
@@ -189,7 +189,7 @@ public class FluidSystems {
                         ChunkTracker tracker;
                         Ref<EntityStore> ref = playerRef.getReference();
                         if (ref == null || !ref.isValid() || !(tracker = playerRef.getChunkTracker()).isLoaded(chunkIndex)) continue;
-                        playerRef.getPacketHandler().writeNoCache((Packet)packet);
+                        playerRef.getPacketHandler().writeNoCache((ToClientPacket)packet);
                     }
                 });
                 changes.clear();
@@ -256,13 +256,13 @@ public class FluidSystems {
         }
 
         @Override
-        public void fetch(int index, @Nonnull ArchetypeChunk<ChunkStore> archetypeChunk, Store<ChunkStore> store, @Nonnull CommandBuffer<ChunkStore> commandBuffer, PlayerRef query, @Nonnull List<CompletableFuture<Packet>> results) {
+        public void fetch(int index, @Nonnull ArchetypeChunk<ChunkStore> archetypeChunk, Store<ChunkStore> store, @Nonnull CommandBuffer<ChunkStore> commandBuffer, PlayerRef query, @Nonnull List<CompletableFuture<ToClientPacket>> results) {
             ChunkColumn chunkColumnComponent = archetypeChunk.getComponent(index, this.chunkColumnComponentType);
             assert (chunkColumnComponent != null);
             for (Ref<ChunkStore> sectionRef : chunkColumnComponent.getSections()) {
                 FluidSection fluidSectionComponent = commandBuffer.getComponent(sectionRef, this.fluidSectionComponentType);
                 if (fluidSectionComponent == null) continue;
-                results.add((CompletableFuture<Packet>)((CompletableFuture)fluidSectionComponent.getCachedPacket().exceptionally(throwable -> {
+                results.add((CompletableFuture<ToClientPacket>)((CompletableFuture)fluidSectionComponent.getCachedPacket().exceptionally(throwable -> {
                     if (throwable != null) {
                         ((HytaleLogger.Api)LOGGER.at(Level.SEVERE).withCause((Throwable)throwable)).log("Exception when compressing chunk fluids:");
                     }

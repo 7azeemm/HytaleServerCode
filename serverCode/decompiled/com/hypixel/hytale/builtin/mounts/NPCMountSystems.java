@@ -13,9 +13,10 @@ import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.RefSystem;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.interaction.MountNPC;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.modules.entity.component.Interactable;
 import com.hypixel.hytale.server.core.modules.entity.damage.DeathComponent;
 import com.hypixel.hytale.server.core.modules.entity.damage.DeathSystems;
 import com.hypixel.hytale.server.core.modules.entity.tracker.NetworkId;
@@ -148,7 +149,8 @@ public class NPCMountSystems {
                 return;
             }
             playerComponent.setMountEntityId(networkId);
-            playerRef.getPacketHandler().write((Packet)packet);
+            playerRef.getPacketHandler().write((ToClientPacket)packet);
+            commandBuffer.removeComponent(ref, Interactable.getComponentType());
         }
 
         private void resetOriginalRoleMount(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull NPCMountComponent mountComponent) {
@@ -156,6 +158,7 @@ public class NPCMountSystems {
             assert (npcComponent != null);
             RoleChangeSystem.requestRoleChange(ref, npcComponent.getRole(), mountComponent.getOriginalRoleIndex(), false, "Idle", null, store);
             commandBuffer.removeComponent(ref, this.mountComponentType);
+            commandBuffer.ensureComponent(ref, Interactable.getComponentType());
         }
 
         @Override

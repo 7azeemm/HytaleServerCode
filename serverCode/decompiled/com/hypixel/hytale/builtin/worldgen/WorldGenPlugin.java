@@ -3,7 +3,6 @@
  */
 package com.hypixel.hytale.builtin.worldgen;
 
-import com.hypixel.hytale.builtin.worldgen.FeatureFlags;
 import com.hypixel.hytale.codec.ExtraInfo;
 import com.hypixel.hytale.codec.lookup.Priority;
 import com.hypixel.hytale.codec.util.RawJsonReader;
@@ -55,20 +54,22 @@ extends JavaPlugin {
         instance = this;
         this.getEntityStoreRegistry().registerSystem(new BiomeDataSystem());
         IWorldGenProvider.CODEC.register(Priority.DEFAULT.before(1), "Hytale", (Class<IWorldGenProvider>)HytaleWorldGenProvider.class, HytaleWorldGenProvider.CODEC);
-        FileIO.setDefaultRoot(AssetModule.get().getBaseAssetPack().getRoot());
-        if (FeatureFlags.VERSION_OVERRIDES) {
-            AssetModule assets = AssetModule.get();
-            List<Version> packs = WorldGenPlugin.loadVersionPacks(assets);
-            Object2ObjectOpenHashMap<String, Semver> versions = new Object2ObjectOpenHashMap<String, Semver>();
-            for (Version version : packs) {
-                WorldGenPlugin.validateVersion(version, packs);
-                assets.registerPack(version.getPackName(), version.path, version.manifest);
-                Semver latest = versions.get(version.name);
-                if (latest != null && version.manifest.getVersion().compareTo(latest) <= 0) continue;
-                versions.put(version.name, version.manifest.getVersion());
-            }
-            HytaleWorldGenProvider.CODEC.setVersions(versions);
+        AssetModule assets = AssetModule.get();
+        if (assets.getAssetPacks().isEmpty()) {
+            this.getLogger().at(Level.SEVERE).log("No asset packs loaded");
+            return;
         }
+        FileIO.setDefaultRoot(assets.getBaseAssetPack().getRoot());
+        List<Version> packs = WorldGenPlugin.loadVersionPacks(assets);
+        Object2ObjectOpenHashMap<String, Semver> versions = new Object2ObjectOpenHashMap<String, Semver>();
+        for (Version version : packs) {
+            WorldGenPlugin.validateVersion(version, packs);
+            assets.registerPack(version.getPackName(), version.path, version.manifest, false);
+            Semver latest = versions.get(version.name);
+            if (latest != null && version.manifest.getVersion().compareTo(latest) <= 0) continue;
+            versions.put(version.name, version.manifest.getVersion());
+        }
+        HytaleWorldGenProvider.CODEC.setVersions(versions);
     }
 
     private static List<Version> loadVersionPacks(@Nonnull AssetModule assets) {

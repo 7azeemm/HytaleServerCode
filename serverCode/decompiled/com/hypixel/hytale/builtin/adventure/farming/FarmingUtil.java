@@ -153,10 +153,11 @@ public class FarmingUtil {
         farmingBlock.setLastTickGameTime(currentTime);
     }
 
-    public static void harvest(@Nonnull World world, @Nonnull ComponentAccessor<EntityStore> componentAccessor, @Nonnull Ref<EntityStore> ref, @Nonnull BlockType blockType, int rotationIndex, @Nonnull Vector3i blockPosition) {
+    public static boolean harvest(@Nonnull World world, @Nonnull ComponentAccessor<EntityStore> componentAccessor, @Nonnull Ref<EntityStore> ref, @Nonnull BlockType blockType, int rotationIndex, @Nonnull Vector3i blockPosition) {
         if (world.getGameplayConfig().getWorldConfig().isBlockGatheringAllowed()) {
-            FarmingUtil.harvest0(componentAccessor, ref, blockType, rotationIndex, blockPosition);
+            return FarmingUtil.harvest0(componentAccessor, ref, blockType, rotationIndex, blockPosition);
         }
+        return false;
     }
 
     @Nullable
@@ -177,8 +178,9 @@ public class FarmingUtil {
     protected static boolean harvest0(@Nonnull ComponentAccessor<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull BlockType blockType, int rotationIndex, @Nonnull Vector3i blockPosition) {
         FarmingBlock farmingBlock;
         FarmingData farmingConfig = blockType.getFarming();
+        boolean isFarmable = true;
         if (farmingConfig == null || farmingConfig.getStages() == null) {
-            return false;
+            isFarmable = false;
         }
         if (blockType.getGathering().getHarvest() == null) {
             return false;
@@ -187,7 +189,7 @@ public class FarmingUtil {
         Vector3d centerPosition = new Vector3d();
         blockType.getBlockCenter(rotationIndex, centerPosition);
         centerPosition.add(blockPosition);
-        if (farmingConfig.getStageSetAfterHarvest() == null) {
+        if (!isFarmable || farmingConfig.getStageSetAfterHarvest() == null) {
             FarmingUtil.giveDrops(store, ref, centerPosition, blockType);
             WorldChunk chunk = world.getChunkIfInMemory(ChunkUtil.indexChunkFromBlock(blockPosition.x, blockPosition.z));
             if (chunk != null) {

@@ -6,7 +6,7 @@ package com.hypixel.hytale.server.core.modules.debug;
 import com.hypixel.hytale.math.matrix.Matrix4d;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.DebugShape;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.Vector3f;
 import com.hypixel.hytale.protocol.packets.player.ClearDebugShapes;
 import com.hypixel.hytale.protocol.packets.player.DisplayDebug;
@@ -52,7 +52,7 @@ public class DebugUtils {
     private static void add(@Nonnull World world, @Nonnull DebugShape shape, @Nonnull Matrix4d matrix, @Nonnull com.hypixel.hytale.math.vector.Vector3f color, float opacity, float time, boolean fade, @Nullable float[] shapeParams) {
         DisplayDebug packet = new DisplayDebug(shape, matrix.asFloatData(), new Vector3f(color.x, color.y, color.z), time, fade, shapeParams, opacity);
         for (PlayerRef playerRef : world.getPlayerRefs()) {
-            playerRef.getPacketHandler().write((Packet)packet);
+            playerRef.getPacketHandler().write((ToClientPacket)packet);
         }
     }
 
@@ -63,7 +63,7 @@ public class DebugUtils {
     public static void clear(@Nonnull World world) {
         ClearDebugShapes packet = new ClearDebugShapes();
         for (PlayerRef playerRef : world.getPlayerRefs()) {
-            playerRef.getPacketHandler().write((Packet)packet);
+            playerRef.getPacketHandler().write((ToClientPacket)packet);
         }
     }
 
@@ -141,6 +141,15 @@ public class DebugUtils {
         DebugUtils.add(world, DebugShape.Cylinder, matrix, color, time, fade);
     }
 
+    public static void addDisc(@Nonnull World world, @Nonnull Matrix4d matrix, double outerRadius, double innerRadius, @Nonnull com.hypixel.hytale.math.vector.Vector3f color, float opacity, int segmentCount, float time, boolean fade) {
+        float[] shapeParams = new float[]{(float)outerRadius, segmentCount, (float)innerRadius, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        DebugUtils.add(world, DebugShape.Disc, matrix, color, opacity, time, fade, shapeParams);
+    }
+
+    public static void addDisc(@Nonnull World world, @Nonnull Matrix4d matrix, double outerRadius, double innerRadius, @Nonnull com.hypixel.hytale.math.vector.Vector3f color, float opacity, float time, boolean fade) {
+        DebugUtils.addDisc(world, matrix, outerRadius, innerRadius, color, opacity, 32, time, fade);
+    }
+
     public static void addDisc(@Nonnull World world, @Nonnull Vector3d center, double radius, @Nonnull com.hypixel.hytale.math.vector.Vector3f color, float time, boolean fade) {
         DebugUtils.addDisc(world, center.x, center.y, center.z, radius, 0.0, color, 0.8f, time, fade);
     }
@@ -161,8 +170,7 @@ public class DebugUtils {
         Matrix4d matrix = new Matrix4d();
         matrix.identity();
         matrix.translate(x, y, z);
-        float[] shapeParams = new float[]{(float)outerRadius, segmentCount, (float)innerRadius, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-        DebugUtils.add(world, DebugShape.Disc, matrix, color, opacity, time, fade, shapeParams);
+        DebugUtils.addDisc(world, matrix, outerRadius, innerRadius, color, opacity, segmentCount, time, fade);
     }
 
     public static void addSector(@Nonnull World world, double x, double y, double z, double heading, double radius, double angle, @Nonnull com.hypixel.hytale.math.vector.Vector3f color, float time, boolean fade) {

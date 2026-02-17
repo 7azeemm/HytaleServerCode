@@ -35,7 +35,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.assets.TrackOrUpdateObjective;
 import com.hypixel.hytale.protocol.packets.assets.UntrackObjective;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
@@ -227,7 +227,7 @@ public class ObjectiveLocationMarkerSystems {
                 PlayerRef playerRef = universe.getPlayer(uuid);
                 logger.at(Level.FINE).log("Player '%s' left the objective area for marker '%s', current objective '%s' with UUID '%s'", playerRef == null ? uuid : playerRef.getUsername(), entity.objectiveLocationMarkerId, objectiveId, entity.activeObjectiveUUID);
                 if (playerRef == null) continue;
-                playerRef.getPacketHandler().write((Packet)entity.getUntrackPacket());
+                playerRef.getPacketHandler().write((ToClientPacket)entity.getUntrackPacket());
             }
         }
 
@@ -333,7 +333,7 @@ public class ObjectiveLocationMarkerSystems {
             ModelComponent modelComponent = store.getComponent(ref, this.modelComponentType);
             assert (modelComponent != null);
             Model model = modelComponent.getModel();
-            commandBuffer.putComponent(ref, this.modelComponentType, new ModelComponent(new Model(model.getModelAssetId(), model.getScale(), model.getRandomAttachmentIds(), model.getAttachments(), objectiveLocationMarkerComponent.getArea().getBoxForEntryArea(), model.getModel(), model.getTexture(), model.getGradientSet(), model.getGradientId(), model.getEyeHeight(), model.getCrouchOffset(), model.getAnimationSetMap(), model.getCamera(), model.getLight(), model.getParticles(), model.getTrails(), model.getPhysicsValues(), model.getDetailBoxes(), model.getPhobia(), model.getPhobiaModelAssetId())));
+            commandBuffer.putComponent(ref, this.modelComponentType, new ModelComponent(new Model(model.getModelAssetId(), model.getScale(), model.getRandomAttachmentIds(), model.getAttachments(), objectiveLocationMarkerComponent.getArea().getBoxForEntryArea(), model.getModel(), model.getTexture(), model.getGradientSet(), model.getGradientId(), model.getEyeHeight(), model.getCrouchOffset(), model.getSittingOffset(), model.getSleepingOffset(), model.getAnimationSetMap(), model.getCamera(), model.getLight(), model.getParticles(), model.getTrails(), model.getPhysicsValues(), model.getDetailBoxes(), model.getPhobia(), model.getPhobiaModelAssetId())));
             commandBuffer.ensureComponent(ref, this.prefabCopyableComponentType);
         }
 

@@ -15,7 +15,7 @@ import com.hypixel.hytale.event.EventBus;
 import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.ItemWithAllMetadata;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.interface_.NotificationStyle;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
@@ -48,11 +48,11 @@ import javax.annotation.Nullable;
 
 public class HytaleAssetStore<K, T extends JsonAssetWithMap<K, M>, M extends AssetMap<K, T>>
 extends AssetStore<K, T, M> {
-    public static final Queue<Consumer<Packet>> SETUP_PACKET_CONSUMERS;
+    public static final Queue<Consumer<ToClientPacket>> SETUP_PACKET_CONSUMERS;
     protected final AssetPacketGenerator<K, T, M> packetGenerator;
     protected final Function<K, ItemWithAllMetadata> notificationItemFunction;
     @Nullable
-    protected SoftReference<Packet[]> cachedInitPackets;
+    protected SoftReference<ToClientPacket[]> cachedInitPackets;
 
     public HytaleAssetStore(@Nonnull Builder<K, T, M> builder) {
         super(builder);
@@ -93,7 +93,7 @@ extends AssetStore<K, T, M> {
 
     @Override
     protected void handleRemoveOrUpdate(@Nullable Set<K> toBeRemoved, @Nullable Map<K, T> toBeUpdated, @Nonnull AssetUpdateQuery query) {
-        Packet packet;
+        ToClientPacket packet;
         if (this.packetGenerator == null) {
             return;
         }
@@ -118,20 +118,20 @@ extends AssetStore<K, T, M> {
         }
     }
 
-    public void sendAssets(@Nonnull Consumer<Packet[]> packetConsumer) {
-        Packet[] packets;
+    public void sendAssets(@Nonnull Consumer<ToClientPacket[]> packetConsumer) {
+        ToClientPacket[] packets;
         if (this.packetGenerator == null) {
             return;
         }
-        Packet[] packetArray = packets = this.cachedInitPackets == null ? null : this.cachedInitPackets.get();
+        ToClientPacket[] toClientPacketArray = packets = this.cachedInitPackets == null ? null : this.cachedInitPackets.get();
         if (packets != null) {
             packetConsumer.accept(packets);
             return;
         }
         Map map = this.assetMap.getAssetMap();
-        Packet packet = this.packetGenerator.generateInitPacket(this.assetMap, map);
-        packets = new Packet[]{packet};
-        this.cachedInitPackets = new SoftReference<Packet[]>(packets);
+        ToClientPacket packet = this.packetGenerator.generateInitPacket(this.assetMap, map);
+        packets = new ToClientPacket[]{packet};
+        this.cachedInitPackets = new SoftReference<ToClientPacket[]>(packets);
         packetConsumer.accept(packets);
     }
 
@@ -183,7 +183,7 @@ extends AssetStore<K, T, M> {
 
     static {
         AssetStore.DISABLE_ASSET_COMPARE = Options.getOptionSet().has(Options.DISABLE_ASSET_COMPARE);
-        SETUP_PACKET_CONSUMERS = new ConcurrentLinkedQueue<Consumer<Packet>>();
+        SETUP_PACKET_CONSUMERS = new ConcurrentLinkedQueue<Consumer<ToClientPacket>>();
     }
 
     public static class Builder<K, T extends JsonAssetWithMap<K, M>, M extends AssetMap<K, T>>

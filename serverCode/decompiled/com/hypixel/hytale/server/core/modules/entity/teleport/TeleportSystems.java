@@ -17,7 +17,7 @@ import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
 import com.hypixel.hytale.protocol.ModelTransform;
-import com.hypixel.hytale.protocol.Packet;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.player.ClientTeleport;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.CollisionResultComponent;
@@ -184,7 +184,7 @@ public class TeleportSystems {
             playerComponent.getWindowManager().validateWindows(ref, commandBuffer);
             int id = pendingTeleportComponent.queueTeleport(teleport);
             ClientTeleport teleportPacket = new ClientTeleport((byte)id, new ModelTransform(PositionUtil.toPositionPacket(transformComponent.getPosition()), PositionUtil.toDirectionPacket(transformComponent.getRotation()), headRotationComponent != null ? PositionUtil.toDirectionPacket(headRotationComponent.getRotation()) : PositionUtil.toDirectionPacket(transformComponent.getRotation())), teleport.isResetVelocity());
-            playerRefComponent.getPacketHandler().write((Packet)teleportPacket);
+            playerRefComponent.getPacketHandler().write((ToClientPacket)teleportPacket);
             CompletableFuture<Void> future = teleport.getOnComplete();
             if (future != null) {
                 future.complete(null);

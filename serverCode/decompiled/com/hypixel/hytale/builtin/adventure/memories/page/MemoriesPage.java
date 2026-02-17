@@ -95,11 +95,11 @@ extends InteractiveCustomUIPage<PageEventData> {
                 commandBuilder.set(selector + "#TotalMemoryCountComplete.Text", String.valueOf(memoriesInCategory.size()));
                 boolean bl = isCategoryComplete = recordedMemoriesCount == memoriesInCategory.size();
                 if (isCategoryComplete) {
-                    commandBuilder.set(selector + "#CategoryIcon.Background", "Pages/Memories/categories/" + category + "Complete.png");
+                    commandBuilder.set(selector + "#CategoryIcon.AssetPath", "UI/Custom/Pages/Memories/categories/" + category + "Complete.png");
                     commandBuilder.set(selector + "#CompleteCategoryBackground.Visible", true);
                     commandBuilder.set(selector + "#CompleteCategoryCounter.Visible", true);
                 } else {
-                    commandBuilder.set(selector + "#CategoryIcon.Background", "Pages/Memories/categories/" + category + ".png");
+                    commandBuilder.set(selector + "#CategoryIcon.AssetPath", "UI/Custom/Pages/Memories/categories/" + category + ".png");
                     commandBuilder.set(selector + "#NotCompleteCategoryCounter.Visible", true);
                 }
                 if (playerMemories != null) {

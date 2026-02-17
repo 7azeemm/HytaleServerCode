@@ -43,7 +43,7 @@ extends AbstractCommandCollection {
                         if (name.length() <= longestName.length()) continue;
                         longestName = name;
                     }
-                    context.sendMessage(Message.raw("Longest asset name for " + e.getKey().getSimpleName() + ": " + longestName + " (" + longestName.length() + " characters)"));
+                    context.sendMessage(Message.translation("server.commands.assets.longest.result").param("type", e.getKey().getSimpleName()).param("assetName", longestName).param("length", longestName.length()));
                 }
             });
         }
