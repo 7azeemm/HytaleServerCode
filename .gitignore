@@ -22,9 +22,10 @@ build/
 !/serverCode/decompiled/
 !/serverCode/decompiled/com
 !/serverCode/decompiled/com/hypixel
-
-# re-include only the server code
 !/serverCode/decompiled/com/hypixel/hytale
 !/serverCode/decompiled/com/hypixel/hytale/**
+!/serverCode/cfr.jar
+!/serverCode/decompile.bat
+!/serverCode/source.bat
 
 run
