@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.hypixel.hytale.server.npc.asset.builder.BuilderDescriptorState;
 import com.hypixel.hytale.server.npc.asset.builder.BuilderSupport;
 import com.hypixel.hytale.server.npc.asset.builder.holder.AssetArrayHolder;
+import com.hypixel.hytale.server.npc.asset.builder.holder.DoubleHolder;
 import com.hypixel.hytale.server.npc.asset.builder.holder.StringHolder;
 import com.hypixel.hytale.server.npc.asset.builder.validators.AssetValidator;
 import com.hypixel.hytale.server.npc.asset.builder.validators.DoubleOrValidator;
@@ -27,7 +28,7 @@ import javax.annotation.Nonnull;
 public class BuilderActionBeacon
 extends BuilderActionBase {
     protected final StringHolder message = new StringHolder();
-    protected double range;
+    protected final DoubleHolder range = new DoubleHolder();
     protected final AssetArrayHolder targetGroups = new AssetArrayHolder();
     protected final StringHolder targetToSendSlot = new StringHolder();
     protected double expirationTime;
@@ -66,9 +67,7 @@ extends BuilderActionBase {
     @Nonnull
     public BuilderActionBeacon readConfig(@Nonnull JsonElement data) {
         this.requireString(data, "Message", this.message, (StringValidator)StringNotEmptyValidator.get(), BuilderDescriptorState.Experimental, "Message to send to targets", null);
-        this.getDouble(data, "Range", (double d) -> {
-            this.range = d;
-        }, 64.0, (DoubleValidator)DoubleSingleValidator.greater0(), BuilderDescriptorState.Experimental, "The maximum range to send the message", null);
+        this.getDouble(data, "Range", this.range, 64.0, (DoubleValidator)DoubleSingleValidator.greater0(), BuilderDescriptorState.Experimental, "The maximum range to send the message", null);
         this.requireAssetArray(data, "TargetGroups", this.targetGroups, 0, Integer.MAX_VALUE, TagSetExistsValidator.withConfig(AssetValidator.ListCanBeEmpty), BuilderDescriptorState.Experimental, "The target group(s) to send the message to", null);
         this.getString(data, "SendTargetSlot", this.targetToSendSlot, null, (StringValidator)StringNullOrNotEmptyValidator.get(), BuilderDescriptorState.Stable, "The target slot of the marked entity to send. Omit to send own position", null);
         this.getDouble(data, "ExpirationTime", (double d) -> {
@@ -84,8 +83,8 @@ extends BuilderActionBase {
         return this.message.get(support.getExecutionContext());
     }
 
-    public double getRange() {
-        return this.range;
+    public double getRange(@Nonnull BuilderSupport support) {
+        return this.range.get(support.getExecutionContext());
     }
 
     public int[] getTargetGroups(@Nonnull BuilderSupport support) {

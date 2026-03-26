@@ -7,11 +7,13 @@ import com.hypixel.hytale.common.map.IWeightedMap;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.server.worldgen.loader.WorldGenPrefabSupplier;
 import com.hypixel.hytale.server.worldgen.prefab.PrefabPatternGenerator;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import com.hypixel.hytale.server.worldgen.util.bounds.IChunkBounds;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
 
 public class PrefabContainer {
+    public static final ListPool<PrefabContainerEntry> ENTRY_POOL = new ListPool<PrefabContainerEntry>(10, new PrefabContainerEntry[0]);
     private final PrefabContainerEntry[] entries;
     private final int maxSize;
 

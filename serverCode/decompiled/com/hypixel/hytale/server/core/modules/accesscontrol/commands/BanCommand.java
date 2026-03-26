@@ -30,6 +30,7 @@ extends AbstractAsyncCommand {
     public BanCommand(@Nonnull HytaleBanProvider banProvider) {
         super("ban", "server.commands.ban.desc");
         this.setUnavailableInSingleplayer(true);
+        this.setAllowsExtraArguments(true);
         this.banProvider = banProvider;
     }
 
@@ -57,15 +58,15 @@ extends AbstractAsyncCommand {
             return Boolean.TRUE;
         });
         if (playerRef != null) {
-            CompletableFuture<Optional<String>> disconnectReason = ban.getDisconnectReason(uuid);
-            return ((CompletableFuture)disconnectReason.whenComplete((string, disconnectEx) -> {
-                Optional<String> optional = string;
+            CompletableFuture<Optional<Message>> disconnectReason = ban.getDisconnectReason(uuid);
+            return ((CompletableFuture)disconnectReason.whenComplete((message, disconnectEx) -> {
+                Optional<Message> optional = message;
                 if (disconnectEx != null) {
                     context.sendMessage(Message.translation("server.modules.ban.failedDisconnectReason").param("name", displayMessage));
                     disconnectEx.printStackTrace();
                 }
                 if (optional == null || !optional.isPresent()) {
-                    optional = Optional.of("Failed to get disconnect reason.");
+                    optional = Optional.of(Message.translation("server.general.disconnect.internalServerError"));
                 }
                 playerRef.getPacketHandler().disconnect(optional.get());
                 context.sendMessage(Message.translation("server.modules.ban.bannedWithReason").param("name", displayMessage).param("reason", reason));

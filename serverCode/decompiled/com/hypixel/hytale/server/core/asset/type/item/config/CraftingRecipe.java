@@ -32,7 +32,7 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, CraftingRecipe>> {
         asset.data = data;
     }, asset -> asset.data).append(new KeyedCodec<T[]>("Input", new ArrayCodec<MaterialQuantity>(MaterialQuantity.CODEC, MaterialQuantity[]::new)), (craftingRecipe, objects) -> {
         craftingRecipe.input = objects;
-    }, craftingRecipe -> craftingRecipe.input).addValidator(Validators.nonNull()).add()).append(new KeyedCodec<T[]>("Output", new ArrayCodec<MaterialQuantity>(MaterialQuantity.CODEC, MaterialQuantity[]::new)), (craftingRecipe, objects) -> {
+    }, craftingRecipe -> craftingRecipe.input).addValidator(Validators.nonNull()).addValidator(Validators.nonEmptyArray()).add()).append(new KeyedCodec<T[]>("Output", new ArrayCodec<MaterialQuantity>(MaterialQuantity.CODEC, MaterialQuantity[]::new)), (craftingRecipe, objects) -> {
         craftingRecipe.outputs = objects;
     }, craftingRecipe -> craftingRecipe.outputs).add()).append(new KeyedCodec<MaterialQuantity>("PrimaryOutput", MaterialQuantity.CODEC), (craftingRecipe, objects) -> {
         craftingRecipe.primaryOutput = objects;

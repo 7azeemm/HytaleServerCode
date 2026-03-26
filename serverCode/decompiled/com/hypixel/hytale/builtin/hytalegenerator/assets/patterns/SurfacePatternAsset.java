@@ -6,6 +6,7 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.patterns;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ConstantPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.AndPattern;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.OrPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.SurfacePattern;
@@ -50,7 +51,7 @@ extends PatternAsset {
     @Nonnull
     public Pattern build(@Nonnull PatternAsset.Argument argument) {
         if (super.isSkipped()) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         Pattern floorPattern = this.surface.build(argument);
         Pattern originPattern = this.origin.build(argument);

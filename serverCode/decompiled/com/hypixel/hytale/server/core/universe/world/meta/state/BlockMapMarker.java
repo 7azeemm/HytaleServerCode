@@ -21,6 +21,7 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.packets.worldmap.MapMarker;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -81,7 +82,7 @@ implements Component<ChunkStore> {
             Long2ObjectMap<BlockMapMarkersResource.BlockMapMarkerData> markers = resource.getMarkers();
             for (BlockMapMarkersResource.BlockMapMarkerData markerData : markers.values()) {
                 Vector3i position = markerData.getPosition();
-                MapMarker marker = new MapMarkerBuilder(markerData.getMarkerId(), markerData.getIcon(), new Transform(position)).withCustomName(markerData.getName()).build();
+                MapMarker marker = new MapMarkerBuilder(markerData.getMarkerId(), markerData.getIcon(), new Transform(position)).withName(Message.translation(markerData.getName())).build();
                 collector.add(marker);
             }
         }

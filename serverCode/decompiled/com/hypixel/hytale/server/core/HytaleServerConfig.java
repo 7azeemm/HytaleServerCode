@@ -12,10 +12,11 @@ import com.hypixel.hytale.codec.codecs.map.MapCodec;
 import com.hypixel.hytale.codec.codecs.map.ObjectMapCodec;
 import com.hypixel.hytale.codec.lookup.Priority;
 import com.hypixel.hytale.codec.util.RawJsonReader;
+import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.common.plugin.PluginIdentifier;
-import com.hypixel.hytale.common.util.java.ManifestUtil;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.GameMode;
+import com.hypixel.hytale.protocol.HostAddress;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.auth.AuthCredentialStoreProvider;
@@ -23,6 +24,7 @@ import com.hypixel.hytale.server.core.codec.ProtocolCodecs;
 import com.hypixel.hytale.server.core.config.BackupConfig;
 import com.hypixel.hytale.server.core.config.ModConfig;
 import com.hypixel.hytale.server.core.config.RateLimitConfig;
+import com.hypixel.hytale.server.core.config.ServerWorldMapConfig;
 import com.hypixel.hytale.server.core.config.UpdateConfig;
 import com.hypixel.hytale.server.core.universe.playerdata.DefaultPlayerStorageProvider;
 import com.hypixel.hytale.server.core.universe.playerdata.DiskPlayerStorageProvider;
@@ -89,8 +91,10 @@ public class HytaleServerConfig {
     private UpdateConfig updateConfig = new UpdateConfig(this);
     @Nonnull
     private BackupConfig backupConfig = new BackupConfig(this);
+    @Nonnull
+    private ServerWorldMapConfig worldMapConfig = new ServerWorldMapConfig(this);
     @Nullable
-    private String skipModValidationForVersion;
+    private HostAddress fallbackServer;
 
     public static void setBoot(@Nonnull HytaleServerConfig serverConfig, @Nonnull PluginIdentifier identifier, boolean enabled) {
         serverConfig.modConfig.computeIfAbsent(identifier, id -> new ModConfig()).setEnabled(enabled);
@@ -266,8 +270,24 @@ public class HytaleServerConfig {
         this.markChanged();
     }
 
-    public boolean shouldSkipModValidation() {
-        return this.skipModValidationForVersion != null && this.skipModValidationForVersion.equals(ManifestUtil.getImplementationRevisionId());
+    @Nullable
+    public HostAddress getFallbackServer() {
+        return this.fallbackServer;
+    }
+
+    public void setFallbackServer(@Nullable HostAddress fallbackServer) {
+        this.fallbackServer = fallbackServer;
+        this.markChanged();
+    }
+
+    @Nonnull
+    public ServerWorldMapConfig getWorldMapConfig() {
+        return this.worldMapConfig;
+    }
+
+    public void setWorldMapConfig(@Nonnull ServerWorldMapConfig worldMapConfig) {
+        this.worldMapConfig = worldMapConfig;
+        this.markChanged();
     }
 
     public void removeModule(@Nonnull String module) {
@@ -326,7 +346,7 @@ public class HytaleServerConfig {
         Module.BUILDER_CODEC_BUILDER.addField(new KeyedCodec("Modules", new MapCodec<Module, ConcurrentHashMap>(Module.CODEC, ConcurrentHashMap::new, false)), (o, m) -> {
             o.modules = m;
         }, o -> o.modules);
-        CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(HytaleServerConfig.class, HytaleServerConfig::new).versioned()).codecVersion(4)).append(new KeyedCodec<String>("ServerName", Codec.STRING), (o, s) -> {
+        CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(HytaleServerConfig.class, HytaleServerConfig::new).versioned()).codecVersion(4)).append(new KeyedCodec<String>("ServerName", Codec.STRING), (o, s) -> {
             o.serverName = s;
         }, o -> o.serverName).add()).append(new KeyedCodec<String>("MOTD", Codec.STRING), (o, s) -> {
             o.motd = s;
@@ -362,16 +382,23 @@ public class HytaleServerConfig {
             o.authCredentialStoreConfig = value;
         }, o -> o.authCredentialStoreConfig).add()).append(new KeyedCodec<UpdateConfig>("Update", UpdateConfig.CODEC), (o, value) -> {
             o.updateConfig = value;
-        }, o -> o.updateConfig).add()).append(new KeyedCodec<String>("SkipModValidationForVersion", Codec.STRING), (o, v) -> {
-            o.skipModValidationForVersion = v;
-        }, o -> o.skipModValidationForVersion).add()).append(new KeyedCodec<BackupConfig>("Backup", BackupConfig.CODEC), (o, value) -> {
+        }, o -> o.updateConfig).add()).append(new KeyedCodec<BackupConfig>("Backup", BackupConfig.CODEC), (o, value) -> {
             o.backupConfig = value;
-        }, o -> o.backupConfig).add()).afterDecode((config, extraInfo) -> {
+        }, o -> o.backupConfig).add()).append(new KeyedCodec<ServerWorldMapConfig>("WorldMap", ServerWorldMapConfig.CODEC), (o, value) -> {
+            o.worldMapConfig = value != null ? value : new ServerWorldMapConfig((HytaleServerConfig)o);
+        }, o -> o.worldMapConfig).add()).append(new KeyedCodec("FallbackServer", ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(HostAddress.class, HostAddress::new).append(new KeyedCodec<String>("Host", Codec.STRING), (o, i) -> {
+            o.host = i;
+        }, o -> o.host).addValidator(Validators.nonNull()).add()).append(new KeyedCodec<Short>("Port", Codec.SHORT), (o, i) -> {
+            o.port = i;
+        }, o -> o.port).addValidator(Validators.nonNull()).add()).build()), (o, i) -> {
+            o.fallbackServer = i;
+        }, o -> o.fallbackServer).add()).afterDecode((config, extraInfo) -> {
             config.defaults.hytaleServerConfig = config;
             config.connectionTimeouts.setHytaleServerConfig((HytaleServerConfig)config);
             config.rateLimitConfig.setHytaleServerConfig((HytaleServerConfig)config);
             config.updateConfig.setHytaleServerConfig((HytaleServerConfig)config);
             config.backupConfig.setHytaleServerConfig((HytaleServerConfig)config);
+            config.worldMapConfig.setHytaleServerConfig((HytaleServerConfig)config);
             config.modules.values().forEach(m -> m.setHytaleServerConfig((HytaleServerConfig)config));
             if (config.legacyPluginConfig != null && !config.legacyPluginConfig.isEmpty()) {
                 for (Map.Entry<PluginIdentifier, ModConfig> entry : config.legacyPluginConfig.entrySet()) {

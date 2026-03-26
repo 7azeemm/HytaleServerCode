@@ -3,7 +3,9 @@
  */
 package com.hypixel.hytale.builtin.buildertools.prefabeditor.commands;
 
+import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.BuilderToolsUserData;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSession;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSessionManager;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditingMetadata;
@@ -15,7 +17,9 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
+import com.hypixel.hytale.server.core.command.system.arguments.system.DefaultArg;
 import com.hypixel.hytale.server.core.command.system.arguments.system.FlagArg;
+import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncPlayerCommand;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
@@ -28,6 +32,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class PrefabEditSaveCommand
 extends AbstractAsyncPlayerCommand {
@@ -36,7 +41,11 @@ extends AbstractAsyncPlayerCommand {
     @Nonnull
     private static final Message MESSAGE_PATH_OUTSIDE_PREFABS_DIR = Message.translation("server.builderTools.attemptedToSaveOutsidePrefabsDir");
     @Nonnull
+    private static final Message MESSAGE_NOT_IN_EDIT_WORLD = Message.translation("server.commands.editprefab.notInEditWorldWarning");
+    @Nonnull
     private final FlagArg saveAllArg = (FlagArg)this.withFlagArg("saveAll", "server.commands.editprefab.save.saveAll.desc").addAliases("all");
+    @Nonnull
+    private final DefaultArg<String> packArg = this.withDefaultArg("pack", "server.commands.editprefab.save.pack.desc", ArgTypes.STRING, "", "server.commands.editprefab.save.pack.desc");
     @Nonnull
     private final FlagArg noEntitiesArg = this.withFlagArg("noEntities", "server.commands.editprefab.save.noEntities.desc");
     @Nonnull
@@ -65,12 +74,17 @@ extends AbstractAsyncPlayerCommand {
     @Override
     @Nonnull
     protected CompletableFuture<Void> executeAsync(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
+        boolean packExplicit;
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
         PrefabEditSessionManager prefabEditSessionManager = BuilderToolsPlugin.get().getPrefabEditSessionManager();
         PrefabEditSession prefabEditSession = prefabEditSessionManager.getPrefabEditSession(playerRef.getUuid());
         if (prefabEditSession == null) {
             context.sendMessage(MESSAGE_COMMANDS_EDIT_PREFAB_NOT_IN_EDIT_SESSION);
+            return CompletableFuture.completedFuture(null);
+        }
+        if (!prefabEditSessionManager.isInEditWorld(playerRef, store)) {
+            context.sendMessage(MESSAGE_NOT_IN_EDIT_WORLD);
             return CompletableFuture.completedFuture(null);
         }
         PrefabSaverSettings prefabSaverSettings = new PrefabSaverSettings();
@@ -80,6 +94,17 @@ extends AbstractAsyncPlayerCommand {
         prefabSaverSettings.setEmpty((Boolean)this.emptyArg.get(context));
         prefabSaverSettings.setClearSupportValues((Boolean)this.clearSupportArg.get(context));
         boolean confirm = this.confirmArg.provided(context);
+        String packName = (String)this.packArg.get(context);
+        AssetPack targetPack = null;
+        if (packName != null && !packName.isEmpty()) {
+            targetPack = BuilderToolsPlugin.resolveTargetPack(packName, playerComponent, context);
+            if (targetPack == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            packExplicit = true;
+        } else {
+            packExplicit = false;
+        }
         if (this.saveAllArg.provided(context)) {
             PrefabEditingMetadata[] values = prefabEditSession.getLoadedPrefabMetadata().values().toArray(new PrefabEditingMetadata[0]);
             int readOnlyCount = 0;
@@ -87,13 +112,21 @@ extends AbstractAsyncPlayerCommand {
                 if (!value.isReadOnly()) continue;
                 ++readOnlyCount;
             }
-            if (readOnlyCount > 0 && !confirm) {
-                context.sendMessage(Message.translation("server.commands.editprefab.save.readOnlyNeedsConfirm").param("count", readOnlyCount));
-                return CompletableFuture.completedFuture(null);
+            if (readOnlyCount > 0 && !packExplicit) {
+                if (targetPack == null && (targetPack = BuilderToolsPlugin.resolveTargetPack("", playerComponent, context)) == null) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                if (!confirm) {
+                    context.sendMessage(Message.translation("server.commands.editprefab.save.readOnlyNeedsConfirm").param("count", readOnlyCount));
+                    return CompletableFuture.completedFuture(null);
+                }
+            }
+            if (targetPack != null) {
+                BuilderToolsUserData.get(playerComponent).setLastSavePack(targetPack.getName());
             }
             if (!SingleplayerModule.isOwner(playerRef)) {
                 for (PrefabEditingMetadata value : values) {
-                    Path savePath = PrefabEditSaveCommand.getWritableSavePath(value, confirm);
+                    Path savePath = PrefabEditSaveCommand.getWritableSavePath(value, targetPack);
                     if (PrefabEditSaveCommand.isPathInAllowedPrefabDirectory(savePath)) continue;
                     context.sendMessage(MESSAGE_PATH_OUTSIDE_PREFABS_DIR);
                     return CompletableFuture.completedFuture(null);
@@ -103,7 +136,7 @@ extends AbstractAsyncPlayerCommand {
             CompletableFuture[] prefabSavingFutures = new CompletableFuture[values.length];
             for (int i = 0; i < values.length; ++i) {
                 PrefabEditingMetadata value = values[i];
-                Path savePath = PrefabEditSaveCommand.getWritableSavePath(value, confirm);
+                Path savePath = PrefabEditSaveCommand.getWritableSavePath(value, targetPack);
                 prefabSavingFutures[i] = PrefabSaver.savePrefab(playerComponent, world, savePath, value.getAnchorPoint(), value.getMinPoint(), value.getMaxPoint(), value.getPastePosition(), value.getOriginalFileAnchor(), prefabSaverSettings);
             }
             return CompletableFuture.allOf(prefabSavingFutures).thenAccept(unused -> {
@@ -123,42 +156,56 @@ extends AbstractAsyncPlayerCommand {
             context.sendMessage(Message.translation("server.commands.editprefab.noPrefabSelected"));
             return CompletableFuture.completedFuture(null);
         }
-        if (selectedPrefab.isReadOnly() && !confirm) {
-            Path redirectPath = PrefabEditSaveCommand.getWritableSavePath(selectedPrefab, true);
-            context.sendMessage(Message.translation("server.commands.editprefab.save.readOnlyNeedsConfirmSingle").param("path", selectedPrefab.getPrefabPath().toString()).param("redirectPath", redirectPath.toString()));
-            return CompletableFuture.completedFuture(null);
+        if (selectedPrefab.isReadOnly() && !packExplicit) {
+            targetPack = BuilderToolsPlugin.resolveTargetPack("", selectedPrefab.getPrefabPath(), playerComponent, context);
+            if (targetPack == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            if (!confirm) {
+                Path redirectPath = PrefabEditSaveCommand.getWritableSavePath(selectedPrefab, targetPack);
+                context.sendMessage(Message.translation("server.commands.editprefab.save.readOnlyNeedsConfirmSingle").param("path", selectedPrefab.getPrefabPath().toString()).param("redirectPath", redirectPath.toString()));
+                return CompletableFuture.completedFuture(null);
+            }
         }
         BlockSelection selection = BuilderToolsPlugin.getState(playerComponent, playerRef).getSelection();
         if (!selectedPrefab.getMinPoint().equals(selection.getSelectionMin()) || !selectedPrefab.getMaxPoint().equals(selection.getSelectionMax())) {
             context.sendMessage(Message.translation("server.commands.editprefab.save.selectionMismatch"));
             return CompletableFuture.completedFuture(null);
         }
-        Path savePath = PrefabEditSaveCommand.getWritableSavePath(selectedPrefab, confirm);
+        if (targetPack != null) {
+            BuilderToolsUserData.get(playerComponent).setLastSavePack(targetPack.getName());
+        }
+        Path savePath = PrefabEditSaveCommand.getWritableSavePath(selectedPrefab, targetPack);
         if (!SingleplayerModule.isOwner(playerRef) && !PrefabEditSaveCommand.isPathInAllowedPrefabDirectory(savePath)) {
             context.sendMessage(MESSAGE_PATH_OUTSIDE_PREFABS_DIR);
             return CompletableFuture.completedFuture(null);
         }
+        AssetPack packForMessage = targetPack;
+        if (packForMessage == null) {
+            packForMessage = PrefabStore.get().findAssetPackForPrefabPath(savePath);
+        }
+        AssetPack resolvedPack = packForMessage;
         return PrefabSaver.savePrefab(playerComponent, world, savePath, selectedPrefab.getAnchorPoint(), selectedPrefab.getMinPoint(), selectedPrefab.getMaxPoint(), selectedPrefab.getPastePosition(), selectedPrefab.getOriginalFileAnchor(), prefabSaverSettings).thenAccept(success -> {
             if (success.booleanValue()) {
                 selectedPrefab.setDirty(false);
             }
-            context.sendMessage(Message.translation("server.commands.editprefab.save." + (success != false ? "success" : "failure")).param("name", savePath.toString()));
+            String keySuffix = (success != false ? "success" : "failure") + (resolvedPack != null ? ".pack" : "");
+            Message msg = Message.translation("server.commands.editprefab.save." + keySuffix).param("name", savePath.toString());
+            if (resolvedPack != null) {
+                msg = msg.param("pack", resolvedPack.getName());
+            }
+            context.sendMessage(msg);
         });
     }
 
     @Nonnull
-    private static Path getWritableSavePath(@Nonnull PrefabEditingMetadata metadata, boolean confirm) {
-        if (!metadata.isReadOnly() || !confirm) {
-            return metadata.getPrefabPath();
+    private static Path getWritableSavePath(@Nonnull PrefabEditingMetadata metadata, @Nullable AssetPack targetPack) {
+        if (targetPack != null) {
+            PrefabStore prefabStore = PrefabStore.get();
+            Path packPrefabsPath = prefabStore.getAssetPrefabsPathForPack(targetPack);
+            return packPrefabsPath.resolve(prefabStore.getRelativePrefabPath(metadata.getPrefabPath()));
         }
-        Path originalPath = metadata.getPrefabPath();
-        String fileName = originalPath.getFileName().toString();
-        Path parent = originalPath.getParent();
-        if (parent != null && parent.getFileName() != null) {
-            String parentName = parent.getFileName().toString();
-            return PrefabStore.get().getServerPrefabsPath().resolve(parentName).resolve(fileName);
-        }
-        return PrefabStore.get().getServerPrefabsPath().resolve(fileName);
+        return metadata.getPrefabPath();
     }
 }
 

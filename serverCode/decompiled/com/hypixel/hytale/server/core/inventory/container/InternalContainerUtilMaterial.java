@@ -91,7 +91,7 @@ public class InternalContainerUtilMaterial {
 
     public static int testRemoveMaterialFromItems(@Nonnull ItemContainer container, @Nonnull MaterialQuantity material, int testQuantityRemaining, boolean filter) {
         if (material.getItemId() != null) {
-            return InternalContainerUtilItemStack.testRemoveItemStackFromItems(container, material.toItemStack(), testQuantityRemaining, filter);
+            return InternalContainerUtilItemStack.testRemoveItemStackFromItems(container, material.toItemStack(), testQuantityRemaining, filter, (a, b) -> ItemStack.isEquivalentType(a, b));
         }
         if (material.getTagIndex() != Integer.MIN_VALUE) {
             return InternalContainerUtilTag.testRemoveTagFromItems(container, material.getTagIndex(), testQuantityRemaining, filter);

@@ -4,10 +4,10 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators.PointGeneratorAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.fields.points.JitterPointField;
-import com.hypixel.hytale.builtin.hytalegenerator.fields.points.PointField;
-import com.hypixel.hytale.builtin.hytalegenerator.fields.points.PointProvider;
-import com.hypixel.hytale.builtin.hytalegenerator.seed.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.noise.pointprovider.JitterPointField;
+import com.hypixel.hytale.builtin.hytalegenerator.noise.pointprovider.PointField;
+import com.hypixel.hytale.builtin.hytalegenerator.noise.pointprovider.PointProvider;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.SeedBox;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;

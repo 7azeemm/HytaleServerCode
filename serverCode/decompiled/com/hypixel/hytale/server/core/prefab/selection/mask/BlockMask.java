@@ -63,6 +63,14 @@ public class BlockMask {
         return this.inverted;
     }
 
+    public boolean hasInvalidBlocks() {
+        for (BlockFilter filter : this.filters) {
+            if (!filter.hasInvalidBlocks()) continue;
+            return true;
+        }
+        return false;
+    }
+
     public boolean isExcluded(@Nonnull ChunkAccessor accessor, int x, int y, int z, Vector3i min, Vector3i max, int blockId) {
         return this.isExcluded(accessor, x, y, z, min, max, blockId, -1);
     }

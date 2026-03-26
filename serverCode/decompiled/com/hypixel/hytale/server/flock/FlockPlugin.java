@@ -172,8 +172,8 @@ extends JavaPlugin {
         int index = 0;
         int memberRoleIndex = roleIndex;
         for (int i = 1; i < flockSize; ++i) {
-            Pair<Ref<EntityStore>, NPCEntity> memberPair;
             Ref<EntityStore> memberRef;
+            Pair<Ref<EntityStore>, NPCEntity> memberPair;
             if (rolesSize > 0) {
                 if (randomSpawn) {
                     memberRoleIndex = roles[RandomExtra.randomRange(rolesSize)];
@@ -182,7 +182,7 @@ extends JavaPlugin {
                     index = (index + 1) % rolesSize;
                 }
             }
-            if ((memberRef = (memberPair = NPCPlugin.get().spawnEntity(store, memberRoleIndex, position, rotation, null, preAddToWorld, postSpawn)).first()) == null || !memberRef.isValid()) continue;
+            if ((memberPair = NPCPlugin.get().spawnEntity(store, memberRoleIndex, position, rotation, null, preAddToWorld, postSpawn)) == null || (memberRef = memberPair.first()) == null || !memberRef.isValid()) continue;
             BoundingBox memberBoundingBoxComponent = store.getComponent(memberRef, BoundingBox.getComponentType());
             assert (memberBoundingBoxComponent != null);
             TransformComponent memberTransformComponent = store.getComponent(memberRef, TransformComponent.getComponentType());

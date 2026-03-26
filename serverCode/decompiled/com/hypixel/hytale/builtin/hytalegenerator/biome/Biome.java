@@ -15,8 +15,6 @@ extends MaterialSource,
 PropsSource,
 EnvironmentSource,
 TintSource {
-    public String getBiomeName();
-
     @Nonnull
     public Density getTerrainDensity();
 }

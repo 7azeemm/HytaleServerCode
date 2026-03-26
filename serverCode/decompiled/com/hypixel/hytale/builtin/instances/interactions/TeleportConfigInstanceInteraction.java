@@ -207,7 +207,7 @@ extends SimpleBlockInteraction {
             throw new IllegalArgumentException("Hitbox asset not found for block type: " + blockType.getId());
         }
         Box hitbox = hitboxAsset.get(rotationIndex).getBoundingBox();
-        Vector3d position = state.getPositionOffset() != null ? rotation.rotate(state.getPositionOffset()) : new Vector3d();
+        Vector3d position = state.getPositionOffset() != null ? rotation.rotatedVector(state.getPositionOffset()) : new Vector3d();
         position.x += hitbox.middleX() + (double)targetBlock.x;
         position.y += hitbox.middleY() + (double)targetBlock.y;
         position.z += hitbox.middleZ() + (double)targetBlock.z;

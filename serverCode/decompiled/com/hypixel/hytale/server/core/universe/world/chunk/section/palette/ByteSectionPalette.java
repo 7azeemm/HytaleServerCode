@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.Short
 import it.unimi.dsi.fastutil.bytes.Byte2IntMap;
 import it.unimi.dsi.fastutil.bytes.Byte2ShortMap;
 import it.unimi.dsi.fastutil.ints.Int2ByteMap;
+import it.unimi.dsi.fastutil.ints.Int2ShortMap;
 import it.unimi.dsi.fastutil.shorts.Short2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.shorts.Short2IntMap;
 import java.util.BitSet;
@@ -30,8 +31,8 @@ extends AbstractByteSectionPalette {
         super(externalToInternal, internalToExternal, internalIdSet, internalIdCount, blocks);
     }
 
-    public ByteSectionPalette(@Nonnull int[] data, int[] unique, int count) {
-        super(new byte[32768], data, unique, count);
+    public ByteSectionPalette(@Nonnull int[] data, @Nonnull Int2ShortMap externalIdCounts) {
+        super(new byte[32768], data, externalIdCounts);
     }
 
     @Override

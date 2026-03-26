@@ -68,6 +68,7 @@ import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorFetchJsonAsset
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorFileEntry;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorJsonAssetUpdated;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorLastModifiedAssets;
+import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorModsDirectories;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorPopupNotificationType;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorRebuildCaches;
 import com.hypixel.hytale.protocol.packets.asseteditor.AssetEditorRequestChildrenListReply;
@@ -88,7 +89,6 @@ import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.asset.AssetPackRegisterEvent;
 import com.hypixel.hytale.server.core.asset.AssetPackUnregisterEvent;
-import com.hypixel.hytale.server.core.asset.AssetRegistryLoader;
 import com.hypixel.hytale.server.core.asset.common.events.CommonAssetMonitorEvent;
 import com.hypixel.hytale.server.core.config.ModConfig;
 import com.hypixel.hytale.server.core.io.PacketHandler;
@@ -100,6 +100,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import com.hypixel.hytale.server.core.plugin.PluginState;
+import com.hypixel.hytale.server.core.schema.SchemaGenerator;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.BsonUtil;
@@ -222,7 +223,7 @@ extends JavaPlugin {
     @Override
     protected void shutdown() {
         InitialPacketHandler.EDITOR_PACKET_HANDLER_SUPPLIER = null;
-        String message = HytaleServer.get().isShuttingDown() ? "Server is shutting down!" : "Asset editor was disabled!";
+        Message message = HytaleServer.get().isShuttingDown() ? Message.translation("server.general.disconnect.stoppingServer") : Message.translation("server.general.disconnect.assetEditorDisabled");
         for (Set<EditorClient> clients : this.uuidToEditorClients.values()) {
             for (EditorClient client : clients) {
                 client.getPacketHandler().disconnect(message);
@@ -281,7 +282,7 @@ extends JavaPlugin {
                 }
                 catch (Exception e) {
                     ((HytaleLogger.Api)this.getLogger().at(Level.SEVERE).withCause(e)).log("Failed to send ping to " + String.valueOf(client));
-                    client.getPacketHandler().disconnect("Exception when sending ping packet!");
+                    client.getPacketHandler().disconnect(Message.translation("server.general.disconnect.pingException"));
                 }
             }
         }
@@ -586,7 +587,7 @@ extends JavaPlugin {
      */
     private void initializeAssetEditor(boolean updateLoadedAssets) {
         long start = System.nanoTime();
-        Map<String, Schema> schemas = AssetRegistryLoader.generateSchemas(new SchemaContext(), new BsonDocument());
+        Map<String, Schema> schemas = SchemaGenerator.generateAssetSchemas();
         schemas.remove("NPCRole.json");
         schemas.remove("other.json");
         AssetEditorSetupSchemas setupSchemasPacket = new AssetEditorSetupSchemas(new SchemaFile[schemas.size()]);
@@ -649,6 +650,14 @@ extends JavaPlugin {
             packSetupPacket.packs.put(dataSourceEntry.getKey(), AssetEditorPlugin.toManifestPacket(manifest));
         }
         editorClient.getPacketHandler().write((ToClientPacket)packSetupPacket);
+        if (canCreateAssetPacks) {
+            List<Path> modsDirectories = this.getModsDirectories();
+            String[] dirStrings = new String[modsDirectories.size()];
+            for (int j = 0; j < modsDirectories.size(); ++j) {
+                dirStrings[j] = modsDirectories.get(j).toString();
+            }
+            editorClient.getPacketHandler().write((ToClientPacket)new AssetEditorModsDirectories(dirStrings));
+        }
         for (DataSource dataSource : this.assetPackDataSources.values()) {
             dataSource.getAssetTree().sendPackets(editorClient);
         }
@@ -808,7 +817,17 @@ extends JavaPlugin {
         }
     }
 
-    public void handleCreateAssetPack(@Nonnull EditorClient editorClient, @Nonnull AssetPackManifest packetManifest, int requestToken) {
+    @Nonnull
+    private List<Path> getModsDirectories() {
+        ObjectArrayList<Path> directories = new ObjectArrayList<Path>();
+        directories.add(PluginManager.MODS_PATH.toAbsolutePath());
+        for (Path modsPath : Options.getOptionSet().valuesOf(Options.MODS_DIRECTORIES)) {
+            directories.add(modsPath.toAbsolutePath());
+        }
+        return directories;
+    }
+
+    public void handleCreateAssetPack(@Nonnull EditorClient editorClient, @Nonnull AssetPackManifest packetManifest, int requestToken, int targetDirectoryIndex) {
         if (packetManifest.name == null || packetManifest.name.isEmpty()) {
             editorClient.sendFailureReply(requestToken, Messages.PACK_NAME_REQUIRED);
             return;
@@ -853,7 +872,12 @@ extends JavaPlugin {
             editorClient.sendFailureReply(requestToken, Messages.PACK_ALREADY_EXISTS);
             return;
         }
-        Path modsPath = PluginManager.MODS_PATH;
+        List<Path> modsDirectories = this.getModsDirectories();
+        if (targetDirectoryIndex < 0 || targetDirectoryIndex >= modsDirectories.size()) {
+            editorClient.sendFailureReply(requestToken, Messages.INVALID_TARGET_DIRECTORY);
+            return;
+        }
+        Path modsPath = modsDirectories.get(targetDirectoryIndex);
         String dirName = AssetPathUtil.removeInvalidFileNameChars((String)(packetManifest.group != null ? packetManifest.group + "." + packetManifest.name : packetManifest.name));
         Path normalized = Path.of(dirName, new String[0]).normalize();
         if (AssetPathUtil.isInvalidFileName(normalized)) {

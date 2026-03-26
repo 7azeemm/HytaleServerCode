@@ -16,13 +16,13 @@ import javax.annotation.Nonnull;
 
 public class FloatArg
 extends ToolArg<Float> {
-    public static final BuilderCodec<FloatArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(FloatArg.class, FloatArg::new, ToolArg.DEFAULT_CODEC).addField(new KeyedCodec<Double>("Default", Codec.DOUBLE), (floatArg, o) -> {
+    public static final BuilderCodec<FloatArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(FloatArg.class, FloatArg::new, ToolArg.DEFAULT_CODEC).append(new KeyedCodec<Double>("Default", Codec.DOUBLE), (floatArg, o) -> {
         floatArg.value = Float.valueOf(o.floatValue());
-    }, floatArg -> ((Float)floatArg.value).floatValue())).addField(new KeyedCodec<Double>("Min", Codec.DOUBLE), (floatArg, o) -> {
+    }, floatArg -> ((Float)floatArg.value).floatValue()).add()).append(new KeyedCodec<Double>("Min", Codec.DOUBLE), (floatArg, o) -> {
         floatArg.min = o.floatValue();
-    }, floatArg -> floatArg.min)).addField(new KeyedCodec<Double>("Max", Codec.DOUBLE), (floatArg, o) -> {
+    }, floatArg -> floatArg.min).add()).append(new KeyedCodec<Double>("Max", Codec.DOUBLE), (floatArg, o) -> {
         floatArg.max = o.floatValue();
-    }, floatArg -> floatArg.max)).build();
+    }, floatArg -> floatArg.max).add()).build();
     protected float min;
     protected float max;
 

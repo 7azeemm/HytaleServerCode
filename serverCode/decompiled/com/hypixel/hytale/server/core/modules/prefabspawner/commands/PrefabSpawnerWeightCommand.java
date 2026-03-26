@@ -7,7 +7,7 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
-import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerState;
+import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerBlock;
 import com.hypixel.hytale.server.core.modules.prefabspawner.commands.TargetPrefabSpawnerCommand;
 import com.hypixel.hytale.server.core.prefab.PrefabWeights;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
@@ -25,7 +25,7 @@ extends TargetPrefabSpawnerCommand {
     }
 
     @Override
-    protected void execute(@Nonnull CommandContext context, @Nonnull WorldChunk chunk, @Nonnull PrefabSpawnerState prefabSpawner) {
+    protected void execute(@Nonnull CommandContext context, @Nonnull WorldChunk chunk, @Nonnull PrefabSpawnerBlock prefabSpawner) {
         String prefab = (String)this.prefabArg.get(context);
         Float weight = (Float)this.weightArg.get(context);
         PrefabWeights prefabWeights = prefabSpawner.getPrefabWeights();

@@ -6,7 +6,8 @@ package com.hypixel.hytale.builtin.crafting.component;
 import com.google.gson.JsonArray;
 import com.hypixel.hytale.builtin.adventure.memories.MemoriesPlugin;
 import com.hypixel.hytale.builtin.crafting.CraftingPlugin;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
+import com.hypixel.hytale.builtin.crafting.component.ProcessingBenchBlock;
 import com.hypixel.hytale.builtin.crafting.window.BenchWindow;
 import com.hypixel.hytale.builtin.crafting.window.CraftingWindow;
 import com.hypixel.hytale.component.Component;
@@ -18,6 +19,7 @@ import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.shape.Box;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.BenchRequirement;
 import com.hypixel.hytale.protocol.BenchType;
@@ -52,13 +54,15 @@ import com.hypixel.hytale.server.core.inventory.container.filter.FilterType;
 import com.hypixel.hytale.server.core.inventory.transaction.ListTransaction;
 import com.hypixel.hytale.server.core.inventory.transaction.MaterialSlotTransaction;
 import com.hypixel.hytale.server.core.inventory.transaction.MaterialTransaction;
+import com.hypixel.hytale.server.core.modules.block.BlockModule;
+import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.modules.entity.player.PlayerSettings;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
-import com.hypixel.hytale.server.core.universe.world.meta.state.ItemContainerState;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.NotificationUtil;
@@ -66,7 +70,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.lang.invoke.LambdaMetafactory;
 import java.util.Collections;
 import java.util.List;
@@ -204,12 +207,25 @@ implements Component<EntityStore> {
         if (!this.isValidBenchForRecipe(ref, componentAccessor, recipe)) {
             return false;
         }
+        CraftRecipeEvent.Pre preEvent = new CraftRecipeEvent.Pre(recipe, quantity);
+        componentAccessor.invoke(ref, preEvent);
+        if (preEvent.isCancelled()) {
+            return false;
+        }
         float recipeTime = recipe.getTimeSeconds();
         if (recipeTime > 0.0f && (level = this.getBenchTierLevel(componentAccessor)) > 1 && (tierLevelData = this.getBenchTierLevelData(level)) != null) {
             recipeTime -= recipeTime * tierLevelData.getCraftingTimeReductionModifier();
         }
         this.queuedCraftingJobs.offer(new CraftingJob(window, transactionId, recipe, quantity, recipeTime, inputItemContainer, inputRemovalType));
         return true;
+    }
+
+    public int getRemainingQueueSize() {
+        int total = 0;
+        for (CraftingJob job : this.queuedCraftingJobs) {
+            total += job.quantity - job.quantityCompleted;
+        }
+        return total;
     }
 
     public void tick(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor, float dt) {
@@ -267,8 +283,12 @@ implements Component<EntityStore> {
             ++currentJob.quantityCompleted;
             currentJob.timeSecondsCompleted = 0.0f;
             LOGGER.at(Level.FINE).log("Crafted 1 Quantity: %s", currentJob);
+            CraftRecipeEvent.Post postEvent = new CraftRecipeEvent.Post(currentJob.recipe, currentJob.quantity);
+            componentAccessor.invoke(ref, postEvent);
             if (currentJob.quantityCompleted == currentJob.quantity) {
-                CraftingManager.giveOutput(ref, componentAccessor, currentJob, currentCompletedItemId);
+                if (!postEvent.isCancelled()) {
+                    CraftingManager.giveOutput(ref, componentAccessor, currentJob, currentCompletedItemId);
+                }
                 LOGGER.at(Level.FINE).log("Crafting Finished: %s", currentJob);
                 this.queuedCraftingJobs.poll();
             } else {
@@ -276,8 +296,11 @@ implements Component<EntityStore> {
                     this.queuedCraftingJobs.poll();
                     throw new RuntimeException("QuantityCompleted is greater than the Quality! " + String.valueOf(currentJob));
                 }
-                CraftingManager.giveOutput(ref, componentAccessor, currentJob, currentCompletedItemId);
+                if (!postEvent.isCancelled()) {
+                    CraftingManager.giveOutput(ref, componentAccessor, currentJob, currentCompletedItemId);
+                }
             }
+            currentJob.window.updateQueueSize(this.getRemainingQueueSize());
             if (!this.queuedCraftingJobs.isEmpty()) continue;
             currentJob.window.setBlockInteractionState("default", componentAccessor.getExternalData().getWorld());
         }
@@ -314,8 +337,7 @@ implements Component<EntityStore> {
         BenchType benchType = this.blockType != null ? this.blockType.getBench().getType() : BenchType.Crafting;
         String benchName = this.blockType != null ? this.blockType.getBench().getId() : "Fieldcraft";
         boolean meetsRequirements = false;
-        BlockState state = world.getState(this.x, this.y, this.z, true);
-        int benchTierLevel = state instanceof BenchState ? ((BenchState)state).getTierLevel() : 0;
+        int benchTierLevel = this.getBenchTierLevel(componentAccessor);
         BenchRequirement[] requirements = recipe.getBenchRequirement();
         if (requirements != null) {
             for (BenchRequirement benchRequirement : requirements) {
@@ -557,23 +579,38 @@ implements Component<EntityStore> {
 
     private int finishTierUpgrade(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         boolean canUpgrade;
-        BenchState benchState;
         if (this.upgradingJob == null) {
             return 0;
         }
         World world = componentAccessor.getExternalData().getWorld();
-        BlockState state = world.getState(this.x, this.y, this.z, true);
-        BenchState benchState2 = benchState = state instanceof BenchState ? (BenchState)state : null;
-        if (benchState == null || benchState.getTierLevel() == 0) {
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> chunk = chunkStore.getChunkReference(ChunkUtil.indexChunkFromBlock(this.x, this.z));
+        if (chunk == null || !chunk.isValid()) {
             return 0;
         }
-        BenchUpgradeRequirement requirements = this.getBenchUpgradeRequirement(benchState.getTierLevel());
+        BlockComponentChunk blockComponentChunk = chunkStore.getStore().getComponent(chunk, BlockComponentChunk.getComponentType());
+        assert (blockComponentChunk != null);
+        BlockChunk blockChunk = chunkStore.getStore().getComponent(chunk, BlockChunk.getComponentType());
+        assert (blockChunk != null);
+        Ref<ChunkStore> blockEntityRef = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(this.x, this.y, this.z));
+        if (blockEntityRef == null || !blockEntityRef.isValid()) {
+            return 0;
+        }
+        BlockModule.BlockStateInfo blockStateInfo = chunkStore.getStore().getComponent(blockEntityRef, BlockModule.BlockStateInfo.getComponentType());
+        if (blockStateInfo == null) {
+            return 0;
+        }
+        BenchBlock benchBlock = chunkStore.getStore().getComponent(blockEntityRef, BenchBlock.getComponentType());
+        if (benchBlock == null || benchBlock.getTierLevel() == 0) {
+            return 0;
+        }
+        BenchUpgradeRequirement requirements = this.getBenchUpgradeRequirement(benchBlock.getTierLevel());
         if (requirements == null) {
-            return benchState.getTierLevel();
+            return benchBlock.getTierLevel();
         }
         List<MaterialQuantity> input = CraftingManager.getInputMaterials(requirements.getInput());
         if (input.isEmpty()) {
-            return benchState.getTierLevel();
+            return benchBlock.getTierLevel();
         }
         Player playerComponent = componentAccessor.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
@@ -588,17 +625,31 @@ implements Component<EntityStore> {
                         consumed.add(matSlot.getOutput());
                     }
                 }
-                benchState.addUpgradeItems(consumed);
+                benchBlock.addUpgradeItems(consumed);
+                blockStateInfo.markNeedsSaving();
                 canUpgrade = true;
             }
         }
         if (canUpgrade) {
-            benchState.setTierLevel(benchState.getTierLevel() + 1);
-            if (benchState.getBench().getBenchUpgradeCompletedSoundEventIndex() != 0) {
-                SoundUtil.playSoundEvent3d(benchState.getBench().getBenchUpgradeCompletedSoundEventIndex(), SoundCategory.SFX, (double)this.x + 0.5, (double)this.y + 0.5, (double)this.z + 0.5, componentAccessor);
+            ProcessingBenchBlock processingBlock;
+            benchBlock.setTierLevel(benchBlock.getTierLevel() + 1);
+            blockStateInfo.markNeedsSaving();
+            BlockType baseBlockType = BenchBlock.getBaseBlockType(this.blockType);
+            Object worldChunk = world.getChunk(ChunkUtil.indexChunkFromBlock(this.x, this.z));
+            if (worldChunk != null) {
+                worldChunk.setBlockInteractionState(this.x, this.y, this.z, baseBlockType, benchBlock.getTierStateName(), true);
+            }
+            if ((processingBlock = chunkStore.getStore().getComponent(blockEntityRef, ProcessingBenchBlock.getComponentType())) != null && worldChunk != null) {
+                int rotationIndex = ((WorldChunk)worldChunk).getRotationIndex(this.x, this.y, this.z);
+                processingBlock.setupSlots(world, benchBlock, blockStateInfo, this.x, this.y, this.z, this.blockType, rotationIndex);
+            }
+            int blockId = blockChunk.getBlock(this.x, this.y, this.z);
+            BlockType block = BlockType.getAssetMap().getAsset(blockId);
+            if (block != null && block.getBench().getBenchUpgradeCompletedSoundEventIndex() != 0) {
+                SoundUtil.playSoundEvent3d(block.getBench().getBenchUpgradeCompletedSoundEventIndex(), SoundCategory.SFX, (double)this.x + 0.5, (double)this.y + 0.5, (double)this.z + 0.5, componentAccessor);
             }
         }
-        return benchState.getTierLevel();
+        return benchBlock.getTierLevel();
     }
 
     @Nullable
@@ -618,14 +669,28 @@ implements Component<EntityStore> {
 
     private int getBenchTierLevel(@Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         World world = componentAccessor.getExternalData().getWorld();
-        BlockState state = world.getState(this.x, this.y, this.z, true);
-        return state instanceof BenchState ? ((BenchState)state).getTierLevel() : 0;
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> chunk = chunkStore.getChunkReference(ChunkUtil.indexChunkFromBlock(this.x, this.z));
+        if (chunk == null || !chunk.isValid()) {
+            return 0;
+        }
+        BlockComponentChunk blockComponentChunk = chunkStore.getStore().getComponent(chunk, BlockComponentChunk.getComponentType());
+        assert (blockComponentChunk != null);
+        Ref<ChunkStore> blockEntityRef = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(this.x, this.y, this.z));
+        if (blockEntityRef == null || !blockEntityRef.isValid()) {
+            return 0;
+        }
+        BenchBlock benchBlock = chunkStore.getStore().getComponent(blockEntityRef, BenchBlock.getComponentType());
+        if (benchBlock == null || benchBlock.getTierLevel() == 0) {
+            return 0;
+        }
+        return benchBlock.getTierLevel();
     }
 
-    public static int feedExtraResourcesSection(@Nonnull BenchState benchState, @Nonnull MaterialExtraResourcesSection extraResourcesSection) {
-        ChestLookupResult result = CraftingManager.getContainersAroundBench(benchState);
+    public static int feedExtraResourcesSection(@Nonnull World world, int x, int y, int z, @Nonnull BlockType blockType, int rotationIndex, @Nonnull Bench benchAsset, int tierLevel, @Nonnull MaterialExtraResourcesSection extraResourcesSection) {
+        ChestLookupResult result = CraftingManager.getContainersAroundBench(world, x, y, z, blockType, rotationIndex);
         List<ItemContainer> chests = result.containers;
-        List<ItemContainerState> chestStates = result.states;
+        List<ItemContainerBlock> chestStates = result.states;
         ItemContainer itemContainer = EmptyItemContainer.INSTANCE;
         if (!chests.isEmpty()) {
             itemContainer = new CombinedItemContainer((ItemContainer[])chests.stream().map(container -> {
@@ -637,7 +702,7 @@ implements Component<EntityStore> {
         Object2ObjectOpenHashMap materials = new Object2ObjectOpenHashMap();
         for (ItemContainer chest : chests) {
             chest.forEach((i, itemStack) -> {
-                if (!CraftingPlugin.isValidUpgradeMaterialForBench(benchState, itemStack) && !CraftingPlugin.isValidCraftingMaterialForBench(benchState, itemStack)) {
+                if (!CraftingPlugin.isValidUpgradeMaterialForBench(benchAsset, tierLevel, itemStack) && !CraftingPlugin.isValidCraftingMaterialForBench(benchAsset, itemStack)) {
                     return;
                 }
                 materials.computeIfAbsent(itemStack.getItemId(), (Function<String, ItemQuantity>)LambdaMetafactory.metafactory(null, null, null, (Ljava/lang/Object;)Ljava/lang/Object;, lambda$feedExtraResourcesSection$3(com.hypixel.hytale.server.core.inventory.ItemStack java.lang.String ), (Ljava/lang/String;)Lcom/hypixel/hytale/protocol/ItemQuantity;)((ItemStack)itemStack)).quantity += itemStack.getQuantity();
@@ -650,26 +715,24 @@ implements Component<EntityStore> {
     }
 
     @Nonnull
-    protected static ChestLookupResult getContainersAroundBench(@Nonnull BenchState benchState) {
+    protected static ChestLookupResult getContainersAroundBench(@Nonnull World world, int x, int y, int z, @Nonnull BlockType blockType, int rotationIndex) {
         ObjectArrayList<ItemContainer> containers = new ObjectArrayList<ItemContainer>();
-        ObjectArrayList<ItemContainerState> states = new ObjectArrayList<ItemContainerState>();
-        ObjectArrayList<ItemContainerState> spatialResults = new ObjectArrayList<ItemContainerState>();
-        ObjectArrayList<ItemContainerState> filteredOut = new ObjectArrayList<ItemContainerState>();
-        World world = benchState.getChunk().getWorld();
+        ObjectArrayList<ItemContainerBlock> states = new ObjectArrayList<ItemContainerBlock>();
+        ObjectArrayList<ItemContainerBlock> filteredOut = new ObjectArrayList<ItemContainerBlock>();
         Store<ChunkStore> store = world.getChunkStore().getStore();
         int limit = world.getGameplayConfig().getCraftingConfig().getBenchMaterialChestLimit();
         double horizontalRadius = world.getGameplayConfig().getCraftingConfig().getBenchMaterialHorizontalChestSearchRadius();
         double verticalRadius = world.getGameplayConfig().getCraftingConfig().getBenchMaterialVerticalChestSearchRadius();
-        Vector3d blockPos = benchState.getBlockPosition().toVector3d();
-        BlockBoundingBoxes hitboxAsset = BlockBoundingBoxes.getAssetMap().getAsset(benchState.getBlockType().getHitboxTypeIndex());
-        BlockBoundingBoxes.RotatedVariantBoxes rotatedHitbox = hitboxAsset.get(benchState.getRotationIndex());
+        Vector3d blockPos = new Vector3d(x, y, z);
+        BlockBoundingBoxes hitboxAsset = BlockBoundingBoxes.getAssetMap().getAsset(blockType.getHitboxTypeIndex());
+        BlockBoundingBoxes.RotatedVariantBoxes rotatedHitbox = hitboxAsset.get(rotationIndex);
         Box boundingBox = rotatedHitbox.getBoundingBox();
         double benchWidth = boundingBox.width();
         double benchHeight = boundingBox.height();
         double benchDepth = boundingBox.depth();
         double extraSearchRadius = Math.max(benchWidth, Math.max(benchDepth, benchHeight)) - 1.0;
-        SpatialResource<Ref<ChunkStore>, ChunkStore> blockStateSpatialStructure = store.getResource(BlockStateModule.get().getItemContainerSpatialResourceType());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        SpatialResource<Ref<ChunkStore>, ChunkStore> blockStateSpatialStructure = store.getResource(BlockModule.get().getItemContainerSpatialResourceType());
+        List results = SpatialResource.getThreadLocalReferenceList();
         blockStateSpatialStructure.getSpatialStructure().ordered3DAxis(blockPos, horizontalRadius + extraSearchRadius, verticalRadius + extraSearchRadius, horizontalRadius + extraSearchRadius, results);
         if (!results.isEmpty()) {
             int benchMinBlockX = (int)Math.floor(boundingBox.min.x);
@@ -685,23 +748,23 @@ implements Component<EntityStore> {
             double maxY = blockPos.y + (double)benchMaxBlockY + verticalRadius;
             double maxZ = blockPos.z + (double)benchMaxBlockZ + horizontalRadius;
             for (Ref ref : results) {
-                BlockState state = BlockState.getBlockState(ref, ref.getStore());
-                if (!(state instanceof ItemContainerState)) continue;
-                ItemContainerState chest = (ItemContainerState)state;
-                spatialResults.add(chest);
-            }
-            for (ItemContainerState itemContainerState : spatialResults) {
-                Vector3d chestBlockPos = itemContainerState.getBlockPosition().toVector3d();
-                if (chestBlockPos.x >= minX && chestBlockPos.x <= maxX && chestBlockPos.y >= minY && chestBlockPos.y <= maxY && chestBlockPos.z >= minZ && chestBlockPos.z <= maxZ) {
-                    containers.add(itemContainerState.getItemContainer());
-                    states.add(itemContainerState);
+                WorldChunk wc;
+                BlockModule.BlockStateInfo blockStateInfo;
+                ItemContainerBlock chest;
+                if (!ref.isValid() || (chest = store.getComponent(ref, ItemContainerBlock.getComponentType())) == null || (blockStateInfo = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType())) == null || (wc = store.getComponent(blockStateInfo.getChunkRef(), WorldChunk.getComponentType())) == null) continue;
+                int cx = ChunkUtil.worldCoordFromLocalCoord(wc.getX(), ChunkUtil.xFromBlockInColumn(blockStateInfo.getIndex()));
+                int cy = ChunkUtil.yFromBlockInColumn(blockStateInfo.getIndex());
+                int cz = ChunkUtil.worldCoordFromLocalCoord(wc.getZ(), ChunkUtil.zFromBlockInColumn(blockStateInfo.getIndex()));
+                if ((double)cx >= minX && (double)cx <= maxX && (double)cy >= minY && (double)cy <= maxY && (double)cz >= minZ && (double)cz <= maxZ) {
+                    containers.add(chest.getItemContainer());
+                    states.add(chest);
                     if (containers.size() < limit) continue;
                     break;
                 }
-                filteredOut.add(itemContainerState);
+                filteredOut.add(chest);
             }
         }
-        return new ChestLookupResult(containers, states, spatialResults, filteredOut, blockPos);
+        return new ChestLookupResult(containers, states, filteredOut, blockPos);
     }
 
     @Nonnull
@@ -781,7 +844,7 @@ implements Component<EntityStore> {
 
     }
 
-    protected record ChestLookupResult(List<ItemContainer> containers, List<ItemContainerState> states, List<ItemContainerState> spatialResults, List<ItemContainerState> filteredOut, Vector3d benchCenteredPos) {
+    protected record ChestLookupResult(List<ItemContainer> containers, List<ItemContainerBlock> states, List<ItemContainerBlock> filteredOut, Vector3d benchCenteredPos) {
     }
 }
 

@@ -4,6 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.patterns;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -22,15 +23,15 @@ extends PatternAsset {
     @Override
     public Pattern build(@Nonnull PatternAsset.Argument argument) {
         if (super.isSkipped()) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         if (this.name == null || this.name.isEmpty()) {
             ((HytaleLogger.Api)HytaleLogger.getLogger().atWarning()).log("An exported Pattern with the name does not exist: " + this.name);
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         PatternAsset exportedAsset = PatternAsset.getExportedAsset(this.name);
         if (exportedAsset == null) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         return exportedAsset.build(argument);
     }

@@ -11,9 +11,10 @@ import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
 import com.hypixel.hytale.protocol.packets.auth.PasswordAccepted;
 import com.hypixel.hytale.protocol.packets.auth.PasswordRejected;
 import com.hypixel.hytale.protocol.packets.auth.PasswordResponse;
-import com.hypixel.hytale.protocol.packets.connection.Disconnect;
+import com.hypixel.hytale.protocol.packets.connection.ClientDisconnect;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.HytaleServerConfig;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.io.ProtocolVersion;
@@ -74,7 +75,7 @@ extends GenericConnectionPacketHandler {
     public void accept(@Nonnull ToServerPacket packet) {
         switch (packet.getId()) {
             case 1: {
-                this.handle((Disconnect)packet);
+                this.handle((ClientDisconnect)packet);
                 break;
             }
             case 15: {
@@ -82,14 +83,14 @@ extends GenericConnectionPacketHandler {
                 break;
             }
             default: {
-                this.disconnect("Protocol error: unexpected packet " + packet.getId());
+                this.disconnect(Message.translation("client.general.disconnect.protocol.unexpectedPacket").param("packetId", packet.getId()));
             }
         }
     }
 
-    public void handle(@Nonnull Disconnect packet) {
+    public void handle(@Nonnull ClientDisconnect packet) {
         this.disconnectReason.setClientDisconnectType(packet.type);
-        LOGGER.at(Level.INFO).log("%s (%s) at %s left with reason: %s - %s", this.playerUuid, this.username, NettyUtil.formatRemoteAddress(this.getChannel()), packet.type.name(), packet.reason);
+        LOGGER.at(Level.INFO).log("%s (%s) at %s left with reason: %s - %s", this.playerUuid, this.username, NettyUtil.formatRemoteAddress(this.getChannel()), packet.type.name(), packet.reason.name());
         ProtocolUtil.closeApplicationConnection(this.getChannel());
     }
 
@@ -97,32 +98,32 @@ extends GenericConnectionPacketHandler {
         this.clearTimeout();
         if (this.passwordChallenge == null || this.passwordChallenge.length == 0) {
             LOGGER.at(Level.WARNING).log("Received unexpected PasswordResponse from %s - no password required", NettyUtil.formatRemoteAddress(this.getChannel()));
-            this.disconnect("Protocol error: unexpected PasswordResponse");
+            this.disconnect(Message.translation("client.general.disconnect.protocol.unexpectedPasswordResponse"));
             return;
         }
         byte[] clientHash = packet.hash;
         if (clientHash == null || clientHash.length == 0) {
             LOGGER.at(Level.WARNING).log("Received empty password hash from %s", NettyUtil.formatRemoteAddress(this.getChannel()));
-            this.disconnect("Invalid password response");
+            this.disconnect(Message.translation("client.general.disconnect.invalidPasswordResponse"));
             return;
         }
         String password = HytaleServer.get().getConfig().getPassword();
         if (password == null || password.isEmpty()) {
             LOGGER.at(Level.SEVERE).log("Password validation failed - no password configured but challenge was sent");
-            this.disconnect("Server configuration error");
+            this.disconnect(Message.translation("client.general.disconnect.serverConfigError"));
             return;
         }
         byte[] expectedHash = PasswordPacketHandler.computePasswordHash(this.passwordChallenge, password);
         if (expectedHash == null) {
             LOGGER.at(Level.SEVERE).log("Failed to compute password hash");
-            this.disconnect("Server error");
+            this.disconnect(Message.translation("client.general.disconnect.serverError"));
             return;
         }
         if (!MessageDigest.isEqual(expectedHash, clientHash)) {
             --this.attemptsRemaining;
             LOGGER.at(Level.WARNING).log("Invalid password from %s (%s), %d attempts remaining", this.username, NettyUtil.formatRemoteAddress(this.getChannel()), this.attemptsRemaining);
             if (this.attemptsRemaining <= 0) {
-                this.disconnect("Too many failed password attempts");
+                this.disconnect(Message.translation("client.general.disconnect.tooManyPasswordAttempts"));
                 return;
             }
             this.passwordChallenge = PasswordPacketHandler.generateChallenge();

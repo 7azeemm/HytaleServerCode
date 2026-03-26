@@ -43,7 +43,7 @@ WrappedCodec<T> {
     @Override
     @Nonnull
     public Schema toSchema(@Nonnull SchemaContext context) {
-        return this.codec.toSchema(context);
+        return context.refDefinition(this.codec);
     }
 
     @Override

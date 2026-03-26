@@ -16,6 +16,7 @@ import com.hypixel.hytale.codec.validation.ValidatorCache;
 import com.hypixel.hytale.server.core.asset.type.responsecurve.config.ExponentialResponseCurve;
 import com.hypixel.hytale.server.core.asset.type.responsecurve.config.LogisticResponseCurve;
 import com.hypixel.hytale.server.core.asset.type.responsecurve.config.SineWaveResponseCurve;
+import com.hypixel.hytale.server.core.asset.type.responsecurve.config.SwitchResponseCurve;
 import java.lang.ref.WeakReference;
 import javax.annotation.Nonnull;
 
@@ -73,6 +74,7 @@ implements JsonAssetWithMap<String, IndexedLookupTableAssetMap<String, ResponseC
         CODEC.register("Exponential", ExponentialResponseCurve.class, ExponentialResponseCurve.CODEC);
         CODEC.register("Logistic", LogisticResponseCurve.class, LogisticResponseCurve.CODEC);
         CODEC.register("SineWave", SineWaveResponseCurve.class, SineWaveResponseCurve.CODEC);
+        CODEC.register("Switch", SwitchResponseCurve.class, SwitchResponseCurve.CODEC);
     }
 
     public static class Reference {

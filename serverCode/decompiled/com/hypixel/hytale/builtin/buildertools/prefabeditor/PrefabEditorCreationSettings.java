@@ -4,6 +4,7 @@
 package com.hypixel.hytale.builtin.buildertools.prefabeditor;
 
 import com.hypixel.hytale.assetstore.AssetExtraInfo;
+import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.assetstore.AssetRegistry;
 import com.hypixel.hytale.assetstore.AssetStore;
 import com.hypixel.hytale.assetstore.codec.AssetBuilderCodec;
@@ -166,7 +167,7 @@ JsonAssetWithMap<String, DefaultAssetMap<String, PrefabEditorCreationSettings>> 
                     return null;
                 }
                 try (Stream<Path> walk = Files.walk(resolvedDir, this.recursive ? 10 : 1, new FileVisitOption[0]);){
-                    walk.filter(x$0 -> Files.isRegularFile(x$0, new LinkOption[0])).filter(path -> path.toString().endsWith(".prefab.json")).forEach(this.prefabPaths::add);
+                    walk.filter(x$0 -> Files.isRegularFile(x$0, new LinkOption[0])).filter(path -> path.toString().endsWith(".prefab.json")).sorted().forEach(this.prefabPaths::add);
                 }
                 catch (IOException e) {
                     e.printStackTrace();
@@ -249,9 +250,14 @@ JsonAssetWithMap<String, DefaultAssetMap<String, PrefabEditorCreationSettings>> 
 
     @Nonnull
     public static CompletableFuture<Void> save(@Nonnull String name, PrefabEditorCreationSettings settings) {
+        return PrefabEditorCreationSettings.save(name, settings, AssetModule.get().getBaseAssetPack());
+    }
+
+    @Nonnull
+    public static CompletableFuture<Void> save(@Nonnull String name, PrefabEditorCreationSettings settings, @Nonnull AssetPack pack) {
         return CompletableFuture.runAsync(() -> {
             try {
-                PrefabEditorCreationSettings.getAssetStore().writeAssetToDisk(AssetModule.get().getBaseAssetPack(), Map.of(Path.of(name + ".json", new String[0]), settings));
+                PrefabEditorCreationSettings.getAssetStore().writeAssetToDisk(pack, Map.of(Path.of(name + ".json", new String[0]), settings));
             }
             catch (IOException e) {
                 e.printStackTrace();

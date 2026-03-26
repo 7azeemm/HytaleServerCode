@@ -8,14 +8,14 @@ import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 
 public class MountedByComponent
 implements Component<EntityStore> {
     @Nonnull
-    private final List<Ref<EntityStore>> passengers = new ObjectArrayList<Ref<EntityStore>>();
+    private final List<Ref<EntityStore>> passengers = new ReferenceArrayList<Ref<EntityStore>>();
 
     public static ComponentType<EntityStore, MountedByComponent> getComponentType() {
         return MountPlugin.getInstance().getMountedByComponentType();

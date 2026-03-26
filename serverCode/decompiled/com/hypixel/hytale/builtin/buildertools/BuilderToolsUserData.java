@@ -12,6 +12,7 @@ import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -20,8 +21,11 @@ implements Component<EntityStore> {
     public static final String ID = "BuilderTools";
     private static final String SELECTION_HISTORY_KEY = "SelectionHistory";
     private static final String SELECTION_HISTORY_DOC = "Controls whether changes to the block selection box are recorded in the undo/redo history.";
-    public static final BuilderCodec<BuilderToolsUserData> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(BuilderToolsUserData.class, BuilderToolsUserData::new).append(new KeyedCodec<Boolean>("SelectionHistory", Codec.BOOLEAN), BuilderToolsUserData::setRecordSelectionHistory, BuilderToolsUserData::isRecordingSelectionHistory).addValidator(Validators.nonNull()).documentation("Controls whether changes to the block selection box are recorded in the undo/redo history.").add()).build();
+    private static final String LAST_SAVE_PACK_KEY = "LastSavePack";
+    public static final BuilderCodec<BuilderToolsUserData> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(BuilderToolsUserData.class, BuilderToolsUserData::new).append(new KeyedCodec<Boolean>("SelectionHistory", Codec.BOOLEAN), BuilderToolsUserData::setRecordSelectionHistory, BuilderToolsUserData::isRecordingSelectionHistory).addValidator(Validators.nonNull()).documentation("Controls whether changes to the block selection box are recorded in the undo/redo history.").add()).addField(new KeyedCodec<String>("LastSavePack", Codec.STRING), BuilderToolsUserData::setLastSavePack, BuilderToolsUserData::getLastSavePack)).build();
     private boolean selectionHistory = true;
+    @Nullable
+    private String lastSavePack;
 
     @Nonnull
     public static BuilderToolsUserData get(@Nonnull Player player) {
@@ -44,9 +48,18 @@ implements Component<EntityStore> {
         this.selectionHistory = selectionHistory;
     }
 
+    @Nullable
+    public String getLastSavePack() {
+        return this.lastSavePack;
+    }
+
+    public void setLastSavePack(@Nullable String lastSavePack) {
+        this.lastSavePack = lastSavePack;
+    }
+
     @Nonnull
     public String toString() {
-        return "BuilderToolsUserData{selectionHistory=" + this.selectionHistory + "}";
+        return "BuilderToolsUserData{selectionHistory=" + this.selectionHistory + ", lastSavePack=" + this.lastSavePack + "}";
     }
 
     public boolean equals(@Nullable Object o) {
@@ -57,11 +70,11 @@ implements Component<EntityStore> {
             return false;
         }
         BuilderToolsUserData that = (BuilderToolsUserData)o;
-        return this.selectionHistory == that.selectionHistory;
+        return this.selectionHistory == that.selectionHistory && Objects.equals(this.lastSavePack, that.lastSavePack);
     }
 
     public int hashCode() {
-        return this.selectionHistory ? 1 : 0;
+        return Objects.hash(this.selectionHistory, this.lastSavePack);
     }
 
     @Override
@@ -69,6 +82,7 @@ implements Component<EntityStore> {
     public Component<EntityStore> clone() {
         BuilderToolsUserData settings = new BuilderToolsUserData();
         settings.selectionHistory = this.selectionHistory;
+        settings.lastSavePack = this.lastSavePack;
         return settings;
     }
 }

@@ -43,6 +43,7 @@ implements OpenCustomUIInteraction.CustomPageSupplier {
 
     @Override
     public CustomUIPage tryCreate(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> store, @Nonnull PlayerRef playerRef, @Nonnull InteractionContext context) {
+        boolean isLoading;
         World destinationWorld;
         BlockPosition targetBlock = context.getTargetBlock();
         if (targetBlock == null) {
@@ -79,7 +80,8 @@ implements OpenCustomUIInteraction.CustomPageSupplier {
             playerRef.sendMessage(Message.translation("server.portals.device.adjusted").color("#ff0000"));
             return null;
         }
-        if (existingDevice == null || destinationWorld == null) {
+        boolean bl = isLoading = existingDevice != null && existingDevice.isLoadingWorld();
+        if (!(existingDevice != null && destinationWorld != null || isLoading)) {
             chunkStore.getStore().putComponent(blockRef, PortalDevice.getComponentType(), new PortalDevice(this.config, blockType.getId()));
             return new PortalDeviceSummonPage(playerRef, this.config, blockRef, inHand);
         }

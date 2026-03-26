@@ -26,8 +26,9 @@ import com.hypixel.hytale.server.npc.statetransition.StateTransitionController;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -82,9 +83,9 @@ public class StateSupport {
             this.localStateMachineAutoResetStates = builderSupport.getLocalStateMachineAutoResetStates();
         }
         if (builderSupport.isTrackInteractions()) {
-            this.interactedPlayers = new HashSet<Ref<EntityStore>>();
-            this.interactablePlayers = new HashSet<Ref<EntityStore>>();
-            this.contextualInteractions = new HashMap<Ref<EntityStore>, String>();
+            this.interactedPlayers = new ReferenceOpenHashSet<Ref<EntityStore>>();
+            this.interactablePlayers = new ReferenceOpenHashSet<Ref<EntityStore>>();
+            this.contextualInteractions = new Reference2ObjectOpenHashMap<Ref<EntityStore>, String>();
         }
         if (this.busyStates != null) {
             String defaultSubState = this.stateHelper.getDefaultSubState();

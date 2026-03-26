@@ -22,11 +22,9 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.RefChangeSystem;
-import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Vector3d;
-import com.hypixel.hytale.protocol.BlockMaterial;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
+import com.hypixel.hytale.server.core.modules.entity.component.CachedStatsComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.entity.system.PlayerSpatialSystem;
@@ -43,7 +41,6 @@ import com.hypixel.hytale.server.npc.statetransition.StateTransitionController;
 import com.hypixel.hytale.server.npc.systems.RoleSystems;
 import com.hypixel.hytale.server.npc.systems.SteppableTickingSystem;
 import com.hypixel.hytale.server.spawning.SpawningPlugin;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -121,7 +118,7 @@ public class PositionCacheSystems {
             this.playerSpatialResource = EntityModule.get().getPlayerSpatialResourceType();
             this.npcSpatialResource = npcSpatialResource;
             this.itemSpatialResource = EntityModule.get().getItemSpatialResourceType();
-            this.query = Query.and(npcComponentType, this.transformComponentType, this.modelComponentType);
+            this.query = Query.and(npcComponentType, this.transformComponentType, this.modelComponentType, CachedStatsComponent.getComponentType());
         }
 
         @Override
@@ -153,10 +150,9 @@ public class PositionCacheSystems {
             Role role = npcComponent.getRole();
             PositionCache positionCache = role.getPositionCache();
             positionCache.setBenchmarking(NPCPlugin.get().isBenchmarkingSensorSupport());
-            long packed = LivingEntity.getPackedMaterialAndFluidAtBreathingHeight(ref, commandBuffer);
-            BlockMaterial material = BlockMaterial.VALUES[MathUtil.unpackLeft(packed)];
-            int fluidId = MathUtil.unpackRight(packed);
-            positionCache.setCouldBreathe(role.canBreathe(material, fluidId));
+            CachedStatsComponent cachedStats = archetypeChunk.getComponent(index, CachedStatsComponent.getComponentType());
+            assert (cachedStats != null);
+            positionCache.setCouldBreathe(cachedStats.isCanBreathe());
             if (!positionCache.tickPositionCacheNextUpdate(dt)) {
                 return;
             }
@@ -210,9 +206,9 @@ public class PositionCacheSystems {
         }
 
         private static void addEntities(@Nonnull Ref<EntityStore> self, @Nonnull Vector3d position, @Nonnull EntityList entityList, @Nonnull SpatialResource<Ref<EntityStore>, EntityStore> spatialResource, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-            ObjectList results = SpatialResource.getThreadLocalReferenceList();
+            List results = SpatialResource.getThreadLocalReferenceList();
             spatialResource.getSpatialStructure().collect(position, entityList.getSearchRadius(), results);
-            for (Ref ref : results) {
+            for (Ref<EntityStore> ref : results) {
                 if (!ref.isValid() || ref.equals(self)) continue;
                 entityList.add(ref, position, commandBuffer);
             }

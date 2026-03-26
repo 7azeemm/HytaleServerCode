@@ -33,7 +33,6 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.shape.Box;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
-import com.hypixel.hytale.protocol.BenchType;
 import com.hypixel.hytale.protocol.BlockFlags;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.BlockNeighbor;
@@ -65,6 +64,7 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockMovementS
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockPlacementSettings;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockSupportsRequiredForType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockTypeTextures;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.ConditionalBlockSound;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.CustomModelTexture;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.MergedBlockFaces;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RequiredBlockFaceSupport;
@@ -112,7 +112,7 @@ import javax.annotation.Nullable;
 public class BlockType
 implements JsonAssetWithMap<String, BlockTypeAssetMap<String, BlockType>>,
 NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
-    public static final AssetBuilderCodec<String, BlockType> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(BlockType.class, BlockType::new, Codec.STRING, (t, k) -> {
+    public static final AssetBuilderCodec<String, BlockType> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(BlockType.class, BlockType::new, Codec.STRING, (t, k) -> {
         t.id = k;
     }, t -> t.id, (asset, data) -> {
         asset.data = data;
@@ -312,7 +312,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         blockType.ambientSoundEventId = s;
     }, blockType -> blockType.ambientSoundEventId, (blockType, parent) -> {
         blockType.ambientSoundEventId = parent.ambientSoundEventId;
-    }).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).addValidator(SoundEventValidators.MONO).addValidator(SoundEventValidators.LOOPING).documentation("A looping ambient sound event that emits from this block when placed in the world or held in-hand.").add()).appendInherited(new KeyedCodec<String>("InteractionSoundEventId", Codec.STRING), (blockType, s) -> {
+    }).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).addValidator(SoundEventValidators.MONO).addValidator(SoundEventValidators.LOOPING).documentation("A looping ambient sound event that emits from this block when placed in the world or held in-hand.").add()).appendInherited(new KeyedCodec<T[]>("ConditionalSounds", new ArrayCodec<ConditionalBlockSound>(ConditionalBlockSound.CODEC, ConditionalBlockSound[]::new)), (blockType, o) -> {
+        blockType.conditionalSounds = o;
+    }, blockType -> blockType.conditionalSounds, (blockType, parent) -> {
+        blockType.conditionalSounds = parent.conditionalSounds;
+    }).documentation("An array of conditional ambient sounds. Each entry references a looping sound event and an AmbienceFX whose conditions determine when the sound plays from this block.").add()).appendInherited(new KeyedCodec<String>("InteractionSoundEventId", Codec.STRING), (blockType, s) -> {
         blockType.interactionSoundEventId = s;
     }, blockType -> blockType.interactionSoundEventId, (blockType, parent) -> {
         blockType.interactionSoundEventId = parent.interactionSoundEventId;
@@ -525,11 +529,13 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
     @Nullable
     protected ConnectedBlockRuleSet connectedBlockRuleSet;
     protected Bench bench;
+    @Nullable
     protected BlockGathering gathering;
     protected BlockPlacementSettings placementSettings;
     protected StateData state;
     protected String ambientSoundEventId;
     protected transient int ambientSoundEventIndex;
+    protected ConditionalBlockSound[] conditionalSounds;
     protected String interactionSoundEventId;
     protected transient int interactionSoundEventIndex;
     protected boolean isLooping;
@@ -648,6 +654,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         this.interactions = other.interactions;
         this.ambientSoundEventId = other.ambientSoundEventId;
         this.ambientSoundEventIndex = other.ambientSoundEventIndex;
+        this.conditionalSounds = other.conditionalSounds;
         this.interactionSoundEventId = other.interactionSoundEventId;
         this.interactionSoundEventIndex = other.interactionSoundEventIndex;
         this.isLooping = other.isLooping;
@@ -719,16 +726,16 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         packet.maxSupportDistance = this.maxSupportDistance;
         packet.shaderEffect = this.effect != null && this.effect.length > 0 ? this.effect : DEFAULT_SHADER_EFFECTS;
         if (this.textures != null && this.textures.length > 0) {
-            void var7_19;
+            void var7_20;
             int totalWeight = 0;
             for (Iterator<Map.Entry<BlockFace, NetworkSerializable<com.hypixel.hytale.protocol.RequiredBlockFaceSupport>[]>> iterator : this.textures) {
                 totalWeight = (int)((float)totalWeight + ((BlockTypeTextures)((Object)iterator)).getWeight());
             }
             texturePackets = new BlockTextures[this.textures.length];
             boolean bl = false;
-            while (var7_19 < this.textures.length) {
-                texturePackets[var7_19] = this.textures[var7_19].toPacket(totalWeight);
-                ++var7_19;
+            while (var7_20 < this.textures.length) {
+                texturePackets[var7_20] = this.textures[var7_20].toPacket(totalWeight);
+                ++var7_20;
             }
             packet.cubeTextures = texturePackets;
         } else {
@@ -737,16 +744,16 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         packet.cubeSideMaskTexture = this.textureSideMask;
         packet.cubeShadingMode = this.cubeShadingMode;
         if (this.customModelTexture != null && this.customModelTexture.length > 0) {
-            void var7_22;
+            void var7_23;
             int totalWeight = 0;
             for (CustomModelTexture customModelTexture : this.customModelTexture) {
                 totalWeight += customModelTexture.getWeight();
             }
             texturePackets = new ModelTexture[this.customModelTexture.length];
             boolean bl = false;
-            while (var7_22 < this.customModelTexture.length) {
-                texturePackets[var7_22] = this.customModelTexture[var7_22].toPacket(totalWeight);
-                ++var7_22;
+            while (var7_23 < this.customModelTexture.length) {
+                texturePackets[var7_23] = this.customModelTexture[var7_23].toPacket(totalWeight);
+                ++var7_23;
             }
             packet.modelTexture = texturePackets;
         } else {
@@ -799,10 +806,16 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         }
         packet.looping = this.isLooping;
         packet.ambientSoundEventIndex = this.ambientSoundEventIndex;
+        if (this.conditionalSounds != null && this.conditionalSounds.length > 0) {
+            packet.conditionalSounds = new com.hypixel.hytale.protocol.ConditionalBlockSound[this.conditionalSounds.length];
+            for (int i4 = 0; i4 < this.conditionalSounds.length; ++i4) {
+                packet.conditionalSounds[i4] = this.conditionalSounds[i4].toPacket();
+            }
+        }
         if (this.particles != null && this.particles.length > 0) {
             packet.particles = new com.hypixel.hytale.protocol.ModelParticle[this.particles.length];
-            for (int i4 = 0; i4 < this.particles.length; ++i4) {
-                packet.particles[i4] = this.particles[i4].toPacket();
+            for (int i5 = 0; i5 < this.particles.length; ++i5) {
+                packet.particles[i5] = this.particles[i5].toPacket();
             }
         }
         Object2IntOpenHashMap<InteractionType> interactionMap = new Object2IntOpenHashMap<InteractionType>();
@@ -872,7 +885,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         return key;
     }
 
+    @Nullable
     public String getDefaultStateKey() {
+        if (this.data == null) {
+            return null;
+        }
         if (this.defaultStateKey == null) {
             this.defaultStateKey = (String)this.data.getContainerKey(BlockType.class);
         }
@@ -1116,6 +1133,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
         return this.bench;
     }
 
+    @Nullable
     public BlockGathering getGathering() {
         return this.gathering;
     }
@@ -1292,14 +1310,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
 
     protected void processConfig() {
         if (this.bench != null) {
-            if (this.state == null && this.bench.getType() == BenchType.Processing) {
-                this.state = new StateData("processingBench");
-            }
             this.flags.isUsable = true;
             if (this.interactionHint == null) {
                 this.interactionHint = "server.interactionHints.open";
             }
-        } else if (this.state != null && ("container".equalsIgnoreCase(this.state.getId()) || "Door".equalsIgnoreCase(this.state.getId()))) {
+        } else if (this.isDoor) {
             this.flags.isUsable = true;
             if (this.interactionHint == null) {
                 this.interactionHint = "server.interactionHints.open";
@@ -1384,7 +1399,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockType> {
 
     @Nonnull
     public String toString() {
-        return "BlockType{id=" + this.id + ", unknown=" + this.unknown + ", group='" + this.group + "', blockSoundSetId='" + this.blockSoundSetId + "', blockSoundSetIndex=" + this.blockSoundSetIndex + ", particles=" + Arrays.toString(this.particles) + ", blockParticleSetId='" + this.blockParticleSetId + "', blockBreakingDecalId='" + this.blockBreakingDecalId + "', particleColor=" + String.valueOf(this.particleColor) + ", effect=" + Arrays.toString((Object[])this.effect) + ", textures=" + Arrays.toString(this.textures) + ", textureSideMask='" + this.textureSideMask + "', cubeShadingMode=" + String.valueOf((Object)this.cubeShadingMode) + ", customModel='" + this.customModel + "', customModelTexture=" + Arrays.toString(this.customModelTexture) + ", customModelScale=" + this.customModelScale + ", customModelAnimation='" + this.customModelAnimation + "', drawType=" + String.valueOf((Object)this.drawType) + ", material=" + String.valueOf((Object)this.material) + ", opacity=" + String.valueOf((Object)this.opacity) + ", requiresAlphaBlending=" + this.requiresAlphaBlending + ", tickProcedure" + String.valueOf(this.tickProcedure) + ", tintUp=" + Arrays.toString(this.tintUp) + ", tintDown=" + Arrays.toString(this.tintDown) + ", tintNorth=" + Arrays.toString(this.tintNorth) + ", tintSouth=" + Arrays.toString(this.tintSouth) + ", tintWest=" + Arrays.toString(this.tintWest) + ", tintEast=" + Arrays.toString(this.tintEast) + ", biomeTintUp=" + this.biomeTintUp + ", biomeTintDown=" + this.biomeTintDown + ", biomeTintNorth=" + this.biomeTintNorth + ", biomeTintSouth=" + this.biomeTintSouth + ", biomeTintWest=" + this.biomeTintWest + ", biomeTintEast=" + this.biomeTintEast + ", randomRotation=" + String.valueOf((Object)this.randomRotation) + ", variantRotation=" + String.valueOf(this.variantRotation) + ", flipType=" + String.valueOf((Object)this.flipType) + ", rotationYawPlacementOffset=" + String.valueOf(this.rotationYawPlacementOffset) + ", transitionTexture='" + this.transitionTexture + "', transitionToGroups=" + Arrays.toString(this.transitionToGroups) + ", hitboxType='" + this.hitboxType + "', hitboxTypeIndex=" + this.hitboxTypeIndex + ", interactionHitboxType='" + this.interactionHitboxType + "', interactionHitboxTypeIndex=" + this.interactionHitboxTypeIndex + ", light=" + String.valueOf(this.light) + ", movementSettings=" + String.valueOf(this.movementSettings) + ", flags=" + String.valueOf(this.flags) + ", interactionHint='" + this.interactionHint + "', isTrigger=" + this.isTrigger + ", damageToEntities=" + this.damageToEntities + ", allowsMultipleUsers=" + this.allowsMultipleUsers + ", bench=" + String.valueOf(this.bench) + ", gathering=" + String.valueOf(this.gathering) + ", placementSettings=" + String.valueOf(this.placementSettings) + ", state=" + String.valueOf(this.state) + ", ambientSoundEventId='" + this.ambientSoundEventId + "', ambientSoundEventIndex='" + this.ambientSoundEventIndex + "', interactionSoundEventId='" + this.interactionSoundEventId + "', interactionSoundEventIndex='" + this.interactionSoundEventIndex + "', isLooping=" + this.isLooping + ", farming=" + String.valueOf(this.farming) + ", supportDropType=" + String.valueOf((Object)this.supportDropType) + ", maxSupportDistance=" + this.maxSupportDistance + ", support=" + String.valueOf(this.support) + ", supporting=" + String.valueOf(this.supporting) + ", interactions=" + String.valueOf(this.interactions) + ", railConfig=" + String.valueOf(this.railConfig) + "}";
+        return "BlockType{id=" + this.id + ", unknown=" + this.unknown + ", group='" + this.group + "', blockSoundSetId='" + this.blockSoundSetId + "', blockSoundSetIndex=" + this.blockSoundSetIndex + ", particles=" + Arrays.toString(this.particles) + ", blockParticleSetId='" + this.blockParticleSetId + "', blockBreakingDecalId='" + this.blockBreakingDecalId + "', particleColor=" + String.valueOf(this.particleColor) + ", effect=" + Arrays.toString((Object[])this.effect) + ", textures=" + Arrays.toString(this.textures) + ", textureSideMask='" + this.textureSideMask + "', cubeShadingMode=" + String.valueOf((Object)this.cubeShadingMode) + ", customModel='" + this.customModel + "', customModelTexture=" + Arrays.toString(this.customModelTexture) + ", customModelScale=" + this.customModelScale + ", customModelAnimation='" + this.customModelAnimation + "', drawType=" + String.valueOf((Object)this.drawType) + ", material=" + String.valueOf((Object)this.material) + ", opacity=" + String.valueOf((Object)this.opacity) + ", requiresAlphaBlending=" + this.requiresAlphaBlending + ", tickProcedure" + String.valueOf(this.tickProcedure) + ", tintUp=" + Arrays.toString(this.tintUp) + ", tintDown=" + Arrays.toString(this.tintDown) + ", tintNorth=" + Arrays.toString(this.tintNorth) + ", tintSouth=" + Arrays.toString(this.tintSouth) + ", tintWest=" + Arrays.toString(this.tintWest) + ", tintEast=" + Arrays.toString(this.tintEast) + ", biomeTintUp=" + this.biomeTintUp + ", biomeTintDown=" + this.biomeTintDown + ", biomeTintNorth=" + this.biomeTintNorth + ", biomeTintSouth=" + this.biomeTintSouth + ", biomeTintWest=" + this.biomeTintWest + ", biomeTintEast=" + this.biomeTintEast + ", randomRotation=" + String.valueOf((Object)this.randomRotation) + ", variantRotation=" + String.valueOf(this.variantRotation) + ", flipType=" + String.valueOf((Object)this.flipType) + ", rotationYawPlacementOffset=" + String.valueOf(this.rotationYawPlacementOffset) + ", transitionTexture='" + this.transitionTexture + "', transitionToGroups=" + Arrays.toString(this.transitionToGroups) + ", hitboxType='" + this.hitboxType + "', hitboxTypeIndex=" + this.hitboxTypeIndex + ", interactionHitboxType='" + this.interactionHitboxType + "', interactionHitboxTypeIndex=" + this.interactionHitboxTypeIndex + ", light=" + String.valueOf(this.light) + ", movementSettings=" + String.valueOf(this.movementSettings) + ", flags=" + String.valueOf(this.flags) + ", interactionHint='" + this.interactionHint + "', isTrigger=" + this.isTrigger + ", damageToEntities=" + this.damageToEntities + ", allowsMultipleUsers=" + this.allowsMultipleUsers + ", bench=" + String.valueOf(this.bench) + ", gathering=" + String.valueOf(this.gathering) + ", placementSettings=" + String.valueOf(this.placementSettings) + ", state=" + String.valueOf(this.state) + ", ambientSoundEventId='" + this.ambientSoundEventId + "', ambientSoundEventIndex='" + this.ambientSoundEventIndex + "', conditionalSounds=" + Arrays.toString(this.conditionalSounds) + ", interactionSoundEventId='" + this.interactionSoundEventId + "', interactionSoundEventIndex='" + this.interactionSoundEventIndex + "', isLooping=" + this.isLooping + ", farming=" + String.valueOf(this.farming) + ", supportDropType=" + String.valueOf((Object)this.supportDropType) + ", maxSupportDistance=" + this.maxSupportDistance + ", support=" + String.valueOf(this.support) + ", supporting=" + String.valueOf(this.supporting) + ", interactions=" + String.valueOf(this.interactions) + ", railConfig=" + String.valueOf(this.railConfig) + "}";
     }
 
     @Nonnull

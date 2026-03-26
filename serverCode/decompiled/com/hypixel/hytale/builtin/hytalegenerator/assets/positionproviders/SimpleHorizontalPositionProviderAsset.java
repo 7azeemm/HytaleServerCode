@@ -6,6 +6,7 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.delimiters.RangeDoubleAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.ListPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.PositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.EmptyPositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.SimpleHorizontalPositionProvider;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -27,7 +28,7 @@ extends PositionProviderAsset {
     @Nonnull
     public PositionProvider build(@Nonnull PositionProviderAsset.Argument argument) {
         if (super.skip()) {
-            return PositionProvider.noPositionProvider();
+            return EmptyPositionProvider.INSTANCE;
         }
         PositionProvider positionProvider = this.positionProviderAsset.build(argument);
         return new SimpleHorizontalPositionProvider(this.rangeYAsset.build(), positionProvider);

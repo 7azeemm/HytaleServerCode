@@ -179,5 +179,16 @@ extends BodyMotionFindWithTarget {
     protected static boolean containsPosition(double p, double min, double max, double v) {
         return (v -= p) >= min && v < max;
     }
+
+    @Override
+    public double getDesiredTargetDistance() {
+        return this.distance;
+    }
+
+    @Override
+    @Nullable
+    public Ref<EntityStore> getDesiredTargetEntity() {
+        return this.lastDesiredTargetEntity;
+    }
 }
 

@@ -206,7 +206,7 @@ extends SelectorType {
                 Matrix4d matrix = new Matrix4d();
                 matrix.identity().translate(posX, posY, posZ).rotateAxis(-headRotationComponent.getRotation().getYaw(), 0.0, 1.0, 0.0, tmp).rotateAxis(-headRotationComponent.getRotation().getPitch(), 1.0, 0.0, 0.0, tmp);
                 Vector3f color = new Vector3f((float)HashUtil.random(attacker.getIndex(), this.hashCode(), 10L), (float)HashUtil.random(attacker.getIndex(), this.hashCode(), 11L), (float)HashUtil.random(attacker.getIndex(), this.hashCode(), 12L));
-                DebugUtils.addFrustum(commandBuffer.getExternalData().getWorld(), matrix, this.projectionProvider.getMatrix(), color, 5.0f, true);
+                DebugUtils.addFrustum(commandBuffer.getExternalData().getWorld(), matrix, this.projectionProvider.getMatrix(), color, 5.0f, DebugUtils.FLAG_FADE);
             }
             this.runTimeDeltaPercentageSum += (double)runTimeDeltaPercentage;
         }

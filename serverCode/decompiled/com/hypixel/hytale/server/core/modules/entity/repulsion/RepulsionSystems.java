@@ -37,7 +37,7 @@ import com.hypixel.hytale.server.core.modules.physics.component.Velocity;
 import com.hypixel.hytale.server.core.modules.physics.systems.IVelocityModifyingSystem;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -96,7 +96,7 @@ public class RepulsionSystems {
             assert (transformComponent != null);
             Vector2d position = new Vector2d(transformComponent.getPosition().x, transformComponent.getPosition().z);
             SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(this.spatialComponent);
-            ObjectArrayList results = new ObjectArrayList();
+            ReferenceArrayList results = new ReferenceArrayList();
             spatialResource.getSpatialStructure().ordered(transformComponent.getPosition(), radius, results);
             for (Ref entityRef : results) {
                 double distance;

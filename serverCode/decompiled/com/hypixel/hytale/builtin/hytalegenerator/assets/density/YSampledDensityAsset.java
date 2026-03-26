@@ -16,13 +16,16 @@ import javax.annotation.Nonnull;
 public class YSampledDensityAsset
 extends DensityAsset {
     @Nonnull
-    public static final BuilderCodec<YSampledDensityAsset> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(YSampledDensityAsset.class, YSampledDensityAsset::new, DensityAsset.ABSTRACT_CODEC).append(new KeyedCodec<Double>("SampleDistance", Codec.DOUBLE, true), (asset, value) -> {
+    public static final BuilderCodec<YSampledDensityAsset> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(YSampledDensityAsset.class, YSampledDensityAsset::new, DensityAsset.ABSTRACT_CODEC).append(new KeyedCodec<Double>("SampleDistance", Codec.DOUBLE, true), (asset, value) -> {
         asset.sampleDistance = value;
     }, asset -> asset.sampleDistance).addValidator(Validators.greaterThan(0.0)).add()).append(new KeyedCodec<Double>("SampleOffset", Codec.DOUBLE, true), (asset, value) -> {
         asset.sampleOffset = value;
-    }, asset -> asset.sampleOffset).add()).build();
+    }, asset -> asset.sampleOffset).add()).append(new KeyedCodec<Boolean>("Interpolate", Codec.BOOLEAN, true), (asset, value) -> {
+        asset.interpolate = value;
+    }, asset -> asset.interpolate).add()).build();
     private double sampleDistance = 4.0;
     private double sampleOffset = 0.0;
+    private boolean interpolate = true;
 
     @Override
     @Nonnull
@@ -30,7 +33,7 @@ extends DensityAsset {
         if (this.sampleDistance <= 0.0) {
             return new ConstantValueDensity(0.0);
         }
-        return new YSampledDensity(this.buildFirstInput(argument), this.sampleDistance, this.sampleOffset);
+        return new YSampledDensity(this.buildFirstInput(argument), this.sampleDistance, this.sampleOffset, this.interpolate);
     }
 
     @Override

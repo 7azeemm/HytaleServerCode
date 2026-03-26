@@ -66,6 +66,22 @@ extends ItemContainer {
     }
 
     @Override
+    protected void lockForRead() {
+    }
+
+    @Override
+    protected void unlockForRead() {
+    }
+
+    @Override
+    protected void lockForWrite() {
+    }
+
+    @Override
+    protected void unlockForWrite() {
+    }
+
+    @Override
     @Nonnull
     protected ClearTransaction internal_clear() {
         return ClearTransaction.EMPTY;
@@ -123,7 +139,6 @@ extends ItemContainer {
         return INSTANCE;
     }
 
-    @Override
     public EventRegistration registerChangeEvent(short priority, Consumer<ItemContainer.ItemContainerChangeEvent> consumer) {
         return EVENT_REGISTRATION;
     }

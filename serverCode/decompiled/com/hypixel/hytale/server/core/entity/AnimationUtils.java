@@ -32,7 +32,7 @@ public class AnimationUtils {
         if (modelComponent != null) {
             model = modelComponent.getModel();
         }
-        if (animationSlot != AnimationSlot.Action && animationId != null && model != null && !model.getAnimationSetMap().containsKey(animationId)) {
+        if (animationSlot != AnimationSlot.Action && animationSlot != AnimationSlot.Emote && animationId != null && model != null && !model.getAnimationSetMap().containsKey(animationId)) {
             ((HytaleLogger.Api)Entity.LOGGER.at(Level.WARNING).atMostEvery(1, TimeUnit.MINUTES)).log("Missing animation '%s' for Model '%s'", (Object)animationId, (Object)model.getModelAssetId());
             return;
         }

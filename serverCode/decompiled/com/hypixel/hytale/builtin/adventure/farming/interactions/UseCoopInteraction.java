@@ -13,10 +13,8 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.InteractionState;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
@@ -59,16 +57,7 @@ extends SimpleBlockInteraction {
             return;
         }
         Ref<EntityStore> ref = context.getEntity();
-        Entity entity = EntityUtils.getEntity(ref, commandBuffer);
-        if (!(entity instanceof LivingEntity)) {
-            context.getState().state = InteractionState.Failed;
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        CombinedItemContainer inventoryContainer = livingEntity.getInventory().getCombinedHotbarFirst();
-        if (inventoryContainer == null) {
-            return;
-        }
+        CombinedItemContainer inventoryContainer = InventoryComponent.getCombined(commandBuffer, ref, InventoryComponent.HOTBAR_FIRST);
         coopBlockComponent.gatherProduceFromContainer(inventoryContainer);
         BlockType currentBlockType = worldChunk.getBlockType(targetBlock);
         assert (currentBlockType != null);

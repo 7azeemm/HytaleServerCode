@@ -10,6 +10,7 @@ import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.BrushConfigEditSt
 import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.operations.system.GlobalBrushOperation;
 import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.operations.system.SequenceBrushOperation;
 import com.hypixel.hytale.builtin.buildertools.tooloperations.ToolOperation;
+import com.hypixel.hytale.builtin.buildertools.tooloperations.transform.Transform;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.logger.HytaleLogger;
@@ -49,6 +50,7 @@ public class BrushConfigCommandExecutor {
     private boolean enableBreakpoints;
     private DebugOutputTarget debugOutputTarget = DebugOutputTarget.Chat;
     private boolean breakOnError;
+    private Vector3i transformVector = new Vector3i();
     @Nonnull
     private final Map<String, BrushConfig> brushConfigStoredSnapshots;
     private boolean allowOverwritingSavedSnapshots = true;
@@ -140,7 +142,18 @@ public class BrushConfigCommandExecutor {
             int numModifyBlockIterations = brushOperation.getNumModifyBlockIterations();
             for (int i = 0; i < numModifyBlockIterations; ++i) {
                 brushOperation.beginIterationIndex(i);
-                ToolOperation.executeShapeOperation(this.brushConfig.getOriginAfterOffset().x, this.brushConfig.getOriginAfterOffset().y, this.brushConfig.getOriginAfterOffset().z, (x, y, z, unused) -> brushOperation.modifyBlocks(ref, this.brushConfig, this, this.edit, x, y, z, componentAccessor), this.brushConfig.getShape(), this.brushConfig.getShapeWidth(), this.brushConfig.getShapeHeight(), this.brushConfig.getShapeThickness(), this.brushConfig.isCapped());
+                ToolOperation.executeShapeOperation(this.brushConfig.getOriginAfterOffset().x, this.brushConfig.getOriginAfterOffset().y, this.brushConfig.getOriginAfterOffset().z, (x, y, z, unused) -> {
+                    Transform transform = this.brushConfig.getTransform();
+                    Vector3i transformOrigin = this.brushConfig.getTransformOrigin();
+                    this.transformVector.setX(x - transformOrigin.x);
+                    this.transformVector.setY(y - transformOrigin.y);
+                    this.transformVector.setZ(z - transformOrigin.z);
+                    transform.apply(this.transformVector);
+                    x = transformOrigin.x + this.transformVector.x;
+                    y = transformOrigin.y + this.transformVector.y;
+                    z = transformOrigin.z + this.transformVector.z;
+                    return brushOperation.modifyBlocks(ref, this.brushConfig, this, this.edit, x, y, z, componentAccessor);
+                }, this.brushConfig.getShape(), this.brushConfig.getShapeWidth(), this.brushConfig.getShapeHeight(), this.brushConfig.getShapeThickness(), this.brushConfig.isCapped());
                 this.edit.flushCurrentEditsToPrevious();
             }
         }

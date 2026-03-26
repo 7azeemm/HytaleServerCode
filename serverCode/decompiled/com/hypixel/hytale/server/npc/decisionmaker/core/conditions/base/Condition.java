@@ -26,9 +26,11 @@ import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.IsInStateCond
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.LineOfSightCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.NearbyCountCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.RandomiserCondition;
+import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.SelfHasEffectCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.SelfStatAbsoluteCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.SelfStatPercentageCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.TargetDistanceCondition;
+import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.TargetHasEffectCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.TargetMovementStateCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.TargetStatAbsoluteCondition;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.TargetStatPercentageCondition;
@@ -129,6 +131,8 @@ implements JsonAssetWithMap<String, IndexedLookupTableAssetMap<String, Condition
         CODEC.register("Randomiser", RandomiserCondition.class, RandomiserCondition.CODEC);
         CODEC.register("LineOfSight", LineOfSightCondition.class, LineOfSightCondition.CODEC);
         CODEC.register("TargetMovementState", TargetMovementStateCondition.class, TargetMovementStateCondition.CODEC);
+        CODEC.register("SelfHasEffect", SelfHasEffectCondition.class, SelfHasEffectCondition.CODEC);
+        CODEC.register("TargetHasEffect", TargetHasEffectCondition.class, TargetHasEffectCondition.CODEC);
     }
 
     private static class AlwaysTrueCondition

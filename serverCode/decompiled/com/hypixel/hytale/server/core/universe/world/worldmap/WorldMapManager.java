@@ -20,7 +20,10 @@ import com.hypixel.hytale.protocol.packets.player.RemoveMapMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.CreateUserMarker;
 import com.hypixel.hytale.protocol.packets.worldmap.MapImage;
 import com.hypixel.hytale.protocol.packets.worldmap.MapMarker;
+import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.config.ServerWorldMapConfig;
+import com.hypixel.hytale.server.core.config.WorldWorldMapConfig;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.data.PlayerConfigData;
 import com.hypixel.hytale.server.core.entity.entities.player.data.PlayerWorldData;
@@ -105,7 +108,7 @@ extends TickingThread {
             this.logger.at(Level.INFO).log("Initializing world map generator: %s", generator.toString());
             this.generatorLoaded.complete(null);
             this.generatorLoaded = new CompletableFuture();
-            this.worldMapSettings = generator.getWorldMapSettings();
+            this.applyWorldMapOverrides(generator);
             this.images.clear();
             this.generating.clear();
             for (Player worldPlayer : this.world.getPlayers()) {
@@ -123,6 +126,22 @@ extends TickingThread {
             this.worldMapSettings = WorldMapSettings.DISABLED;
             this.sendSettings();
         }
+    }
+
+    private void applyWorldMapOverrides(@Nonnull IWorldMap generator) {
+        ServerWorldMapConfig serverConfig;
+        WorldMapSettings generatorSettings = generator.getWorldMapSettings();
+        int effectiveMin = generatorSettings.getViewRadiusMin();
+        int effectiveMax = generatorSettings.getViewRadiusMax();
+        WorldWorldMapConfig perWorldConfig = this.world.getWorldConfig().getWorldMapConfig();
+        if (perWorldConfig != null) {
+            effectiveMin = perWorldConfig.getViewRadiusMin();
+            effectiveMax = perWorldConfig.getViewRadiusMax();
+        }
+        if ((effectiveMin = Math.max(effectiveMin, (serverConfig = HytaleServer.get().getConfig().getWorldMapConfig()).getViewRadiusMin())) > (effectiveMax = Math.min(effectiveMax, serverConfig.getViewRadiusMax()))) {
+            effectiveMin = effectiveMax;
+        }
+        this.worldMapSettings = generatorSettings.withViewRadiusLimits(effectiveMin, effectiveMax);
     }
 
     @Override

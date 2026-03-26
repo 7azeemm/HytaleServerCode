@@ -66,6 +66,7 @@ NetworkSerializable<WorldEnvironment> {
     protected Int2ObjectMap<IWeightedMap<WeatherForecast>> weatherForecasts;
     protected double spawnDensity;
     protected boolean blockModificationAllowed = true;
+    private String weatherSeedKey;
     private SoftReference<WorldEnvironment> cachedPacket;
 
     public static AssetStore<String, Environment, IndexedLookupTableAssetMap<String, Environment>> getAssetStore() {
@@ -81,6 +82,7 @@ NetworkSerializable<WorldEnvironment> {
 
     public Environment(String id, Color waterTint, Map<String, FluidParticle> fluidParticles, Int2ObjectMap<IWeightedMap<WeatherForecast>> weatherForecasts, double spawnDensity) {
         this.id = id;
+        this.weatherSeedKey = id;
         this.waterTint = waterTint;
         this.fluidParticles = fluidParticles;
         this.weatherForecasts = weatherForecasts;
@@ -115,6 +117,10 @@ NetworkSerializable<WorldEnvironment> {
             return DEFAULT_WEATHER_FORECAST;
         }
         return this.weatherForecasts.getOrDefault(hour, DEFAULT_WEATHER_FORECAST);
+    }
+
+    public String getWeatherSeedKey() {
+        return this.weatherSeedKey != null ? this.weatherSeedKey : this.id;
     }
 
     public double getSpawnDensity() {
@@ -207,7 +213,7 @@ NetworkSerializable<WorldEnvironment> {
         for (int i = 0; i < HOURS_PER_DAY; ++i) {
             Environment.HOURS[i] = i;
         }
-        CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(Environment.class, Environment::new, Codec.STRING, (environment, s) -> {
+        CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(Environment.class, Environment::new, Codec.STRING, (environment, s) -> {
             environment.id = s;
         }, environment -> environment.id, (asset, data) -> {
             asset.data = data;
@@ -231,7 +237,11 @@ NetworkSerializable<WorldEnvironment> {
             environment.weatherForecasts = l;
         }, environment -> environment.weatherForecasts, (environment, parent) -> {
             environment.weatherForecasts = parent.weatherForecasts;
-        }).addValidator(Validators.nonNull()).addValidator(new MapKeyValidator<Integer>(Validators.range(0, MAX_KEY_HOUR))).addValidator(Validators.requiredMapKeysValidator(HOURS)).metadata(new UIEditor(UIEditor.WEIGHTED_TIMELINE)).metadata(new UIEditorSectionStart("Weather")).metadata(UIDefaultCollapsedState.UNCOLLAPSED).add()).build();
+        }).addValidator(Validators.nonNull()).addValidator(new MapKeyValidator<Integer>(Validators.range(0, MAX_KEY_HOUR))).addValidator(Validators.requiredMapKeysValidator(HOURS)).metadata(new UIEditor(UIEditor.WEIGHTED_TIMELINE)).metadata(new UIEditorSectionStart("Weather")).metadata(UIDefaultCollapsedState.UNCOLLAPSED).add()).appendInherited(new KeyedCodec<String>("WeatherForecastSeed", Codec.STRING, true), (environment, seed) -> {
+            environment.weatherSeedKey = seed;
+        }, environment -> environment.weatherSeedKey, (environment, parent) -> {
+            environment.weatherSeedKey = parent.getWeatherSeedKey();
+        }).add()).build();
         VALIDATOR_CACHE = new ValidatorCache(new AssetKeyValidator(Environment::getAssetStore));
         UNKNOWN = Environment.getUnknownFor("Unknown");
     }

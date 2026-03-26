@@ -11,7 +11,9 @@ import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
 import com.hypixel.hytale.codec.util.RawJsonReader;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.auth.AuthConfig;
+import com.hypixel.hytale.server.core.auth.HttpResponseException;
 import com.hypixel.hytale.server.core.util.ServiceHttpClientFactory;
+import com.hypixel.hytale.sneakythrow.SneakyThrow;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -179,6 +181,7 @@ public class SessionServiceClient {
         }
     }
 
+    @Nullable
     public GameSessionResponse createGameSession(@Nonnull String oauthAccessToken, @Nonnull UUID profileUuid) {
         try {
             String body = String.format("{\"uuid\":\"%s\"}", profileUuid.toString());
@@ -218,8 +221,12 @@ public class SessionServiceClient {
                 HttpRequest request = HttpRequest.newBuilder().uri(URI.create(this.sessionServiceUrl + "/game-session/refresh")).header("Accept", "application/json").header("Authorization", "Bearer " + sessionToken).header("User-Agent", AuthConfig.USER_AGENT).timeout(AuthConfig.HTTP_TIMEOUT).POST(HttpRequest.BodyPublishers.noBody()).build();
                 LOGGER.at(Level.INFO).log("Refreshing game session...");
                 HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() != 200) {
-                    LOGGER.at(Level.WARNING).log("Failed to refresh session: HTTP %d - %s", response.statusCode(), (Object)response.body());
+                int statusCode = response.statusCode();
+                if (statusCode != 200) {
+                    LOGGER.at(Level.WARNING).log("Failed to refresh session: HTTP %d - %s", statusCode, (Object)response.body());
+                    if (!AuthConfig.isRejectedStatusCode(statusCode)) {
+                        throw new HttpResponseException(statusCode, response.body());
+                    }
                     return null;
                 }
                 GameSessionResponse sessionResponse = GameSessionResponse.CODEC.decodeJson(new RawJsonReader(response.body().toCharArray()), EmptyExtraInfo.EMPTY);
@@ -232,7 +239,7 @@ public class SessionServiceClient {
             }
             catch (IOException e) {
                 LOGGER.at(Level.WARNING).log("IO error while refreshing session: %s", e.getMessage());
-                return null;
+                throw SneakyThrow.sneakyThrow(e);
             }
             catch (InterruptedException e) {
                 LOGGER.at(Level.WARNING).log("Request interrupted while refreshing session");
@@ -353,6 +360,7 @@ public class SessionServiceClient {
             r.expiresAt = v;
         }, r -> r.expiresAt).add()).build();
 
+        @Nullable
         public Instant getExpiresAtInstant() {
             if (this.expiresAt == null) {
                 return null;

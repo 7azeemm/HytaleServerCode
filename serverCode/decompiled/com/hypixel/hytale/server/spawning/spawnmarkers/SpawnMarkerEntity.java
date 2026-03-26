@@ -42,7 +42,6 @@ import com.hypixel.hytale.server.spawning.SpawningPlugin;
 import com.hypixel.hytale.server.spawning.assets.spawnmarker.config.SpawnMarker;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
@@ -286,7 +285,7 @@ implements Component<EntityStore> {
             this.fail(ref, uuid, roleName, position, store, FailReason.FAILED_ROLE_VALIDATION);
             return false;
         }
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(EntityModule.get().getPlayerSpatialResourceType());
         spatialResource.getSpatialStructure().collect(position, marker.getExclusionRadius(), results);
         boolean bl = hasPlayersInRange = !results.isEmpty();

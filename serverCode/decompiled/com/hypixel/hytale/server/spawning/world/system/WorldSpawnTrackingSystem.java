@@ -32,7 +32,7 @@ import com.hypixel.hytale.server.spawning.world.component.ChunkSpawnData;
 import com.hypixel.hytale.server.spawning.world.component.ChunkSpawnedNPCData;
 import com.hypixel.hytale.server.spawning.world.component.WorldSpawnData;
 import java.util.Iterator;
-import java.util.Set;
+import java.util.List;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,7 +112,7 @@ extends RefSystem<EntityStore> {
                     if (context.isEnabled()) {
                         context.log("Failed to spread %s of an NPC spawn to neighbouring chunks. Checked %s chunks, %s not in memory. Centered on chunk (%s, %s), spreading to other chunks with matching environment", count, checkedCount, unloadedCount, originX, originZ);
                     }
-                    Set<Ref<ChunkStore>> chunkOptions = worldSpawnData.getWorldEnvironmentSpawnData(environmentIndex).getChunkRefSet();
+                    List<Ref<ChunkStore>> chunkOptions = worldSpawnData.getWorldEnvironmentSpawnData(environmentIndex).getChunkRefList();
                     Iterator<Ref<ChunkStore>> iterator = chunkOptions.iterator();
                     while (iterator.hasNext() && count > 0.0) {
                         count = WorldSpawnTrackingSystem.trackNewNPC(iterator.next(), environmentIndex, count, this.chunkSpawnDataComponentType, this.chunkSpawnedNPCDataComponentType, chunkComponentStore);
@@ -177,7 +177,7 @@ extends RefSystem<EntityStore> {
                     if (context.isEnabled()) {
                         context.log("Failed to remove %s of a spread NPC spawn from neighbouring chunks, spreading to other chunks with matching environment", count);
                     }
-                    Set<Ref<ChunkStore>> chunkOptions = worldSpawnData.getWorldEnvironmentSpawnData(environmentIndex).getChunkRefSet();
+                    List<Ref<ChunkStore>> chunkOptions = worldSpawnData.getWorldEnvironmentSpawnData(environmentIndex).getChunkRefList();
                     Iterator<Ref<ChunkStore>> iterator = chunkOptions.iterator();
                     while (iterator.hasNext() && count > 0.0) {
                         count = WorldSpawnTrackingSystem.untrackRemovedNPC(iterator.next(), environmentIndex, count, this.chunkSpawnDataComponentType, this.chunkSpawnedNPCDataComponentType, chunkComponentStore);

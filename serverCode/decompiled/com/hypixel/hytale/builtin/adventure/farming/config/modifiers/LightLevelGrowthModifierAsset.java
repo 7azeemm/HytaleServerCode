@@ -81,11 +81,11 @@ extends GrowthModifierAsset {
         boolean onlySunlight = false;
         if (this.requireBoth) {
             active = this.checkArtificialLight(redLight, greenLight, blueLight) && this.checkSunLight(worldTimeResource, skyLight);
-        } else if (this.checkArtificialLight(redLight, greenLight, blueLight)) {
-            active = true;
         } else if (this.checkSunLight(worldTimeResource, skyLight)) {
             active = true;
             onlySunlight = true;
+        } else if (this.checkArtificialLight(redLight, greenLight, blueLight)) {
+            active = true;
         }
         if (active) {
             if (onlySunlight && initialTick) {

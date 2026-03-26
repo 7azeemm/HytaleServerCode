@@ -17,7 +17,6 @@ public class MapMarkerBuilder {
     private final String image;
     private final Transform transform;
     private Message name;
-    private String customName;
     private List<ContextMenuItem> contextMenuItems;
     private List<MapMarkerComponent> mapMarkerComponents;
 
@@ -33,7 +32,7 @@ public class MapMarkerBuilder {
     }
 
     public MapMarkerBuilder withCustomName(String customName) {
-        this.customName = customName;
+        this.name = Message.raw(customName);
         return this;
     }
 
@@ -54,7 +53,7 @@ public class MapMarkerBuilder {
     }
 
     public MapMarker build() {
-        return new MapMarker(this.id, this.name == null ? null : this.name.getFormattedMessage(), this.customName, this.image, PositionUtil.toTransformPacket(this.transform), this.contextMenuItems == null ? null : (ContextMenuItem[])this.contextMenuItems.toArray(ContextMenuItem[]::new), this.mapMarkerComponents == null ? null : (MapMarkerComponent[])this.mapMarkerComponents.toArray(MapMarkerComponent[]::new));
+        return new MapMarker(this.id, this.name == null ? null : this.name.getFormattedMessage(), this.image, PositionUtil.toTransformPacket(this.transform), this.contextMenuItems == null ? null : (ContextMenuItem[])this.contextMenuItems.toArray(ContextMenuItem[]::new), this.mapMarkerComponents == null ? null : (MapMarkerComponent[])this.mapMarkerComponents.toArray(MapMarkerComponent[]::new));
     }
 }
 

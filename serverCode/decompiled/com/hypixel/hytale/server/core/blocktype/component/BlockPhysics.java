@@ -158,8 +158,8 @@ implements Component<ChunkStore> {
         }
     }
 
-    public static void clear(@Nonnull Store<ChunkStore> store, @Nonnull Ref<ChunkStore> section, int x, int y, int z) {
-        BlockPhysics blockPhysics = store.getComponent(section, BlockPhysics.getComponentType());
+    public static void clear(@Nonnull ComponentAccessor<ChunkStore> accessor, @Nonnull Ref<ChunkStore> section, int x, int y, int z) {
+        BlockPhysics blockPhysics = accessor.getComponent(section, BlockPhysics.getComponentType());
         if (blockPhysics == null) {
             return;
         }
@@ -174,10 +174,10 @@ implements Component<ChunkStore> {
         blockPhysics.set(ChunkUtil.indexBlock(x, y, z), 0);
     }
 
-    public static void reset(@Nonnull Store<ChunkStore> store, @Nonnull Ref<ChunkStore> section, int x, int y, int z) {
-        BlockPhysics blockPhysics = store.getComponent(section, BlockPhysics.getComponentType());
+    public static void reset(@Nonnull ComponentAccessor<ChunkStore> accessor, @Nonnull Ref<ChunkStore> section, int x, int y, int z) {
+        BlockPhysics blockPhysics = accessor.getComponent(section, BlockPhysics.getComponentType());
         if (blockPhysics == null) {
-            blockPhysics = store.ensureAndGetComponent(section, BlockPhysics.getComponentType());
+            blockPhysics = accessor.ensureAndGetComponent(section, BlockPhysics.getComponentType());
         }
         blockPhysics.set(ChunkUtil.indexBlock(x, y, z), 0);
     }

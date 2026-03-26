@@ -19,6 +19,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.protocol.MovementStates;
 import com.hypixel.hytale.protocol.MovementStatesUpdate;
 import com.hypixel.hytale.protocol.SavedMovementStates;
+import com.hypixel.hytale.server.core.entity.Frozen;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.data.PlayerWorldData;
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent;
@@ -100,6 +101,7 @@ public class MovementStatesSystems {
             to.crouching = from.crouching;
             to.forcedCrouching = from.forcedCrouching;
             to.falling = from.falling;
+            to.fallingFar = from.fallingFar;
             to.climbing = from.climbing;
             to.inFluid = from.inFluid;
             to.swimming = from.swimming;
@@ -165,6 +167,15 @@ public class MovementStatesSystems {
         @Override
         public void onEntityAdd(@Nonnull Holder<EntityStore> holder, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store) {
             holder.ensureComponent(this.movementStatesComponentComponentType);
+            ComponentType<EntityStore, Frozen> frozenType = Frozen.getComponentType();
+            boolean isFrozen = holder.getComponent(frozenType) != null;
+            MovementStatesComponent movementStatesComponent = holder.getComponent(this.movementStatesComponentComponentType);
+            if (!isFrozen || movementStatesComponent == null) {
+                return;
+            }
+            MovementStates states = movementStatesComponent.getMovementStates();
+            states.idle = true;
+            states.horizontalIdle = true;
         }
 
         @Override

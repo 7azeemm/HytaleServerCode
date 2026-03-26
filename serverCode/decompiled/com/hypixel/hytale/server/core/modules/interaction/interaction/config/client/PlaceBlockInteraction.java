@@ -132,7 +132,7 @@ extends SimpleInteraction {
                 context.getState().state = InteractionState.Failed;
                 return;
             }
-            BlockPlaceUtils.placeBlock(ref, heldItemStack, clientPlacedBlockTypeKey != null ? clientPlacedBlockTypeKey : this.blockTypeKey, heldItemContainer, BlockFace.fromProtocolFace(context.getClientState().blockFace).getDirection(), targetBlockPosition, blockRotation, inventory, context.getHeldItemSlot(), this.removeItemInHand, chunkReference, chunkStore, commandBuffer);
+            BlockPlaceUtils.placeBlock(ref, heldItemStack, clientPlacedBlockTypeKey != null ? clientPlacedBlockTypeKey : this.blockTypeKey, heldItemContainer, BlockFace.fromProtocolFace(context.getClientState().blockFace).getDirection(), targetBlockPosition, blockRotation, inventory, context.getHeldItemSlot(), this.removeItemInHand, chunkReference, chunkStore, commandBuffer, false);
             boolean bl = isAdventure = playerComponent == null || playerComponent.getGameMode() == GameMode.Adventure;
             if (isAdventure && heldItemStack.getQuantity() == 1 && this.removeItemInHand) {
                 context.setHeldItem(null);

@@ -24,7 +24,7 @@ implements WorldMapManager.MarkerProvider {
         PlayerWorldData perWorldData = player.getPlayerConfigData().getPerWorldData(world.getName());
         Collection<? extends UserMapMarker> userMapMarkers = perWorldData.getUserMapMarkers();
         for (UserMapMarker userMapMarker : userMapMarkers) {
-            collector.add(userMapMarker.toProtocolMarker());
+            collector.addIgnoreViewDistance(userMapMarker.toProtocolMarker());
         }
     }
 }

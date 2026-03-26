@@ -48,50 +48,114 @@ extends ItemContainer {
 
     @Override
     protected <V> V readAction(@Nonnull Supplier<V> action) {
-        return this.readAction0(0, action);
-    }
-
-    private <V> V readAction0(int i, @Nonnull Supplier<V> action) {
-        if (i >= this.containers.length) {
-            return action.get();
+        this.lockForRead();
+        try {
+            V v = action.get();
+            return v;
         }
-        return (V)this.containers[i].readAction(() -> this.readAction0(i + 1, action));
+        finally {
+            this.unlockForRead();
+        }
     }
 
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
     @Override
     protected <X, V> V readAction(@Nonnull Function<X, V> action, X x) {
-        return this.readAction0(0, action, x);
-    }
-
-    private <X, V> V readAction0(int i, @Nonnull Function<X, V> action, X x) {
-        if (i >= this.containers.length) {
-            return action.apply(x);
+        this.lockForRead();
+        try {
+            V v = action.apply(x);
+            return v;
         }
-        return (V)this.containers[i].readAction(() -> this.readAction0(i + 1, action, x));
+        finally {
+            this.unlockForRead();
+        }
     }
 
     @Override
     protected <V> V writeAction(@Nonnull Supplier<V> action) {
-        return this.writeAction0(0, action);
+        this.lockForWrite();
+        try {
+            V v = action.get();
+            return v;
+        }
+        finally {
+            this.unlockForWrite();
+        }
     }
 
-    private <V> V writeAction0(int i, @Nonnull Supplier<V> action) {
-        if (i >= this.containers.length) {
-            return action.get();
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    @Override
+    protected <X, V> V writeAction(@Nonnull Function<X, V> action, X x) {
+        this.lockForWrite();
+        try {
+            V v = action.apply(x);
+            return v;
         }
-        return (V)this.containers[i].writeAction(() -> this.writeAction0(i + 1, action));
+        finally {
+            this.unlockForWrite();
+        }
     }
 
     @Override
-    protected <X, V> V writeAction(@Nonnull Function<X, V> action, X x) {
-        return this.writeAction0(0, action, x);
+    protected void lockForRead() {
+        for (int i = 0; i < this.containers.length; ++i) {
+            try {
+                this.containers[i].lockForRead();
+                continue;
+            }
+            catch (Throwable t) {
+                for (int j = i - 1; j >= 0; --j) {
+                    try {
+                        this.containers[j].unlockForRead();
+                        continue;
+                    }
+                    catch (Throwable s) {
+                        t.addSuppressed(s);
+                    }
+                }
+                throw t;
+            }
+        }
     }
 
-    private <X, V> V writeAction0(int i, @Nonnull Function<X, V> action, X x) {
-        if (i >= this.containers.length) {
-            return action.apply(x);
+    @Override
+    protected void unlockForRead() {
+        for (int i = this.containers.length - 1; i >= 0; --i) {
+            this.containers[i].unlockForRead();
         }
-        return (V)this.containers[i].writeAction(() -> this.writeAction0(i + 1, action, x));
+    }
+
+    @Override
+    protected void lockForWrite() {
+        for (int i = 0; i < this.containers.length; ++i) {
+            try {
+                this.containers[i].lockForWrite();
+                continue;
+            }
+            catch (Throwable t) {
+                for (int j = i - 1; j >= 0; --j) {
+                    try {
+                        this.containers[j].unlockForWrite();
+                        continue;
+                    }
+                    catch (Throwable s) {
+                        t.addSuppressed(s);
+                    }
+                }
+                throw t;
+            }
+        }
+    }
+
+    @Override
+    protected void unlockForWrite() {
+        for (int i = this.containers.length - 1; i >= 0; --i) {
+            this.containers[i].unlockForWrite();
+        }
     }
 
     @Override
@@ -102,7 +166,7 @@ extends ItemContainer {
         for (ItemContainer container : this.containers) {
             ClearTransaction clear = container.internal_clear();
             ItemStack[] items = clear.getItems();
-            for (int slot = 0; slot < itemStacks.length; slot = (int)((short)(slot + 1))) {
+            for (int slot = 0; slot < items.length; slot = (int)((short)(slot + 1))) {
                 itemStacks[(short)(start + slot)] = items[slot];
             }
             start = (short)(start + container.getCapacity());
@@ -214,14 +278,14 @@ extends ItemContainer {
 
     @Override
     @Nonnull
-    public EventRegistration registerChangeEvent(short priority, @Nonnull Consumer<ItemContainer.ItemContainerChangeEvent> consumer) {
-        EventRegistration thisRegistration = super.registerChangeEvent(priority, consumer);
+    public EventRegistration<Void, ItemContainer.ItemContainerChangeEvent> registerChangeEvent(short priority, @Nonnull Consumer<ItemContainer.ItemContainerChangeEvent> consumer) {
+        EventRegistration<Void, ItemContainer.ItemContainerChangeEvent> thisRegistration = super.registerChangeEvent(priority, consumer);
         EventRegistration[] containerRegistrations = new EventRegistration[this.containers.length];
         short start = 0;
         for (int i = 0; i < this.containers.length; ++i) {
             ItemContainer container = this.containers[i];
             short finalStart = start;
-            containerRegistrations[i] = container.internalChangeEventRegistry.register(priority, null, event -> consumer.accept(new ItemContainer.ItemContainerChangeEvent(this, event.transaction().toParent(this, finalStart, container))));
+            containerRegistrations[i] = container.registerChangeEvent(priority, (ItemContainer.ItemContainerChangeEvent event) -> consumer.accept(new ItemContainer.ItemContainerChangeEvent(this, event.transaction().toParent(this, finalStart, container))));
             start = (short)(start + container.getCapacity());
         }
         return EventRegistration.combine(thisRegistration, containerRegistrations);

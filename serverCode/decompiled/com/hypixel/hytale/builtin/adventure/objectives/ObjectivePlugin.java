@@ -9,7 +9,7 @@ import com.hypixel.hytale.assetstore.event.LoadedAssetsEvent;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.builtin.adventure.objectives.Objective;
 import com.hypixel.hytale.builtin.adventure.objectives.ObjectiveDataStore;
-import com.hypixel.hytale.builtin.adventure.objectives.blockstates.TreasureChestState;
+import com.hypixel.hytale.builtin.adventure.objectives.blockstates.TreasureChestBlock;
 import com.hypixel.hytale.builtin.adventure.objectives.commands.ObjectiveCommand;
 import com.hypixel.hytale.builtin.adventure.objectives.completion.ClearObjectiveItemsCompletion;
 import com.hypixel.hytale.builtin.adventure.objectives.completion.GiveItemsCompletion;
@@ -35,6 +35,8 @@ import com.hypixel.hytale.builtin.adventure.objectives.historydata.ObjectiveHist
 import com.hypixel.hytale.builtin.adventure.objectives.historydata.ObjectiveLineHistoryData;
 import com.hypixel.hytale.builtin.adventure.objectives.historydata.ObjectiveRewardHistoryData;
 import com.hypixel.hytale.builtin.adventure.objectives.interactions.CanBreakRespawnPointInteraction;
+import com.hypixel.hytale.builtin.adventure.objectives.interactions.DestroyTreasureConditionInteraction;
+import com.hypixel.hytale.builtin.adventure.objectives.interactions.OpenTreasureContainerInteraction;
 import com.hypixel.hytale.builtin.adventure.objectives.interactions.StartObjectiveInteraction;
 import com.hypixel.hytale.builtin.adventure.objectives.markers.ObjectiveMarkerProvider;
 import com.hypixel.hytale.builtin.adventure.objectives.markers.objectivelocation.ObjectiveLocationMarker;
@@ -42,6 +44,7 @@ import com.hypixel.hytale.builtin.adventure.objectives.markers.objectivelocation
 import com.hypixel.hytale.builtin.adventure.objectives.markers.reachlocation.ReachLocationMarker;
 import com.hypixel.hytale.builtin.adventure.objectives.markers.reachlocation.ReachLocationMarkerAsset;
 import com.hypixel.hytale.builtin.adventure.objectives.markers.reachlocation.ReachLocationMarkerSystems;
+import com.hypixel.hytale.builtin.adventure.objectives.systems.ObjectiveInventoryChangeSystem;
 import com.hypixel.hytale.builtin.adventure.objectives.systems.ObjectiveItemEntityRemovalSystem;
 import com.hypixel.hytale.builtin.adventure.objectives.systems.ObjectivePlayerSetupSystem;
 import com.hypixel.hytale.builtin.adventure.objectives.task.CraftObjectiveTask;
@@ -83,10 +86,7 @@ import com.hypixel.hytale.server.core.asset.type.weather.config.Weather;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.data.PlayerConfigData;
-import com.hypixel.hytale.server.core.event.events.entity.LivingEntityInventoryChangeEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
-import com.hypixel.hytale.server.core.inventory.ItemStack;
-import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentModel;
@@ -102,7 +102,7 @@ import com.hypixel.hytale.server.core.universe.datastore.DataStoreProvider;
 import com.hypixel.hytale.server.core.universe.datastore.DiskDataStoreProvider;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.Config;
 import java.util.Arrays;
@@ -133,6 +133,7 @@ extends JavaPlugin {
     private ComponentType<EntityStore, ObjectiveHistoryComponent> objectiveHistoryComponentType;
     private ComponentType<EntityStore, ReachLocationMarker> reachLocationMarkerComponentType;
     private ComponentType<EntityStore, ObjectiveLocationMarker> objectiveLocationMarkerComponentType;
+    private ComponentType<ChunkStore, TreasureChestBlock> treasureChestComponentType;
     @Nullable
     private ObjectiveDataStore objectiveDataStore;
 
@@ -182,7 +183,6 @@ extends JavaPlugin {
         eventRegistry.register(PlayerDisconnectEvent.class, this::onPlayerDisconnect);
         eventRegistry.register(LoadedAssetsEvent.class, ObjectiveLocationMarkerAsset.class, ObjectivePlugin::onObjectiveLocationMarkerChange);
         eventRegistry.register(LoadedAssetsEvent.class, ModelAsset.class, this::onModelAssetChange);
-        eventRegistry.registerGlobal(LivingEntityInventoryChangeEvent.class, this::onLivingEntityInventoryChange);
         eventRegistry.registerGlobal(AddWorldEvent.class, this::onWorldAdded);
         this.getCommandRegistry().registerCommand(new ObjectiveCommand());
         EntityModule entityModule = EntityModule.get();
@@ -206,9 +206,12 @@ extends JavaPlugin {
         this.objectiveHistoryComponentType = entityStoreRegistry.registerComponent(ObjectiveHistoryComponent.class, "ObjectiveHistory", ObjectiveHistoryComponent.CODEC);
         entityStoreRegistry.registerSystem(new ObjectivePlayerSetupSystem(this.objectiveHistoryComponentType, Player.getComponentType()));
         entityStoreRegistry.registerSystem(new ObjectiveItemEntityRemovalSystem());
+        entityStoreRegistry.registerSystem(new ObjectiveInventoryChangeSystem());
         this.getCodecRegistry(Interaction.CODEC).register("StartObjective", StartObjectiveInteraction.class, StartObjectiveInteraction.CODEC);
         this.getCodecRegistry(Interaction.CODEC).register("CanBreakRespawnPoint", CanBreakRespawnPointInteraction.class, CanBreakRespawnPointInteraction.CODEC);
-        BlockStateModule.get().registerBlockState(TreasureChestState.class, "TreasureChest", TreasureChestState.CODEC);
+        this.getCodecRegistry(Interaction.CODEC).register("DestroyTreasureCondition", DestroyTreasureConditionInteraction.class, DestroyTreasureConditionInteraction.CODEC);
+        this.getCodecRegistry(Interaction.CODEC).register("OpenTreasureContainer", OpenTreasureContainerInteraction.class, OpenTreasureContainerInteraction.CODEC);
+        this.treasureChestComponentType = this.getChunkStoreRegistry().registerComponent(TreasureChestBlock.class, "TreasureChest", TreasureChestBlock.CODEC);
         this.getCodecRegistry(GameplayConfig.PLUGIN_CODEC).register(ObjectiveGameplayConfig.class, "Objective", ObjectiveGameplayConfig.CODEC);
         entityStoreRegistry.registerSystem(new EntityModule.TangibleMigrationSystem(Query.or(ObjectiveLocationMarker.getComponentType(), ReachLocationMarker.getComponentType())), true);
         entityStoreRegistry.registerSystem(new EntityModule.HiddenFromPlayerMigrationSystem(Query.or(ObjectiveLocationMarker.getComponentType(), ReachLocationMarker.getComponentType())), true);
@@ -239,6 +242,10 @@ extends JavaPlugin {
 
     public ComponentType<EntityStore, ObjectiveLocationMarker> getObjectiveLocationMarkerComponentType() {
         return this.objectiveLocationMarkerComponentType;
+    }
+
+    public ComponentType<ChunkStore, TreasureChestBlock> getTreasureChestComponentType() {
+        return this.treasureChestComponentType;
     }
 
     public <T extends ObjectiveTaskAsset, U extends ObjectiveTask> void registerTask(String id, Class<T> assetClass, Codec<T> assetCodec, Class<U> implementationClass, Codec<U> implementationCodec, TriFunction<T, Integer, Integer, U> generator) {
@@ -672,48 +679,6 @@ extends JavaPlugin {
             return;
         }
         this.objectiveLocationMarkerModel = Model.createUnitScaleModel(modelAsset);
-    }
-
-    private void onLivingEntityInventoryChange(@Nonnull LivingEntityInventoryChangeEvent event) {
-        if (this.objectiveDataStore == null) {
-            return;
-        }
-        Object EntityType = event.getEntity();
-        if (!(EntityType instanceof Player)) {
-            return;
-        }
-        Player player = (Player)EntityType;
-        Set<UUID> activeObjectiveUUIDs = player.getPlayerConfigData().getActiveObjectiveUUIDs();
-        if (activeObjectiveUUIDs.isEmpty()) {
-            return;
-        }
-        HashSet<UUID> inventoryItemObjectiveUUIDs = null;
-        CombinedItemContainer inventory = player.getInventory().getCombinedHotbarFirst();
-        for (short i = 0; i < inventory.getCapacity(); i = (short)(i + 1)) {
-            UUID objectiveUUID;
-            ItemStack itemStack = inventory.getItemStack(i);
-            if (ItemStack.isEmpty(itemStack) || (objectiveUUID = itemStack.getFromMetadataOrNull(StartObjectiveInteraction.OBJECTIVE_UUID)) == null) continue;
-            if (inventoryItemObjectiveUUIDs == null) {
-                inventoryItemObjectiveUUIDs = new HashSet<UUID>(activeObjectiveUUIDs);
-            }
-            inventoryItemObjectiveUUIDs.add(objectiveUUID);
-        }
-        Ref<EntityStore> reference = player.getReference();
-        if (reference == null || !reference.isValid()) {
-            return;
-        }
-        Store<EntityStore> store = reference.getStore();
-        World world = store.getExternalData().getWorld();
-        for (UUID activeObjectiveUUID : activeObjectiveUUIDs) {
-            ObjectiveAsset objectiveAsset;
-            Objective objective;
-            if (inventoryItemObjectiveUUIDs != null && inventoryItemObjectiveUUIDs.contains(activeObjectiveUUID) || (objective = this.objectiveDataStore.getObjective(activeObjectiveUUID)) == null || (objectiveAsset = objective.getObjectiveAsset()) == null || !objectiveAsset.isRemoveOnItemDrop()) continue;
-            world.execute(() -> {
-                UUIDComponent uuidComponent = store.getComponent(reference, UUIDComponent.getComponentType());
-                assert (uuidComponent != null);
-                ObjectivePlugin.get().removePlayerFromExistingObjective(store, uuidComponent.getUuid(), activeObjectiveUUID);
-            });
-        }
     }
 
     private void onWorldAdded(@Nonnull AddWorldEvent event) {

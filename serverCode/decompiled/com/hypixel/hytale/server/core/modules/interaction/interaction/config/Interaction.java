@@ -64,7 +64,6 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.operation.
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.UUIDUtil;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.lang.ref.SoftReference;
 import java.util.Collections;
 import java.util.List;
@@ -366,13 +365,13 @@ NetworkSerializable<com.hypixel.hytale.protocol.Interaction> {
         assert (transformComponent != null);
         Vector3d position = transformComponent.getPosition();
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = commandBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         playerSpatialResource.getSpatialStructure().collect(position, this.viewDistance, results);
         Ref<EntityStore> owningEntityRef = context.getOwningEntity();
         ComponentType<EntityStore, PlayerRef> playerRefComponentType = PlayerRef.getComponentType();
-        for (Ref ref : results) {
-            if (chain.requiresClient() && ref.equals(owningEntityRef)) continue;
-            PlayerRef playerPlayerRefComponent = commandBuffer.getComponent(ref, playerRefComponentType);
+        for (Ref playerRef : results) {
+            if (!playerRef.isValid() || chain.requiresClient() && playerRef.equals(owningEntityRef)) continue;
+            PlayerRef playerPlayerRefComponent = commandBuffer.getComponent(playerRef, playerRefComponentType);
             assert (playerPlayerRefComponent != null);
             playerPlayerRefComponent.getPacketHandler().writeNoCache(packet);
         }

@@ -163,6 +163,18 @@ public class NPCMountSystems {
 
         @Override
         public void onEntityRemove(@Nonnull Ref<EntityStore> ref, @Nonnull RemoveReason reason, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            Ref<EntityStore> playerEntityRef;
+            NPCEntity npcEntity = store.getComponent(ref, this.npcEntityComponentType);
+            assert (npcEntity != null);
+            if (npcEntity.getRole().isRoleChangeRequested()) {
+                return;
+            }
+            NPCMountComponent mountComponent = store.getComponent(ref, this.mountComponentType);
+            assert (mountComponent != null);
+            PlayerRef playerRef = mountComponent.getOwnerPlayerRef();
+            if (playerRef != null && (playerEntityRef = playerRef.getReference()) != null && playerEntityRef.isValid()) {
+                MountPlugin.resetOriginalPlayerMovementSettings(playerEntityRef, store);
+            }
         }
     }
 }

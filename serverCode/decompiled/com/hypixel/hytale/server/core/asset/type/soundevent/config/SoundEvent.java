@@ -31,7 +31,8 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
     public static final int EMPTY_ID = 0;
     public static final String EMPTY = "EMPTY";
     public static final SoundEvent EMPTY_SOUND_EVENT = new SoundEvent("EMPTY");
-    public static final AssetBuilderCodec<String, SoundEvent> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(SoundEvent.class, SoundEvent::new, Codec.STRING, (t, k) -> {
+    private static final int MAX_SOUND_EVENT_LAYERS = 8;
+    public static final AssetBuilderCodec<String, SoundEvent> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(SoundEvent.class, SoundEvent::new, Codec.STRING, (t, k) -> {
         t.id = k;
     }, t -> t.id, (asset, data) -> {
         asset.data = data;
@@ -59,7 +60,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
         soundEvent.maxDistance = f.floatValue();
     }, soundEvent -> Float.valueOf(soundEvent.maxDistance), (soundEvent, parent) -> {
         soundEvent.maxDistance = parent.maxDistance;
-    }).documentation("Maximum distance at which this sound event can be heard in blocks (i.e. the distance at which it's attenuated to zero).").add()).appendInherited(new KeyedCodec<Integer>("MaxInstance", Codec.INTEGER), (soundEvent, i) -> {
+    }).documentation("Maximum distance at which this sound event can be heard in blocks (i.e. the distance at which it's attenuated to zero).").add()).appendInherited(new KeyedCodec<Float>("SpatialBlend", Codec.FLOAT), (soundEvent, f) -> {
+        soundEvent.spatialBlend = f.floatValue();
+    }, soundEvent -> Float.valueOf(soundEvent.spatialBlend), (soundEvent, parent) -> {
+        soundEvent.spatialBlend = parent.spatialBlend;
+    }).addValidator(Validators.range(Float.valueOf(0.0f), Float.valueOf(1.0f))).documentation("Controls spatial blending. At 1.0 the source is fully 3D (i.e. a point source). At 0.0 the source is fully diffuse (i.e. centered on the player). Only applies to Stereo Headphone mode.").add()).appendInherited(new KeyedCodec<Integer>("MaxInstance", Codec.INTEGER), (soundEvent, i) -> {
         soundEvent.maxInstance = i;
     }, soundEvent -> soundEvent.maxInstance, (soundEvent, parent) -> {
         soundEvent.maxInstance = parent.maxInstance;
@@ -71,7 +76,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
         soundEvent.layers = objects;
     }, soundEvent -> soundEvent.layers, (soundEvent, parent) -> {
         soundEvent.layers = parent.layers;
-    }).addValidator(Validators.nonEmptyArray()).documentation("The layered sounds that make up this sound event.").add()).appendInherited(new KeyedCodec<String>("AudioCategory", Codec.STRING), (soundEvent, s) -> {
+    }).addValidator(Validators.nonNull()).addValidator(Validators.arraySizeRange(1, 8)).documentation("The layered sounds that make up this sound event.").add()).appendInherited(new KeyedCodec<String>("AudioCategory", Codec.STRING), (soundEvent, s) -> {
         soundEvent.audioCategoryId = s;
     }, soundEvent -> soundEvent.audioCategoryId, (soundEvent, parent) -> {
         soundEvent.audioCategoryId = parent.audioCategoryId;
@@ -86,6 +91,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
     protected transient float ambientDuckingVolume = 1.0f;
     protected float startAttenuationDistance = 2.0f;
     protected float maxDistance = 16.0f;
+    protected float spatialBlend = 0.6f;
     protected int maxInstance = 50;
     protected boolean preventSoundInterruption = false;
     protected SoundEventLayer[] layers;
@@ -167,6 +173,10 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
         return this.maxDistance;
     }
 
+    public float getSpatialBlend() {
+        return this.spatialBlend;
+    }
+
     public int getMaxInstance() {
         return this.maxInstance;
     }
@@ -194,7 +204,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
 
     @Nonnull
     public String toString() {
-        return "SoundEvent{id='" + this.id + "', volume=" + this.volume + ", pitch=" + this.pitch + ", musicDuckingVolume=" + this.musicDuckingVolume + ", ambientDuckingVolume=" + this.ambientDuckingVolume + ", startAttenuationDistance=" + this.startAttenuationDistance + ", maxDistance=" + this.maxDistance + ", maxInstance=" + this.maxInstance + ", preventSoundInterruption=" + this.preventSoundInterruption + ", layers=" + Arrays.toString(this.layers) + ", audioCategoryId='" + this.audioCategoryId + "', audioCategoryIndex=" + this.audioCategoryIndex + ", highestNumberOfChannels=" + this.highestNumberOfChannels + "}";
+        return "SoundEvent{id='" + this.id + "', volume=" + this.volume + ", pitch=" + this.pitch + ", musicDuckingVolume=" + this.musicDuckingVolume + ", ambientDuckingVolume=" + this.ambientDuckingVolume + ", startAttenuationDistance=" + this.startAttenuationDistance + ", maxDistance=" + this.maxDistance + ", spatialBlend=" + this.spatialBlend + ", maxInstance=" + this.maxInstance + ", preventSoundInterruption=" + this.preventSoundInterruption + ", layers=" + Arrays.toString(this.layers) + ", audioCategoryId='" + this.audioCategoryId + "', audioCategoryIndex=" + this.audioCategoryIndex + ", highestNumberOfChannels=" + this.highestNumberOfChannels + "}";
     }
 
     @Override
@@ -213,6 +223,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.SoundEvent> {
         packet.ambientDuckingVolume = this.ambientDuckingVolume;
         packet.startAttenuationDistance = this.startAttenuationDistance;
         packet.maxDistance = this.maxDistance;
+        packet.spatialBlend = this.spatialBlend;
         packet.maxInstance = this.maxInstance;
         packet.preventSoundInterruption = this.preventSoundInterruption;
         packet.audioCategory = this.audioCategoryIndex;

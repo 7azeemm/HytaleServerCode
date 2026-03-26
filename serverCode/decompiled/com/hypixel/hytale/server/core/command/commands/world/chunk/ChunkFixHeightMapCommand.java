@@ -68,7 +68,7 @@ extends AbstractWorldCommand {
         for (int chunkSectionY = 0; chunkSectionY < 10; ++chunkSectionY) {
             blockChunkComponent.getSectionAtIndex(chunkSectionY).invalidateLocalLight();
         }
-        chunkLighting.invalidateLightInChunk(worldChunkComponent);
+        chunkLighting.invalidateLightInChunk(world.getChunkStore(), chunkX, chunkZ);
         context.sendMessage(MESSAGE_COMMANDS_CHUNK_FIXHEIGHTMAP_DONE);
         context.sendMessage(Message.translation("server.commands.chunk.fixHeightMap.waitingForLighting").param("x", chunkX).param("z", chunkZ));
         int[] count = new int[]{0};

@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.server.core.modules.accesscontrol.provider;
 
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.modules.accesscontrol.provider.AccessProvider;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,7 +14,7 @@ public class ClientDelegatingProvider
 implements AccessProvider {
     @Override
     @Nonnull
-    public CompletableFuture<Optional<String>> getDisconnectReason(UUID uuid) {
+    public CompletableFuture<Optional<Message>> getDisconnectReason(@Nonnull UUID uuid) {
         return CompletableFuture.completedFuture(Optional.empty());
     }
 }

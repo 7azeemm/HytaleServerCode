@@ -125,7 +125,7 @@ implements PrefabBufferCodec<ByteBuf> {
                 Holder<ChunkStore> holder = null;
                 if (hasState) {
                     BsonDocument doc = BsonUtil.readFromBinaryStream(buffer);
-                    holder = version < 15 ? SelectionPrefabSerializer.legacyStateDecode(doc) : (version < 17 ? ChunkStore.REGISTRY.deserialize(doc, worldVersion) : ChunkStore.REGISTRY.deserialize(doc));
+                    holder = version < 17 ? ChunkStore.REGISTRY.deserialize(doc, worldVersion) : ChunkStore.REGISTRY.deserialize(doc);
                 }
                 byte supportValue = 0;
                 if (hasSupportValue) {

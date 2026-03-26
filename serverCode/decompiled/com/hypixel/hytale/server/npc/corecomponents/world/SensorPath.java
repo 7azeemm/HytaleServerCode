@@ -31,8 +31,8 @@ import com.hypixel.hytale.server.npc.role.Role;
 import com.hypixel.hytale.server.npc.sensorinfo.InfoProvider;
 import com.hypixel.hytale.server.npc.sensorinfo.PathProvider;
 import com.hypixel.hytale.server.npc.sensorinfo.PositionProvider;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -178,7 +178,7 @@ extends SensorBase {
             }
             case 2: {
                 SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(this.prefabPathSpatialResource);
-                ObjectList results = SpatialResource.getThreadLocalReferenceList();
+                List results = SpatialResource.getThreadLocalReferenceList();
                 spatialResource.getSpatialStructure().ordered(position, this.range, results);
                 if (results.isEmpty()) {
                     this.loadStatus = LoadStatus.WAITING;
@@ -187,7 +187,7 @@ extends SensorBase {
                 double nearest2 = Double.MAX_VALUE;
                 PatrolPathMarkerEntity nearestWaypoint = null;
                 for (int i = 0; i < results.size(); ++i) {
-                    Ref eRef = (Ref)results.get(i);
+                    Ref eRef = results.get(i);
                     PatrolPathMarkerEntity ePatrolPathMarkerEntityComponent = store.getComponent(eRef, this.patrolPathMarkerEntityComponentType);
                     assert (ePatrolPathMarkerEntityComponent != null);
                     if (disallowedPaths.contains(ePatrolPathMarkerEntityComponent.getParentPath().getId())) continue;

@@ -13,17 +13,21 @@ import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.SystemType;
+import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncCommand;
+import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.migrations.ChunkColumnMigrationSystem;
 import com.hypixel.hytale.server.core.modules.migrations.ChunkSectionMigrationSystem;
 import com.hypixel.hytale.server.core.modules.migrations.MigrationModule;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.WorldConfig;
+import com.hypixel.hytale.server.core.universe.world.WorldProvider;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.ChunkColumn;
 import com.hypixel.hytale.server.core.universe.world.chunk.EntityChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -32,6 +36,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.IChunkLoader;
 import com.hypixel.hytale.server.core.universe.world.storage.IChunkSaver;
 import com.hypixel.hytale.server.core.universe.world.storage.component.ChunkSavingSystems;
 import com.hypixel.hytale.sneakythrow.SneakyThrow;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -110,75 +115,104 @@ extends AbstractAsyncCommand {
                     int chunkZ = ChunkUtil.zOfChunkIndex(chunkIndex);
                     futures.add(CompletableFutureUtil._catch(((CompletableFuture)loader.loadHolder(chunkX, chunkZ).thenComposeAsync(holder -> {
                         ChunkColumn chunkColumn;
-                        ChunkColumnMigrationSystem system;
+                        BlockComponentChunk blockComponentChunk;
+                        HolderSystem system;
+                        int systemIndex;
+                        BitSet systemIndexes;
+                        SystemType<WorldProvider, HolderSystem> systemType;
+                        ChunkColumnMigrationSystem system2;
                         ComponentRegistry.Data<ChunkStore> data = ChunkStore.REGISTRY.getData();
                         ChunkStore chunkStore = world.getChunkStore();
                         Store<ChunkStore> store = chunkStore.getStore();
                         boolean shouldSave = false;
-                        SystemType<ChunkStore, ChunkColumnMigrationSystem> systemType = MigrationModule.get().getChunkColumnMigrationSystem();
-                        BitSet systemIndexes = data.getSystemIndexesForType(systemType);
-                        int systemIndex = -1;
-                        while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
-                            system = data.getSystem(systemIndex, systemType);
-                            if (!system.test(ChunkStore.REGISTRY, holder.getArchetype())) continue;
-                            system.onEntityAdd(holder, AddReason.LOAD, store);
+                        SystemType<ChunkStore, ChunkColumnMigrationSystem> systemType2 = MigrationModule.get().getChunkColumnMigrationSystem();
+                        BitSet systemIndexes2 = data.getSystemIndexesForType(systemType2);
+                        int systemIndex2 = -1;
+                        while ((systemIndex2 = systemIndexes2.nextSetBit(systemIndex2 + 1)) >= 0) {
+                            system2 = data.getSystem(systemIndex2, systemType2);
+                            if (!system2.test(ChunkStore.REGISTRY, holder.getArchetype())) continue;
+                            system2.onEntityAdd(holder, AddReason.LOAD, store);
                             shouldSave = true;
                         }
-                        systemIndex = -1;
-                        while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
-                            system = data.getSystem(systemIndex, systemType);
-                            if (!system.test(ChunkStore.REGISTRY, holder.getArchetype())) continue;
-                            system.onEntityRemoved(holder, RemoveReason.REMOVE, store);
+                        systemIndex2 = -1;
+                        while ((systemIndex2 = systemIndexes2.nextSetBit(systemIndex2 + 1)) >= 0) {
+                            system2 = data.getSystem(systemIndex2, systemType2);
+                            if (!system2.test(ChunkStore.REGISTRY, holder.getArchetype())) continue;
+                            system2.onEntityRemoved(holder, RemoveReason.UNLOAD, store);
                         }
                         EntityChunk entityChunk = holder.getComponent(EntityChunk.getComponentType());
                         if (entityChunk != null && !entityChunk.getEntityHolders().isEmpty()) {
                             Holder<EntityStore> section;
                             int i;
-                            EntityModule.MigrationSystem system2;
                             Store<EntityStore> entityStore = world.getEntityStore().getStore();
                             ComponentRegistry.Data<EntityStore> entityData = EntityStore.REGISTRY.getData();
                             List<Holder<EntityStore>> entities = entityChunk.getEntityHolders();
-                            SystemType<EntityStore, EntityModule.MigrationSystem> systemType2 = EntityModule.get().getMigrationSystemType();
-                            BitSet systemIndexes2 = entityData.getSystemIndexesForType(systemType2);
-                            int systemIndex2 = -1;
-                            while ((systemIndex2 = systemIndexes2.nextSetBit(systemIndex2 + 1)) >= 0) {
-                                system2 = entityData.getSystem(systemIndex2, systemType2);
+                            systemType = EntityModule.get().getMigrationSystemType();
+                            systemIndexes = entityData.getSystemIndexesForType(systemType);
+                            systemIndex = -1;
+                            while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
+                                system = entityData.getSystem(systemIndex, systemType);
                                 for (i = 0; i < entities.size(); ++i) {
                                     section = entities.get(i);
-                                    if (!system2.test(EntityStore.REGISTRY, section.getArchetype())) continue;
-                                    system2.onEntityAdd(section, AddReason.LOAD, entityStore);
+                                    if (!system.test(EntityStore.REGISTRY, section.getArchetype())) continue;
+                                    system.onEntityAdd(section, AddReason.LOAD, entityStore);
                                     shouldSave = true;
                                 }
                             }
-                            systemIndex2 = -1;
-                            while ((systemIndex2 = systemIndexes2.nextSetBit(systemIndex2 + 1)) >= 0) {
-                                system2 = entityData.getSystem(systemIndex2, systemType2);
+                            systemIndex = -1;
+                            while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
+                                system = entityData.getSystem(systemIndex, systemType);
                                 for (i = 0; i < entities.size(); ++i) {
                                     section = entities.get(i);
-                                    if (!system2.test(EntityStore.REGISTRY, section.getArchetype())) continue;
-                                    system2.onEntityRemoved(section, RemoveReason.REMOVE, entityStore);
+                                    if (!system.test(EntityStore.REGISTRY, section.getArchetype())) continue;
+                                    system.onEntityRemoved(section, RemoveReason.UNLOAD, entityStore);
                                 }
                             }
                         }
-                        if ((chunkColumn = holder.getComponent(ChunkColumn.getComponentType())) != null && chunkColumn.getSectionHolders() != null) {
-                            Holder<ChunkStore>[] sections = chunkColumn.getSectionHolders();
-                            SystemType<ChunkStore, ChunkSectionMigrationSystem> systemType3 = MigrationModule.get().getChunkSectionMigrationSystem();
+                        if ((blockComponentChunk = holder.getComponent(BlockComponentChunk.getComponentType())) != null && !blockComponentChunk.getEntityHolders().isEmpty()) {
+                            Int2ObjectMap<Holder<ChunkStore>> blockHolders = blockComponentChunk.getEntityHolders();
+                            SystemType<ChunkStore, BlockModule.MigrationSystem> systemType3 = BlockModule.get().getMigrationSystemType();
                             BitSet systemIndexes3 = data.getSystemIndexesForType(systemType3);
                             int systemIndex3 = -1;
                             while ((systemIndex3 = systemIndexes3.nextSetBit(systemIndex3 + 1)) >= 0) {
-                                ChunkSectionMigrationSystem system3 = data.getSystem(systemIndex3, systemType3);
-                                for (Holder<ChunkStore> section : sections) {
-                                    if (!system3.test(ChunkStore.REGISTRY, section.getArchetype())) continue;
-                                    system3.onEntityAdd(section, AddReason.LOAD, store);
+                                BlockModule.MigrationSystem system3 = data.getSystem(systemIndex3, systemType3);
+                                for (Holder blockHolder : blockHolders.values()) {
+                                    if (!system3.test(ChunkStore.REGISTRY, blockHolder.getArchetype())) continue;
+                                    system3.onEntityAdd(blockHolder, AddReason.LOAD, store);
                                     shouldSave = true;
                                 }
                             }
                             systemIndex3 = -1;
                             while ((systemIndex3 = systemIndexes3.nextSetBit(systemIndex3 + 1)) >= 0) {
-                                ChunkSectionMigrationSystem system4 = data.getSystem(systemIndex3, systemType3);
+                                BlockModule.MigrationSystem system4 = data.getSystem(systemIndex3, systemType3);
+                                for (Holder blockHolder : blockHolders.values()) {
+                                    if (!system4.test(ChunkStore.REGISTRY, blockHolder.getArchetype())) continue;
+                                    system4.onEntityRemoved(blockHolder, RemoveReason.REMOVE, store);
+                                }
+                            }
+                        }
+                        if ((chunkColumn = holder.getComponent(ChunkColumn.getComponentType())) != null && chunkColumn.getSectionHolders() != null) {
+                            Holder<ChunkStore>[] sections = chunkColumn.getSectionHolders();
+                            systemType = MigrationModule.get().getChunkSectionMigrationSystem();
+                            systemIndexes = data.getSystemIndexesForType(systemType);
+                            systemIndex = -1;
+                            while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
+                                system = (ChunkSectionMigrationSystem)((Object)data.getSystem(systemIndex, systemType));
+                                Holder<ChunkStore>[] arr$ = sections;
+                                int len$ = arr$.length;
+                                for (int i$ = 0; i$ < len$; ++i$) {
+                                    Holder<ChunkStore> section = arr$[i$];
+                                    if (!system.test(ChunkStore.REGISTRY, section.getArchetype())) continue;
+                                    system.onEntityAdd(section, AddReason.LOAD, store);
+                                    shouldSave = true;
+                                }
+                            }
+                            systemIndex = -1;
+                            while ((systemIndex = systemIndexes.nextSetBit(systemIndex + 1)) >= 0) {
+                                system = (ChunkSectionMigrationSystem)((Object)data.getSystem(systemIndex, systemType));
                                 for (Holder<ChunkStore> section : sections) {
-                                    if (!system4.test(ChunkStore.REGISTRY, section.getArchetype())) continue;
-                                    system4.onEntityRemoved(section, RemoveReason.REMOVE, store);
+                                    if (!system.test(ChunkStore.REGISTRY, section.getArchetype())) continue;
+                                    system.onEntityRemoved(section, RemoveReason.REMOVE, store);
                                 }
                             }
                         }

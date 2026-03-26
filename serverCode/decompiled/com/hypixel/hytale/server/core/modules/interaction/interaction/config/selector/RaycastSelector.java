@@ -118,7 +118,7 @@ extends SelectorType {
             if (SelectInteraction.SHOW_VISUAL_DEBUG) {
                 Vector3d dir = direction.clone().scale(RaycastSelector.this.distance);
                 com.hypixel.hytale.math.vector.Vector3f color = new com.hypixel.hytale.math.vector.Vector3f((float)HashUtil.random(ref.getIndex(), this.hashCode(), 10L), (float)HashUtil.random(ref.getIndex(), this.hashCode(), 11L), (float)HashUtil.random(ref.getIndex(), this.hashCode(), 12L));
-                DebugUtils.addArrow(commandBuffer.getExternalData().getWorld(), position, dir, color, 5.0f, true);
+                DebugUtils.addArrow(commandBuffer.getExternalData().getWorld(), position, dir, color, 5.0f, DebugUtils.FLAG_FADE);
             }
             this.blockPosition = TargetUtil.getTargetBlock(commandBuffer.getExternalData().getWorld(), (id, fluidId) -> {
                 if (id == 0) {

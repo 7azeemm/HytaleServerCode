@@ -29,9 +29,16 @@ public class SensorEntityPrioritiserAttitude
 implements ISensorEntityPrioritiser {
     private static final ComponentType<EntityStore, TransformComponent> TRANSFORM_COMPONENT_TYPE = TransformComponent.getComponentType();
     private final Attitude[] attitudeByPriority;
+    private final int[] attitudeToPriority;
 
     public SensorEntityPrioritiserAttitude(@Nonnull BuilderSensorEntityPrioritiserAttitude builder, @Nonnull BuilderSupport support) {
         this.attitudeByPriority = builder.getPrioritisedAttitudes(support);
+        this.attitudeToPriority = new int[Attitude.VALUES.length];
+        Arrays.fill(this.attitudeToPriority, -1);
+        int len = this.attitudeByPriority.length;
+        for (int itr = 0; itr < len; ++itr) {
+            this.attitudeToPriority[this.attitudeByPriority[itr].ordinal()] = itr;
+        }
     }
 
     @Override
@@ -42,13 +49,13 @@ implements ISensorEntityPrioritiser {
     @Override
     @Nonnull
     public IEntityByPriorityFilter getNPCPrioritiser() {
-        return new AttitudePrioritiser(this.attitudeByPriority);
+        return new AttitudePrioritiser(this.attitudeToPriority);
     }
 
     @Override
     @Nonnull
     public IEntityByPriorityFilter getPlayerPrioritiser() {
-        return new AttitudePrioritiser(this.attitudeByPriority);
+        return new AttitudePrioritiser(this.attitudeToPriority);
     }
 
     @Override
@@ -80,22 +87,24 @@ implements ISensorEntityPrioritiser {
 
     protected int getPriority(@Nonnull Ref<EntityStore> ref, @Nonnull WorldSupport support, @Nonnull Ref<EntityStore> targetRef, @Nonnull Store<EntityStore> store) {
         Attitude attitude = support.getAttitude(ref, targetRef, store);
-        for (int i = 0; i < this.attitudeByPriority.length; ++i) {
-            if (attitude != this.attitudeByPriority[i]) continue;
-            return i;
+        int priority = this.attitudeToPriority[attitude.ordinal()];
+        if (priority == -1) {
+            throw new IllegalStateException(String.format("Attitude %s was not specified in the priority list but an NPC with that attitude was picked", attitude));
         }
-        throw new IllegalStateException(String.format("Attitude %s was not specified in the priority list but an NPC with that attitude was picked", attitude));
+        return priority;
     }
 
     public static class AttitudePrioritiser
     implements IEntityByPriorityFilter {
-        private final Attitude[] attitudeByPriority;
-        private final Ref<EntityStore>[] targetsByAttitude = new Ref[Attitude.VALUES.length];
+        private final int[] attitudeToPriority;
+        @Nullable
+        private Ref<EntityStore> highestPriorityTarget;
+        private int highestPriorityIndex = Integer.MAX_VALUE;
         @Nullable
         private WorldSupport support;
 
-        public AttitudePrioritiser(Attitude[] attitudeByPriority) {
-            this.attitudeByPriority = attitudeByPriority;
+        public AttitudePrioritiser(int[] attitudeToPriority) {
+            this.attitudeToPriority = attitudeToPriority;
         }
 
         @Override
@@ -106,28 +115,26 @@ implements ISensorEntityPrioritiser {
         @Override
         public boolean test(@Nonnull Ref<EntityStore> ref, @Nonnull Ref<EntityStore> targetRef, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
             Attitude attitude = this.support.getAttitude(ref, targetRef, componentAccessor);
-            if (this.targetsByAttitude[attitude.ordinal()] == null) {
-                this.targetsByAttitude[attitude.ordinal()] = targetRef;
+            int attitudeIdx = attitude.ordinal();
+            int priority = this.attitudeToPriority[attitudeIdx];
+            if (priority != -1 && priority < this.highestPriorityIndex) {
+                this.highestPriorityIndex = priority;
+                this.highestPriorityTarget = targetRef;
             }
-            return attitude == this.attitudeByPriority[0];
+            return this.highestPriorityIndex == 0;
         }
 
         @Override
         @Nullable
         public Ref<EntityStore> getHighestPriorityTarget() {
-            for (int i = 0; i < this.attitudeByPriority.length; ++i) {
-                int attitudeIdx = this.attitudeByPriority[i].ordinal();
-                Ref<EntityStore> target = this.targetsByAttitude[attitudeIdx];
-                if (target == null) continue;
-                return target;
-            }
-            return null;
+            return this.highestPriorityTarget;
         }
 
         @Override
         public void cleanup() {
             this.support = null;
-            Arrays.fill(this.targetsByAttitude, null);
+            this.highestPriorityTarget = null;
+            this.highestPriorityIndex = Integer.MAX_VALUE;
         }
     }
 }

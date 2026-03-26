@@ -61,7 +61,7 @@ Query<ECS_TYPE> {
 
     @Override
     public void validateRegistry(@Nonnull ComponentRegistry<ECS_TYPE> registry) {
-        if (!this.registry.equals(registry)) {
+        if (this.registry != registry) {
             throw new IllegalArgumentException("ComponentType is for a different registry! " + String.valueOf(this));
         }
     }
@@ -89,7 +89,7 @@ Query<ECS_TYPE> {
         if (this.index != that.index) {
             return false;
         }
-        return this.registry.equals(that.registry);
+        return this.registry == that.registry;
     }
 
     public int hashCode() {

@@ -12,7 +12,7 @@ import com.hypixel.hytale.server.core.command.system.basecommands.AbstractTarget
 import com.hypixel.hytale.server.core.modules.entity.component.Intangible;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class EntityIntangibleCommand
@@ -25,14 +25,14 @@ extends AbstractTargetEntityCommand {
     }
 
     @Override
-    protected void execute(@Nonnull CommandContext context, @Nonnull ObjectList<Ref<EntityStore>> entities, @Nonnull World world, @Nonnull Store<EntityStore> store) {
+    protected void execute(@Nonnull CommandContext context, @Nonnull List<Ref<EntityStore>> entities, @Nonnull World world, @Nonnull Store<EntityStore> store) {
         boolean remove = this.removeFlag.provided(context);
-        for (Ref ref : entities) {
+        for (Ref<EntityStore> entity : entities) {
             if (remove) {
-                store.tryRemoveComponent(ref, Intangible.getComponentType());
+                store.tryRemoveComponent(entity, Intangible.getComponentType());
                 continue;
             }
-            store.ensureComponent(ref, Intangible.getComponentType());
+            store.ensureComponent(entity, Intangible.getComponentType());
         }
         context.sendMessage(Message.translation("server.commands.entity.intangible.success." + (remove ? "unset" : "set")).param("amount", entities.size()));
     }

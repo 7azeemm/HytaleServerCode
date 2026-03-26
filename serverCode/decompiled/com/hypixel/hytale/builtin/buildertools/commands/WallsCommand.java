@@ -58,7 +58,7 @@ extends AbstractPlayerCommand {
         Boolean floor = (Boolean)this.floorArg.get(context);
         Boolean roof = (Boolean)this.roofArg.get(context);
         Boolean perimeter = (Boolean)this.perimeterArg.get(context);
-        BuilderToolsPlugin.addToQueue(playerComponent, playerRef, (r, s, componentAccessor) -> s.walls((Ref<EntityStore>)r, pattern, (int)((Integer)this.thicknessArg.get(context)), roof != false || perimeter != false, floor != false || perimeter != false, (ComponentAccessor<EntityStore>)componentAccessor));
+        BuilderToolsPlugin.addToQueue(playerComponent, playerRef, (r, s, componentAccessor) -> s.walls((Ref<EntityStore>)r, pattern, (Integer)this.thicknessArg.get(context), roof != false || perimeter != false, floor != false || perimeter != false, (ComponentAccessor<EntityStore>)componentAccessor));
     }
 }
 

@@ -24,7 +24,7 @@ implements WorldMapManager.MarkerProvider {
         WorldMarkersResource worldMarkersResource = world.getChunkStore().getStore().getResource(WorldMarkersResource.getResourceType());
         Collection<? extends UserMapMarker> userMapMarkers = worldMarkersResource.getUserMapMarkers();
         for (UserMapMarker userMapMarker : userMapMarkers) {
-            collector.add(userMapMarker.toProtocolMarker());
+            collector.addIgnoreViewDistance(userMapMarker.toProtocolMarker());
         }
     }
 }

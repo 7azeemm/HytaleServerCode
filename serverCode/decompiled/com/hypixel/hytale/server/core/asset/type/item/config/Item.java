@@ -41,7 +41,7 @@ import com.hypixel.hytale.protocol.ItemResourceType;
 import com.hypixel.hytale.protocol.ModelTrail;
 import com.hypixel.hytale.server.core.asset.common.CommonAssetValidator;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.asset.type.buildertool.config.BuilderToolData;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.BuilderTool;
 import com.hypixel.hytale.server.core.asset.type.item.config.AssetIconProperties;
 import com.hypixel.hytale.server.core.asset.type.item.config.BlockSelectorToolData;
 import com.hypixel.hytale.server.core.asset.type.item.config.CraftingRecipe;
@@ -50,6 +50,7 @@ import com.hypixel.hytale.server.core.asset.type.item.config.ItemArmor;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemCategory;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemEntityConfig;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemGlider;
+import com.hypixel.hytale.server.core.asset.type.item.config.ItemHudUI;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemPullbackConfig;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemQuality;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemReticleConfig;
@@ -89,7 +90,7 @@ import javax.annotation.Nullable;
 public class Item
 implements JsonAssetWithMap<String, DefaultAssetMap<String, Item>>,
 NetworkSerializable<ItemBase> {
-    private static final AssetBuilderCodec.Builder<String, Item> CODEC_BUILDER = (AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(Item.class, Item::new, Codec.STRING, (item, blockTypeKey) -> {
+    private static final AssetBuilderCodec.Builder<String, Item> CODEC_BUILDER = (AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(Item.class, Item::new, Codec.STRING, (item, blockTypeKey) -> {
         item.id = blockTypeKey;
     }, item -> item.id, (asset, data) -> {
         asset.data = data;
@@ -101,7 +102,11 @@ NetworkSerializable<ItemBase> {
         item.categories = s;
     }, item -> item.categories, (item, parent) -> {
         item.categories = parent.categories;
-    }).addValidatorLate(() -> ItemCategory.VALIDATOR_CACHE.getArrayValidator().late()).documentation("A list of categories this item will be shown in on the creative library menu.").add()).appendInherited(new KeyedCodec<AssetIconProperties>("IconProperties", AssetIconProperties.CODEC), (item, s) -> {
+    }).addValidatorLate(() -> ItemCategory.VALIDATOR_CACHE.getArrayValidator().late()).documentation("A list of categories this item will be shown in on the creative library menu.").add()).appendInherited(new KeyedCodec<String>("SubCategory", Codec.STRING), (item, s) -> {
+        item.subCategory = s;
+    }, item -> item.subCategory, (item, parent) -> {
+        item.subCategory = parent.subCategory;
+    }).documentation("Optional sub-category for grouping items with a label header in the creative library menu.").add()).appendInherited(new KeyedCodec<AssetIconProperties>("IconProperties", AssetIconProperties.CODEC), (item, s) -> {
         item.iconProperties = s;
     }, item -> item.iconProperties, (item, parent) -> {
         item.iconProperties = parent.iconProperties;
@@ -201,10 +206,10 @@ NetworkSerializable<ItemBase> {
         item.blockSelectorToolData = s;
     }, item -> item.blockSelectorToolData, (item, parent) -> {
         item.blockSelectorToolData = parent.blockSelectorToolData;
-    }).add()).appendInherited(new KeyedCodec<BuilderToolData>("BuilderTool", BuilderToolData.CODEC), (item, s) -> {
-        item.builderToolData = s;
-    }, item -> item.builderToolData, (item, parent) -> {
-        item.builderToolData = parent.builderToolData;
+    }).add()).appendInherited(new KeyedCodec("BuilderTool", BuilderTool.CODEC), (item, s) -> {
+        item.builderTool = s;
+    }, item -> item.builderTool, (item, parent) -> {
+        item.builderTool = parent.builderTool;
     }).add()).appendInherited(new KeyedCodec<ItemWeapon>("Weapon", ItemWeapon.CODEC), (item, s) -> {
         item.weapon = s;
     }, item -> item.weapon, (item, parent) -> {
@@ -289,7 +294,9 @@ NetworkSerializable<ItemBase> {
         item.renderDeployablePreview = s;
     }, item -> item.renderDeployablePreview, (item, parent) -> {
         item.renderDeployablePreview = parent.renderDeployablePreview;
-    }).add()).appendInherited(new KeyedCodec<Boolean>("DropOnDeath", Codec.BOOLEAN), (item, aBoolean) -> {
+    }).add()).addField(new KeyedCodec<T[]>("HudUI", new ArrayCodec<ItemHudUI>(ItemHudUI.CODEC, ItemHudUI[]::new)), (item, s) -> {
+        item.hudUI = s;
+    }, item -> item.hudUI)).appendInherited(new KeyedCodec<Boolean>("DropOnDeath", Codec.BOOLEAN), (item, aBoolean) -> {
         item.dropOnDeath = aBoolean;
     }, item -> item.dropOnDeath, (item, parent) -> {
         item.dropOnDeath = parent.dropOnDeath;
@@ -317,7 +324,7 @@ NetworkSerializable<ItemBase> {
     protected boolean variant;
     protected ItemTool tool;
     protected BlockSelectorToolData blockSelectorToolData;
-    protected BuilderToolData builderToolData;
+    protected BuilderTool builderTool;
     protected ItemWeapon weapon;
     protected ItemArmor armor;
     protected ItemGlider glider;
@@ -331,6 +338,7 @@ NetworkSerializable<ItemBase> {
     protected String texture = "Items/Unknown.png";
     protected String animation;
     protected String[] categories;
+    protected String subCategory;
     protected String set;
     protected String soundEventId;
     protected transient int soundEventIndex;
@@ -358,6 +366,7 @@ NetworkSerializable<ItemBase> {
     protected ItemPullbackConfig pullbackConfig;
     protected boolean clipsGeometry;
     protected boolean renderDeployablePreview;
+    protected ItemHudUI[] hudUI;
     protected boolean dropOnDeath;
     protected boolean durabilityLossOnDeath = true;
     private transient SoftReference<ItemBase> cachedPacket;
@@ -401,12 +410,13 @@ NetworkSerializable<ItemBase> {
         this.animation = other.animation;
         this.tool = other.tool;
         this.blockSelectorToolData = other.blockSelectorToolData;
-        this.builderToolData = other.builderToolData;
+        this.builderTool = other.builderTool;
         this.weapon = other.weapon;
         this.armor = other.armor;
         this.utility = other.utility;
         this.portalKey = other.portalKey;
         this.categories = other.categories;
+        this.subCategory = other.subCategory;
         this.set = other.set;
         this.soundEventId = other.soundEventId;
         this.soundEventIndex = other.soundEventIndex;
@@ -432,6 +442,9 @@ NetworkSerializable<ItemBase> {
         this.dropOnDeath = other.dropOnDeath;
     }
 
+    /*
+     * WARNING - void declaration
+     */
     @Override
     @Nonnull
     public ItemBase toPacket() {
@@ -483,8 +496,8 @@ NetworkSerializable<ItemBase> {
         if (this.blockSelectorToolData != null) {
             packet.blockSelectorTool = this.blockSelectorToolData.toPacket();
         }
-        if (this.builderToolData != null) {
-            packet.builderToolData = this.builderToolData.toPacket();
+        if (this.builderTool != null) {
+            packet.builderToolData = this.builderTool.toPacket();
         }
         if (this.weapon != null) {
             packet.weapon = this.weapon.toPacket();
@@ -500,6 +513,9 @@ NetworkSerializable<ItemBase> {
         }
         if (this.categories != null && this.categories.length > 0) {
             packet.categories = this.categories;
+        }
+        if (this.subCategory != null) {
+            packet.subCategory = this.subCategory;
         }
         if (this.set != null) {
             packet.set = this.set;
@@ -564,6 +580,15 @@ NetworkSerializable<ItemBase> {
         }
         packet.clipsGeometry = this.clipsGeometry;
         packet.renderDeployablePreview = this.renderDeployablePreview;
+        if (this.hudUI != null && this.hudUI.length > 0) {
+            void var5_13;
+            packet.hudUI = new com.hypixel.hytale.protocol.ItemHudUI[this.hudUI.length];
+            boolean bl = false;
+            while (var5_13 < this.hudUI.length) {
+                packet.hudUI[var5_13] = this.hudUI[var5_13].toPacket();
+                ++var5_13;
+            }
+        }
         this.cachedPacket = new SoftReference<ItemBase>(packet);
         return packet;
     }
@@ -691,8 +716,8 @@ NetworkSerializable<ItemBase> {
         return this.blockSelectorToolData;
     }
 
-    public BuilderToolData getBuilderToolData() {
-        return this.builderToolData;
+    public BuilderTool getBuilderTool() {
+        return this.builderTool;
     }
 
     public ItemArmor getArmor() {
@@ -720,6 +745,10 @@ NetworkSerializable<ItemBase> {
 
     public String[] getCategories() {
         return this.categories;
+    }
+
+    public String getSubCategory() {
+        return this.subCategory;
     }
 
     public String getSoundEventId() {
@@ -823,7 +852,7 @@ NetworkSerializable<ItemBase> {
             this.blockId = this.id;
         }
         if (this.maxStack == -1) {
-            this.maxStack = this.tool != null || this.weapon != null || this.armor != null || this.builderToolData != null || this.blockSelectorToolData != null ? 1 : 100;
+            this.maxStack = this.tool != null || this.weapon != null || this.armor != null || this.builderTool != null || this.blockSelectorToolData != null ? 1 : 100;
         }
         EnumMap<InteractionType, String> interactions = this.interactions.isEmpty() ? new EnumMap<InteractionType, String>(InteractionType.class) : new EnumMap<InteractionType, String>(this.interactions);
         DefaultAssetMap<String, UnarmedInteractions> unarmedInteractionsAssetMap = UnarmedInteractions.getAssetMap();

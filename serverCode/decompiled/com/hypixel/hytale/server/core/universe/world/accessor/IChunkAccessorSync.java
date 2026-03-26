@@ -9,7 +9,6 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.BlockPosition;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.world.accessor.BlockAccessor;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
 import javax.annotation.Nonnull;
@@ -86,22 +85,6 @@ public interface IChunkAccessorSync<WorldChunk extends BlockAccessor> {
 
     default public boolean testPlaceBlock(int x, int y, int z, @Nonnull BlockType blockTypeToTest, int rotation, @Nonnull TestBlockFunction predicate) {
         return this.getChunk(ChunkUtil.indexChunkFromBlock(x, z)).testPlaceBlock(x, y, z, blockTypeToTest, rotation, predicate);
-    }
-
-    @Nullable
-    @Deprecated
-    default public BlockState getState(int x, int y, int z, boolean followFiller) {
-        int filler;
-        WorldChunk chunk = this.getChunk(ChunkUtil.indexChunkFromBlock(x, z));
-        if (followFiller && (filler = chunk.getFiller(x, y, z)) != 0) {
-            x -= FillerBlockUtil.unpackX(filler);
-            y -= FillerBlockUtil.unpackY(filler);
-            z -= FillerBlockUtil.unpackZ(filler);
-        }
-        if (y < 0 || y >= 320) {
-            return null;
-        }
-        return chunk.getState(x, y, z);
     }
 
     @Nullable

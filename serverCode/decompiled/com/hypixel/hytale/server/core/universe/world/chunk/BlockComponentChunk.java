@@ -23,17 +23,18 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.RefChangeSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.server.core.modules.LegacyModule;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -52,7 +53,7 @@ implements Component<ChunkStore> {
         }
         Int2ObjectOpenHashMap map = new Int2ObjectOpenHashMap(entityChunk.entityHolders.size() + entityChunk.entityReferences.size());
         map.putAll(entityChunk.entityHolders);
-        for (Int2ObjectMap.Entry entry : entityChunk.entityReferences.int2ObjectEntrySet()) {
+        for (Int2ReferenceMap.Entry entry : entityChunk.entityReferences.int2ReferenceEntrySet()) {
             Ref reference = (Ref)entry.getValue();
             Store store = reference.getStore();
             if (!store.getArchetype(reference).hasSerializableComponents(store.getRegistry().getData())) continue;
@@ -63,11 +64,11 @@ implements Component<ChunkStore> {
     @Nonnull
     private final Int2ObjectMap<Holder<ChunkStore>> entityHolders;
     @Nonnull
-    private final Int2ObjectMap<Ref<ChunkStore>> entityReferences;
+    private final Int2ReferenceMap<Ref<ChunkStore>> entityReferences;
     @Nonnull
     private final Int2ObjectMap<Holder<ChunkStore>> entityHoldersUnmodifiable;
     @Nonnull
-    private final Int2ObjectMap<Ref<ChunkStore>> entityReferencesUnmodifiable;
+    private final Int2ReferenceMap<Ref<ChunkStore>> entityReferencesUnmodifiable;
     private boolean needsSaving;
 
     public static ComponentType<ChunkStore, BlockComponentChunk> getComponentType() {
@@ -76,16 +77,16 @@ implements Component<ChunkStore> {
 
     public BlockComponentChunk() {
         this.entityHolders = new Int2ObjectOpenHashMap<Holder<ChunkStore>>();
-        this.entityReferences = new Int2ObjectOpenHashMap<Ref<ChunkStore>>();
+        this.entityReferences = new Int2ReferenceOpenHashMap<Ref<ChunkStore>>();
         this.entityHoldersUnmodifiable = Int2ObjectMaps.unmodifiable(this.entityHolders);
-        this.entityReferencesUnmodifiable = Int2ObjectMaps.unmodifiable(this.entityReferences);
+        this.entityReferencesUnmodifiable = Int2ReferenceMaps.unmodifiable(this.entityReferences);
     }
 
-    public BlockComponentChunk(@Nonnull Int2ObjectMap<Holder<ChunkStore>> entityHolders, @Nonnull Int2ObjectMap<Ref<ChunkStore>> entityReferences) {
+    public BlockComponentChunk(@Nonnull Int2ObjectMap<Holder<ChunkStore>> entityHolders, @Nonnull Int2ReferenceMap<Ref<ChunkStore>> entityReferences) {
         this.entityHolders = entityHolders;
         this.entityReferences = entityReferences;
         this.entityHoldersUnmodifiable = Int2ObjectMaps.unmodifiable(entityHolders);
-        this.entityReferencesUnmodifiable = Int2ObjectMaps.unmodifiable(entityReferences);
+        this.entityReferencesUnmodifiable = Int2ReferenceMaps.unmodifiable(entityReferences);
     }
 
     @Override
@@ -95,11 +96,11 @@ implements Component<ChunkStore> {
         for (Int2ObjectMap.Entry entry : this.entityHolders.int2ObjectEntrySet()) {
             entityHoldersClone.put(entry.getIntKey(), (Holder<ChunkStore>)((Holder)entry.getValue()).clone());
         }
-        for (Int2ObjectMap.Entry entry : this.entityReferences.int2ObjectEntrySet()) {
+        for (Int2ReferenceMap.Entry entry : this.entityReferences.int2ReferenceEntrySet()) {
             Ref reference = (Ref)entry.getValue();
             entityHoldersClone.put(entry.getIntKey(), (Holder<ChunkStore>)reference.getStore().copyEntity(reference));
         }
-        return new BlockComponentChunk(entityHoldersClone, new Int2ObjectOpenHashMap<Ref<ChunkStore>>());
+        return new BlockComponentChunk(entityHoldersClone, new Int2ReferenceOpenHashMap<Ref<ChunkStore>>());
     }
 
     @Override
@@ -112,13 +113,13 @@ implements Component<ChunkStore> {
             if (!holder.getArchetype().hasSerializableComponents(data)) continue;
             entityHoldersClone.put(entry.getIntKey(), holder.cloneSerializable(data));
         }
-        for (Int2ObjectMap.Entry entry : this.entityReferences.int2ObjectEntrySet()) {
+        for (Int2ReferenceMap.Entry entry : this.entityReferences.int2ReferenceEntrySet()) {
             Ref reference = (Ref)entry.getValue();
             Store store = reference.getStore();
             if (!store.getArchetype(reference).hasSerializableComponents(data)) continue;
             entityHoldersClone.put(entry.getIntKey(), (Holder<ChunkStore>)store.copySerializableEntity(reference));
         }
-        return new BlockComponentChunk(entityHoldersClone, new Int2ObjectOpenHashMap<Ref<ChunkStore>>());
+        return new BlockComponentChunk(entityHoldersClone, new Int2ReferenceOpenHashMap<Ref<ChunkStore>>());
     }
 
     @Nonnull
@@ -157,7 +158,7 @@ implements Component<ChunkStore> {
     }
 
     @Nonnull
-    public Int2ObjectMap<Ref<ChunkStore>> getEntityReferences() {
+    public Int2ReferenceMap<Ref<ChunkStore>> getEntityReferences() {
         return this.entityReferencesUnmodifiable;
     }
 
@@ -377,9 +378,6 @@ implements Component<ChunkStore> {
                 int y = ChunkUtil.yFromBlockInColumn(index);
                 int z = ChunkUtil.zFromBlockInColumn(index);
                 holder.putComponent(BlockModule.BlockStateInfo.getComponentType(), new BlockModule.BlockStateInfo(index, ref));
-                BlockState state = BlockState.getBlockState(holder);
-                if (state == null) continue;
-                state.setPosition(chunk, new Vector3i(x, y, z));
             }
             commandBuffer.addEntities(holders, AddReason.LOAD);
         }

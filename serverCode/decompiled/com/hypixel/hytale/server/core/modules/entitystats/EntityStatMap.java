@@ -16,6 +16,7 @@ import com.hypixel.hytale.protocol.EntityStatOp;
 import com.hypixel.hytale.protocol.EntityStatResetBehavior;
 import com.hypixel.hytale.protocol.EntityStatUpdate;
 import com.hypixel.hytale.protocol.ValueType;
+import com.hypixel.hytale.server.core.entity.StatModifiersManager;
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatValue;
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatsModule;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.EntityStatType;
@@ -59,18 +60,28 @@ implements Component<EntityStore> {
         map.values = EntityStatValue.EMPTY_ARRAY;
         map.update();
     })).build();
+    @Nonnull
+    private final StatModifiersManager statModifiersManager = new StatModifiersManager();
     private Map<String, EntityStatValue> unknown;
     @Nonnull
     private EntityStatValue[] values = EntityStatValue.EMPTY_ARRAY;
     float[] tempRegenerationValues = ArrayUtil.EMPTY_FLOAT_ARRAY;
+    @Nonnull
     public final Int2ObjectMap<List<EntityStatUpdate>> selfUpdates = new Int2ObjectOpenHashMap<List<EntityStatUpdate>>();
+    @Nonnull
     public final Int2ObjectMap<FloatList> selfStatValues = new Int2ObjectOpenHashMap<FloatList>();
+    @Nonnull
     public final Int2ObjectMap<List<EntityStatUpdate>> otherUpdates = new Int2ObjectOpenHashMap<List<EntityStatUpdate>>();
     protected boolean isSelfNetworkOutdated;
     protected boolean isNetworkOutdated;
 
     public static ComponentType<EntityStore, EntityStatMap> getComponentType() {
         return EntityStatsModule.get().getEntityStatMapComponentType();
+    }
+
+    @Nonnull
+    public StatModifiersManager getStatModifiersManager() {
+        return this.statModifiersManager;
     }
 
     public int size() {
@@ -96,7 +107,7 @@ implements Component<EntityStore> {
         for (int index = 0; index < this.values.length; ++index) {
             EntityStatType asset = assetMap.getAsset(index);
             EntityStatValue value = this.values[index];
-            if (value == null) continue;
+            if (asset == null || value == null) continue;
             if (asset.isUnknown()) {
                 if (this.unknown == null) {
                     this.unknown = new Object2ObjectOpenHashMap<String, EntityStatValue>();
@@ -115,6 +126,7 @@ implements Component<EntityStore> {
             for (int index = oldLength; index < assetCount; ++index) {
                 EntityStatValue value;
                 EntityStatType asset = assetMap.getAsset(index);
+                if (asset == null) continue;
                 if (asset.isUnknown()) {
                     value = this.values[index] = new EntityStatValue(index, asset);
                     this.addInitChange(index, value);

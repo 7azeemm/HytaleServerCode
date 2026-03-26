@@ -139,7 +139,7 @@ extends AbstractCommandCollection {
             protected void execute(@Nonnull CommandContext context, @Nullable Ref<EntityStore> sourceRef, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world, @Nonnull Store<EntityStore> store) {
                 NetworkChannel networkChannel = (NetworkChannel)((Object)this.channelArg.get(context));
                 int priority = (Integer)this.priorityArg.get(context);
-                if (priority < 0 || priority > 255) {
+                if (priority < 0 || priority > 127) {
                     context.sendMessage(Message.translation("server.commands.network.streamPriority.set.invalidPriority"));
                     return;
                 }

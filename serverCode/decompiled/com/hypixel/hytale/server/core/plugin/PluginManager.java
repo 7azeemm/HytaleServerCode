@@ -16,7 +16,6 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.metrics.MetricsRegistry;
-import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.HytaleServerConfig;
 import com.hypixel.hytale.server.core.Message;
@@ -63,7 +62,7 @@ import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
-import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -95,7 +94,7 @@ public class PluginManager {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final Map<PluginIdentifier, PluginBase> plugins = new Object2ObjectLinkedOpenHashMap<PluginIdentifier, PluginBase>();
     private final Map<Path, PluginClassLoader> classLoaders = new ConcurrentHashMap<Path, PluginClassLoader>();
-    private boolean hasOutdatedPlugins = false;
+    private final List<PluginIdentifier> outdatedPlugins = new ArrayList<PluginIdentifier>();
     private final boolean loadExternalPlugins = true;
     @Nonnull
     private PluginState state = PluginState.NONE;
@@ -195,16 +194,8 @@ public class PluginManager {
         finally {
             this.lock.readLock().unlock();
         }
-        if (this.hasOutdatedPlugins && System.getProperty("hytale.allow_outdated_mods") == null) {
+        if (!this.outdatedPlugins.isEmpty() && System.getProperty("hytale.allow_outdated_mods") == null) {
             LOGGER.at(Level.SEVERE).log("One or more plugins are targeting a different server version. It is recommended to update these plugins to ensure compatibility.");
-            try {
-                if (!Constants.SINGLEPLAYER) {
-                    Thread.sleep(Duration.ofSeconds(2L));
-                }
-            }
-            catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
             HytaleServer.get().getEventBus().registerGlobal(AddPlayerToWorldEvent.class, event -> {
                 PlayerRef playerRef = event.getHolder().getComponent(PlayerRef.getComponentType());
                 Player player = event.getHolder().getComponent(Player.getComponentType());
@@ -214,7 +205,11 @@ public class PluginManager {
                 if (!player.hasPermission("hytale.mods.outdated.notify")) {
                     return;
                 }
-                playerRef.sendMessage(Message.translation("server.pluginManager.outOfDatePlugins").color(Color.RED));
+                StringBuilder modsList = new StringBuilder();
+                for (PluginIdentifier id : this.outdatedPlugins) {
+                    modsList.append("\n - ").append(id);
+                }
+                playerRef.sendMessage(Message.translation("server.pluginManager.outOfDatePlugins").param("count", this.outdatedPlugins.size()).param("mods", modsList.toString()).color(Color.RED));
             });
         }
         this.loadOrder = PendingLoadPlugin.calculateLoadOrder(pending);
@@ -252,28 +247,31 @@ public class PluginManager {
         finally {
             this.lock.writeLock().unlock();
         }
-        if (!failedBootPlugins.isEmpty() && !Constants.shouldSkipModValidation()) {
-            StringBuilder sb = new StringBuilder("Failed to boot the following plugins:\n");
+        if (!failedBootPlugins.isEmpty() && !Options.getOptionSet().has(Options.IGNORE_BROKEN_MODS)) {
+            StringBuilder sb = new StringBuilder();
             for (PluginIdentifier failed : failedBootPlugins) {
                 sb.append(" - ").append(failed).append('\n');
             }
-            HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(sb.toString().trim()));
+            Message message = Message.translation("client.disconnection.shutdownReason.pluginError.detail").param("count", failedBootPlugins.size()).param("detail", sb.toString().trim());
+            HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(message));
             return;
         }
         CompletableFuture.allOf((CompletableFuture[])preLoadFutures.toArray(CompletableFuture[]::new)).join();
         boolean hasFailed = false;
         for (PendingLoadPlugin pendingPlugin : this.loadOrder) {
+            if (HytaleServer.get().isShuttingDown()) break;
             PluginBase plugin = this.loading.get(pendingPlugin.getIdentifier());
             if (plugin == null || this.setup(plugin)) continue;
             hasFailed = true;
         }
-        if (Constants.shouldSkipModValidation() || !hasFailed) {
+        if (Options.getOptionSet().has(Options.IGNORE_BROKEN_MODS) || !hasFailed) {
             this.loading.values().removeIf(v -> v.getState().isInactive());
             return;
         }
-        StringBuilder stringBuilder = new StringBuilder("Failed to setup the following plugins:\n");
-        this.collectFailedPlugins(stringBuilder);
-        HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(stringBuilder.toString().trim()));
+        StringBuilder stringBuilder = new StringBuilder();
+        int failedPluginCount = this.collectFailedPlugins(stringBuilder);
+        Message reasonMessage = Message.translation("client.disconnection.shutdownReason.pluginError.detail").param("count", failedPluginCount).param("detail", stringBuilder.toString().trim());
+        HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(reasonMessage));
     }
 
     public void start() {
@@ -298,29 +296,34 @@ public class PluginManager {
         if (!sb.isEmpty()) {
             String string = "Failed to start server! Missing Mods:\n" + String.valueOf(sb);
             LOGGER.at(Level.SEVERE).log(string);
-            HytaleServer.get().shutdownServer(ShutdownReason.MISSING_REQUIRED_PLUGIN.withMessage(string));
+            Message message = Message.translation("client.disconnection.shutdownReason.missingRequiredPlugin.detail").param("detail", sb.toString());
+            HytaleServer.get().shutdownServer(ShutdownReason.MISSING_REQUIRED_PLUGIN.withMessage(message));
             return;
         }
-        if (!hasFailed || Constants.shouldSkipModValidation()) {
+        if (!hasFailed || Options.getOptionSet().has(Options.IGNORE_BROKEN_MODS)) {
             this.loadOrder = null;
             this.loading = null;
             return;
         }
-        sb = new StringBuilder("Failed to start the following plugins:\n");
-        this.collectFailedPlugins(sb);
-        HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(sb.toString().trim()));
+        sb = new StringBuilder();
+        int n = this.collectFailedPlugins(sb);
+        Message message = Message.translation("client.disconnection.shutdownReason.pluginError.detail").param("count", n).param("detail", sb.toString().trim());
+        HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(message));
     }
 
-    private void collectFailedPlugins(StringBuilder sb) {
+    private int collectFailedPlugins(StringBuilder sb) {
+        int count = 0;
         if (this.loading == null) {
-            return;
+            return count;
         }
         for (Map.Entry<PluginIdentifier, PluginBase> failed : this.loading.entrySet()) {
             if (failed.getValue().getState() != PluginState.FAILED) continue;
             Throwable reasonThrowable = failed.getValue().getFailureCause();
             String reason = reasonThrowable != null ? reasonThrowable.toString() : "Unknown";
             sb.append(" - ").append(failed.getKey()).append(": ").append(reason).append('\n');
+            ++count;
         }
+        return count;
     }
 
     /*
@@ -366,7 +369,7 @@ public class PluginManager {
             } else {
                 LOGGER.at(Level.WARNING).log("Plugin '%s' targets a different server version %s. You may encounter issues, please check for plugin updates.", (Object)pendingLoadPlugin.getIdentifier(), (Object)serverVersion);
             }
-            this.hasOutdatedPlugins = true;
+            this.outdatedPlugins.add(pendingLoadPlugin.getIdentifier());
         }
         for (Map.Entry<PluginIdentifier, SemverRange> entry : pendingLoadPlugin.getManifest().getDependencies().entrySet()) {
             PluginBase loadedBase;
@@ -860,12 +863,15 @@ public class PluginManager {
     }
 
     /*
+     * WARNING - Removed try catching itself - possible behaviour change.
      * Enabled aggressive block sorting
      * Enabled unnecessary exception pruning
      * Enabled aggressive exception aggregation
      */
     private boolean setup(@Nonnull PluginBase plugin) {
-        if (plugin.getState() == PluginState.NONE && this.dependenciesMatchState(plugin, PluginState.SETUP, PluginState.SETUP)) {
+        PluginState requiredDepState;
+        PluginState pluginState = requiredDepState = this.state == PluginState.SETUP ? PluginState.SETUP : PluginState.ENABLED;
+        if (plugin.getState() == PluginState.NONE && this.dependenciesMatchState(plugin, requiredDepState, PluginState.SETUP)) {
             LOGGER.at(Level.FINE).log("Setting up plugin %s", plugin.getIdentifier());
             boolean prev = AssetStore.DISABLE_DYNAMIC_DEPENDENCIES;
             AssetStore.DISABLE_DYNAMIC_DEPENDENCIES = false;
@@ -928,7 +934,11 @@ public class PluginManager {
 
     private static void loadPendingPlugin(@Nonnull Map<PluginIdentifier, PendingLoadPlugin> pending, @Nonnull PendingLoadPlugin plugin) {
         if (pending.putIfAbsent(plugin.getIdentifier(), plugin) != null) {
-            throw new IllegalArgumentException("Tried to load duplicate plugin: " + String.valueOf(plugin.getIdentifier()));
+            String detail = "Tried to load duplicate plugin: " + String.valueOf(plugin.getIdentifier());
+            LOGGER.at(Level.SEVERE).log(detail);
+            Message reasonMessage = Message.translation("client.disconnection.shutdownReason.pluginDuplicate").param("plugin", plugin.getIdentifier().toString());
+            HytaleServer.get().shutdownServer(ShutdownReason.MOD_ERROR.withMessage(reasonMessage));
+            return;
         }
         for (PendingLoadPlugin subPlugin : plugin.createSubPendingLoadPlugins()) {
             PluginManager.loadPendingPlugin(pending, subPlugin);

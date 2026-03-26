@@ -8,13 +8,14 @@ import com.hypixel.hytale.assetstore.codec.AssetBuilderCodec;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.PositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.EmptyPositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.ListPositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
-import com.hypixel.hytale.math.vector.Vector3i;
+import com.hypixel.hytale.math.vector.Vector3d;
 import java.util.ArrayList;
 import javax.annotation.Nonnull;
 
@@ -30,14 +31,14 @@ extends PositionProviderAsset {
     @Nonnull
     public PositionProvider build(@Nonnull PositionProviderAsset.Argument argument) {
         if (super.skip()) {
-            return PositionProvider.noPositionProvider();
+            return EmptyPositionProvider.INSTANCE;
         }
-        ArrayList<Vector3i> list = new ArrayList<Vector3i>();
+        ArrayList<Vector3d> list = new ArrayList<Vector3d>();
         for (PositionAsset asset : this.positions) {
-            Vector3i position = new Vector3i(asset.x, asset.y, asset.z);
+            Vector3d position = new Vector3d(asset.x, asset.y, asset.z);
             list.add(position);
         }
-        return ListPositionProvider.from3i(list);
+        return new ListPositionProvider(list);
     }
 
     public static class PositionAsset
@@ -47,18 +48,18 @@ extends PositionProviderAsset {
             asset.id = id;
         }, config -> config.id, (config, data) -> {
             config.data = data;
-        }, config -> config.data).append(new KeyedCodec<Integer>("X", Codec.INTEGER, true), (t, x) -> {
+        }, config -> config.data).append(new KeyedCodec<Double>("X", Codec.DOUBLE, true), (t, x) -> {
             t.x = x;
-        }, t -> t.x).add()).append(new KeyedCodec<Integer>("Y", Codec.INTEGER, true), (t, y) -> {
+        }, t -> t.x).add()).append(new KeyedCodec<Double>("Y", Codec.DOUBLE, true), (t, y) -> {
             t.y = y;
-        }, t -> t.y).add()).append(new KeyedCodec<Integer>("Z", Codec.INTEGER, true), (t, z) -> {
+        }, t -> t.y).add()).append(new KeyedCodec<Double>("Z", Codec.DOUBLE, true), (t, z) -> {
             t.z = z;
         }, t -> t.z).add()).build();
         private String id;
         private AssetExtraInfo.Data data;
-        private int x;
-        private int y;
-        private int z;
+        private double x;
+        private double y;
+        private double z;
 
         @Override
         public String getId() {

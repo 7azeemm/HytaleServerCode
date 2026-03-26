@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.builtin.buildertools.scriptedbrushes;
 
+import com.hypixel.hytale.builtin.buildertools.tooloperations.transform.Transform;
 import com.hypixel.hytale.builtin.buildertools.utils.FluidPatternHelper;
 import com.hypixel.hytale.builtin.buildertools.utils.Material;
 import com.hypixel.hytale.math.util.MathUtil;
@@ -30,6 +31,8 @@ public class BrushConfig {
     private Vector3i originOffset = new Vector3i(0, 0, 0);
     @Nullable
     private Vector3i originAfterOffset;
+    private Vector3i transformOrigin;
+    private Transform transform = Transform.NONE;
     private BrushShape shape;
     private int shapeWidth;
     private int shapeHeight;
@@ -60,6 +63,8 @@ public class BrushConfig {
         this.shapeWidth = other.shapeWidth;
         this.shapeHeight = other.shapeHeight;
         this.shapeThickness = other.shapeThickness;
+        this.transformOrigin = other.transformOrigin.clone();
+        this.transform = other.transform;
         this.capped = other.capped;
         this.pattern = other.pattern;
         this.density = other.density;
@@ -97,6 +102,8 @@ public class BrushConfig {
         this.shapeHeight = 5;
         this.shapeThickness = 0;
         this.capped = false;
+        this.transform = Transform.NONE;
+        this.transformOrigin = new Vector3i(0, 0, 0);
         this.pattern = BlockPattern.parse("Rock_Stone");
         this.density = 100;
         this.enableBrushMask = true;
@@ -118,6 +125,11 @@ public class BrushConfig {
     @Nullable
     public InteractionType getInteractionType() {
         return this.interactionType;
+    }
+
+    @Nullable
+    public Vector3i getExecutionOrigin() {
+        return this.origin.clone();
     }
 
     @Nullable
@@ -257,6 +269,26 @@ public class BrushConfig {
         this.shapeThickness = shapeThickness;
     }
 
+    public Vector3i getTransformOrigin() {
+        return this.transformOrigin;
+    }
+
+    public void setTransformOrigin(Vector3i transformOrigin) {
+        this.transformOrigin = transformOrigin;
+    }
+
+    public Transform getTransform() {
+        return this.transform;
+    }
+
+    public void setTransform(Transform transform) {
+        this.transform = transform.then(this.transform);
+    }
+
+    public void resetTransform() {
+        this.transform = Transform.NONE;
+    }
+
     public boolean isCapped() {
         return this.capped;
     }
@@ -364,6 +396,7 @@ public class BrushConfig {
         }),
         Thickness((copyTo, copyFrom) -> copyTo.setShapeThickness(copyFrom.getShapeThickness())),
         Capped((copyTo, copyFrom) -> copyTo.setCapped(copyFrom.isCapped())),
+        Transform((copyTo, copyFrom) -> copyTo.setTransform(copyFrom.getTransform())),
         Pattern((copyTo, copyFrom) -> copyTo.setPattern(copyFrom.getPattern())),
         Density((copyTo, copyFrom) -> copyTo.setDensity(copyFrom.getDensity())),
         BrushMask((copyTo, copyFrom) -> {

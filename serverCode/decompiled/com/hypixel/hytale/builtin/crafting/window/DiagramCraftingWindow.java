@@ -6,8 +6,8 @@ package com.hypixel.hytale.builtin.crafting.window;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hypixel.hytale.builtin.crafting.CraftingPlugin;
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
 import com.hypixel.hytale.builtin.crafting.component.CraftingManager;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
 import com.hypixel.hytale.builtin.crafting.window.CraftingWindow;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
@@ -22,6 +22,7 @@ import com.hypixel.hytale.protocol.packets.window.UpdateCategoryAction;
 import com.hypixel.hytale.protocol.packets.window.WindowAction;
 import com.hypixel.hytale.protocol.packets.window.WindowType;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.CraftingBench;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.DiagramCraftingBench;
 import com.hypixel.hytale.server.core.asset.type.item.config.CraftingRecipe;
@@ -64,8 +65,8 @@ implements ItemContainerWindow {
     private CombinedItemContainer combinedItemContainer;
     private EventRegistration<?, ?> inventoryRegistration;
 
-    public DiagramCraftingWindow(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> store, @Nonnull BenchState benchState) {
-        super(WindowType.DiagramCrafting, benchState);
+    public DiagramCraftingWindow(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> store, int x, int y, int z, int rotationIndex, @Nonnull BlockType blockType, @Nonnull BenchBlock benchBlock) {
+        super(WindowType.DiagramCrafting, x, y, z, rotationIndex, blockType, benchBlock);
         DiagramCraftingBench bench = (DiagramCraftingBench)this.bench;
         if (bench.getCategories() != null && bench.getCategories().length > 0) {
             CraftingBench.BenchCategory benchCategory = bench.getCategories()[0];
@@ -159,7 +160,9 @@ implements ItemContainerWindow {
                     return;
                 }
                 CraftingRecipe recipe = (CraftingRecipe)recipes.getFirst();
-                craftingManagerComponent.queueCraft(ref, store, this, 0, recipe, 1, this.combinedInputItemContainer, CraftingManager.InputRemovalType.ORDERED);
+                if (craftingManagerComponent.queueCraft(ref, store, this, 0, recipe, 1, this.combinedInputItemContainer, CraftingManager.InputRemovalType.ORDERED)) {
+                    this.updateQueueSize(craftingManagerComponent.getRemainingQueueSize());
+                }
                 String completedState = recipe.getTimeSeconds() > 0.0f ? "CraftCompleted" : "CraftCompletedInstant";
                 this.setBlockInteractionState(completedState, world);
                 if (this.bench.getCompletedSoundEventIndex() != 0) {

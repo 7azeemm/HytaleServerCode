@@ -143,7 +143,7 @@ NetworkSerializable<Hitbox[]> {
                 break;
             }
             case Ninety: {
-                BlockBoundingBoxes.rotate90Z(box);
+                BlockBoundingBoxes.rotate270Z(box);
                 break;
             }
             case OneEighty: {
@@ -151,7 +151,7 @@ NetworkSerializable<Hitbox[]> {
                 break;
             }
             case TwoSeventy: {
-                BlockBoundingBoxes.rotate270Z(box);
+                BlockBoundingBoxes.rotate90Z(box);
             }
         }
         switch (rotationPitch) {

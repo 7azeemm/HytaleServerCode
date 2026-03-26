@@ -68,19 +68,22 @@ extends InteractiveCustomUIPage<PageData> {
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store, @Nonnull PageData data) {
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
+        PrefabEditSessionManager prefabEditSessionManager = BuilderToolsPlugin.get().getPrefabEditSessionManager();
         switch (data.action.ordinal()) {
             case 0: {
                 playerComponent.getPageManager().setPage(ref, store, Page.None);
-                PrefabEditSessionManager prefabEditSessionManager = BuilderToolsPlugin.get().getPrefabEditSessionManager();
                 prefabEditSessionManager.exitEditSession(ref, this.world, this.playerRef, store);
                 break;
             }
             case 1: {
+                if (!prefabEditSessionManager.isInEditWorld(this.playerRef, store)) {
+                    prefabEditSessionManager.sendToEditWorld(ref, this.world, this.playerRef);
+                }
                 playerComponent.getPageManager().setPage(ref, store, Page.None);
                 break;
             }
             case 2: {
-                playerComponent.getPageManager().openCustomPage(ref, store, new PrefabEditorSaveSettingsPage(this.playerRef, this.prefabEditSession));
+                playerComponent.getPageManager().openCustomPage(ref, store, new PrefabEditorSaveSettingsPage(this.playerRef, this.prefabEditSession, true));
             }
         }
     }

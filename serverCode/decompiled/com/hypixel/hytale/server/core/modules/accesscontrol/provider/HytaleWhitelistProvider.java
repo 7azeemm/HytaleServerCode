@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonWriter;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.modules.accesscontrol.provider.AccessProvider;
 import com.hypixel.hytale.server.core.util.io.BlockingDiskFile;
 import java.io.BufferedReader;
@@ -73,11 +74,11 @@ implements AccessProvider {
 
     @Override
     @Nonnull
-    public CompletableFuture<Optional<String>> getDisconnectReason(UUID uuid) {
+    public CompletableFuture<Optional<Message>> getDisconnectReason(@Nonnull UUID uuid) {
         this.lock.readLock().lock();
         try {
             if (this.isEnabled && !this.whitelist.contains(uuid)) {
-                CompletableFuture<Optional<String>> completableFuture = CompletableFuture.completedFuture(Optional.of("You are not whitelisted!"));
+                CompletableFuture<Optional<Message>> completableFuture = CompletableFuture.completedFuture(Optional.of(Message.translation("client.general.disconnect.notWhitelisted")));
                 return completableFuture;
             }
         }

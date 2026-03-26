@@ -187,13 +187,13 @@ implements Resource<EntityStore> {
         return this.sunlightFactor;
     }
 
-    public void setGameTime(@Nonnull Instant gameTime, @Nonnull World world, @Nonnull Store<EntityStore> store) {
+    public void setGameTime(@Nonnull Instant gameTime, @Nonnull World world, @Nonnull ComponentAccessor<EntityStore> store) {
         this.setGameTime0(gameTime);
         this.updateMoonPhase(world, store);
         this.broadcastTimePacket(store);
     }
 
-    public void setDayTime(double dayTime, @Nonnull World world, @Nonnull Store<EntityStore> store) {
+    public void setDayTime(double dayTime, @Nonnull World world, @Nonnull ComponentAccessor<EntityStore> store) {
         if (dayTime < 0.0 || dayTime > 1.0) {
             throw new IllegalArgumentException("Day time must be between 0 and 1");
         }
@@ -207,7 +207,7 @@ implements Resource<EntityStore> {
         }
     }
 
-    public void broadcastTimePacket(@Nonnull Store<EntityStore> store) {
+    public void broadcastTimePacket(@Nonnull ComponentAccessor<EntityStore> store) {
         PlayerUtil.broadcastPacketToPlayers(store, (ToClientPacket)this.currentTimePacket);
     }
 

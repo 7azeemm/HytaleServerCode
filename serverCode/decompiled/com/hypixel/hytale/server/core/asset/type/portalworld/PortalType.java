@@ -16,13 +16,14 @@ import com.hypixel.hytale.codec.validation.ValidatorCache;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.asset.type.portalworld.PortalDescription;
+import com.hypixel.hytale.server.core.asset.type.portalworld.PortalSpawnConfig;
 import java.util.Collections;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 public class PortalType
 implements JsonAssetWithMap<String, DefaultAssetMap<String, PortalType>> {
-    public static final AssetBuilderCodec<String, PortalType> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(PortalType.class, PortalType::new, Codec.STRING, (portalType, s) -> {
+    public static final AssetBuilderCodec<String, PortalType> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(PortalType.class, PortalType::new, Codec.STRING, (portalType, s) -> {
         portalType.id = s;
     }, portalType -> portalType.id, (asset, data) -> {
         asset.data = data;
@@ -36,7 +37,9 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, PortalType>> {
         portalType.voidInvasionEnabled = o;
     }, portalType -> portalType.voidInvasionEnabled).documentation("Whether the void invasion is enabled for this portal.").add()).append(new KeyedCodec<String>("GameplayConfig", Codec.STRING), (config, o) -> {
         config.gameplayConfig = o;
-    }, config -> config.gameplayConfig).documentation("The ID of the GameplayConfig asset for worlds spawned with this portal type.").add()).build();
+    }, config -> config.gameplayConfig).documentation("The ID of the GameplayConfig asset for worlds spawned with this portal type.").add()).append(new KeyedCodec<PortalSpawnConfig>("Spawn", PortalSpawnConfig.CODEC), (config, o) -> {
+        config.spawn = o;
+    }, config -> config.spawn).documentation("Configs related to spawning into the portal fragment's instance.").add()).build();
     private static AssetStore<String, PortalType, DefaultAssetMap<String, PortalType>> ASSET_STORE;
     public static final ValidatorCache<String> VALIDATOR_CACHE;
     private AssetExtraInfo.Data data;
@@ -46,6 +49,7 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, PortalType>> {
     private String gameplayConfig = "Portal";
     private boolean voidInvasionEnabled = false;
     private Set<String> cursedItems = Collections.emptySet();
+    private PortalSpawnConfig spawn = new PortalSpawnConfig();
 
     public static AssetStore<String, PortalType, DefaultAssetMap<String, PortalType>> getAssetStore() {
         if (ASSET_STORE == null) {
@@ -85,6 +89,10 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, PortalType>> {
 
     public boolean isVoidInvasionEnabled() {
         return this.voidInvasionEnabled;
+    }
+
+    public PortalSpawnConfig getSpawn() {
+        return this.spawn;
     }
 
     @Nullable

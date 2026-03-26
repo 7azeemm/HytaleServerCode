@@ -6,6 +6,8 @@ package com.hypixel.hytale.server.core.io.netty;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.logger.backend.HytaleLoggerBackend;
 import com.hypixel.hytale.protocol.NetworkChannel;
+import com.hypixel.hytale.protocol.io.netty.PacketDecoder;
+import com.hypixel.hytale.protocol.io.netty.PacketEncoder;
 import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.io.netty.HytaleChannelInitializer;
@@ -18,6 +20,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelException;
 import io.netty.channel.ChannelFactory;
 import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.epoll.Epoll;
@@ -79,11 +82,22 @@ public class NettyUtil {
     }
 
     public static void setChannelHandler(@Nonnull Channel channel, @Nonnull PacketHandler packetHandler) {
-        ChannelHandler oldHandler = channel.pipeline().replace(HANDLER, HANDLER, (ChannelHandler)new PlayerChannelHandler(packetHandler));
+        PlayerChannelHandler newHandler = new PlayerChannelHandler(packetHandler);
         PacketHandler oldPlayerConnection = null;
-        if (oldHandler instanceof PlayerChannelHandler) {
-            oldPlayerConnection = ((PlayerChannelHandler)oldHandler).getHandler();
-            oldPlayerConnection.unregistered(packetHandler);
+        ChannelHandler existingHandler = channel.pipeline().get(HANDLER);
+        if (existingHandler != null) {
+            channel.pipeline().replace(HANDLER, HANDLER, (ChannelHandler)newHandler);
+            if (existingHandler instanceof PlayerChannelHandler) {
+                PlayerChannelHandler playerHandler = (PlayerChannelHandler)existingHandler;
+                oldPlayerConnection = playerHandler.getHandler();
+                oldPlayerConnection.unregistered(packetHandler);
+            }
+        } else {
+            channel.pipeline().addLast(HANDLER, (ChannelHandler)newHandler);
+        }
+        if (channel instanceof QuicStreamChannel) {
+            QuicStreamChannel quicStreamChannel = (QuicStreamChannel)channel;
+            quicStreamChannel.parent().attr(HytaleChannelInitializer.GAME_PACKET_HANDLER_ATTR).set(packetHandler);
         }
         packetHandler.registered(oldPlayerConnection);
     }
@@ -91,7 +105,15 @@ public class NettyUtil {
     @Nonnull
     public static CompletableFuture<Void> createStream(@Nonnull QuicChannel conn, @Nonnull QuicStreamType streamType, @Nonnull NetworkChannel networkChannel, @Nullable QuicStreamPriority priority, @Nonnull PacketHandler packetHandler) {
         CompletableFuture<Void> future = new CompletableFuture<Void>();
-        conn.createStream(streamType, new HytaleChannelInitializer()).addListener(result -> {
+        conn.createStream(streamType, new ChannelInitializer<Channel>(){
+
+            @Override
+            protected void initChannel(@Nonnull Channel ch) {
+                ch.pipeline().addLast(NettyUtil.PACKET_DECODER, (ChannelHandler)new PacketDecoder());
+                ch.pipeline().addLast(NettyUtil.PACKET_ENCODER, (ChannelHandler)new PacketEncoder());
+                ch.pipeline().addLast(NettyUtil.PACKET_ARRAY_ENCODER, (ChannelHandler)PACKET_ARRAY_ENCODER_INSTANCE);
+            }
+        }).addListener(result -> {
             if (!result.isSuccess()) {
                 future.completeExceptionally(result.cause());
                 return;
@@ -102,7 +124,7 @@ public class NettyUtil {
                 channel.updatePriority(priority);
             }
             NettyUtil.setChannelHandler(channel, packetHandler);
-            packetHandler.setChannel(networkChannel, channel);
+            packetHandler.setChannel(networkChannel, (Channel)channel);
             future.complete(null);
         });
         return future;

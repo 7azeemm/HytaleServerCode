@@ -7,11 +7,12 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.material.MaterialAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ConstantPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.OriginScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.DirectScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.material.Material;
-import com.hypixel.hytale.builtin.hytalegenerator.props.BoxProp;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.BoxProp;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.math.vector.Vector3i;
@@ -32,17 +33,17 @@ extends PropAsset {
     private Vector3i range = new Vector3i();
     private MaterialAsset materialAsset = new MaterialAsset();
     private PatternAsset patternAsset = new ConstantPatternAsset();
-    private ScannerAsset scannerAsset = new OriginScannerAsset();
+    private ScannerAsset scannerAsset = new DirectScannerAsset();
 
     @Override
     @Nonnull
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip()) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         Material material = this.materialAsset.build(argument.materialCache);
         if (this.scannerAsset == null || this.patternAsset == null) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         return new BoxProp(this.range, material, this.scannerAsset.build(ScannerAsset.argumentFrom(argument)), this.patternAsset.build(PatternAsset.argumentFrom(argument)));
     }

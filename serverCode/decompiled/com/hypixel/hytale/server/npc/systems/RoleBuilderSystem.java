@@ -22,12 +22,14 @@ import com.hypixel.hytale.server.core.asset.type.model.config.Model;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.ActiveAnimationComponent;
+import com.hypixel.hytale.server.core.modules.entity.component.CachedStatsComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.FromPrefab;
 import com.hypixel.hytale.server.core.modules.entity.component.Invulnerable;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentModel;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entity.system.ModelSystems;
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatsSystems;
 import com.hypixel.hytale.server.core.modules.interaction.Interactions;
 import com.hypixel.hytale.server.core.modules.physics.systems.PhysicsValuesAddSystem;
@@ -50,6 +52,7 @@ import com.hypixel.hytale.server.npc.decisionmaker.stateevaluator.StateEvaluator
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import com.hypixel.hytale.server.npc.role.Role;
 import com.hypixel.hytale.server.npc.role.SpawnEffect;
+import com.hypixel.hytale.server.npc.systems.NPCSystems;
 import com.hypixel.hytale.server.npc.util.expression.ExecutionContext;
 import com.hypixel.hytale.server.npc.valuestore.ValueStore;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -75,7 +78,7 @@ extends HolderSystem<EntityStore> {
 
     public RoleBuilderSystem() {
         this.npcComponentType = NPCEntity.getComponentType();
-        this.dependencies = Set.of(new SystemDependency(Order.AFTER, EntityStatsSystems.Setup.class), new SystemDependency(Order.AFTER, PhysicsValuesAddSystem.class));
+        this.dependencies = Set.of(new SystemDependency(Order.AFTER, EntityStatsSystems.Setup.class), new SystemDependency(Order.AFTER, PhysicsValuesAddSystem.class), new SystemDependency(Order.AFTER, NPCSystems.OnNPCAdded.class), new SystemDependency(Order.BEFORE, ModelSystems.ModelSpawned.class));
         this.query = Archetype.of(this.npcComponentType, this.transformComponentType);
     }
 
@@ -203,6 +206,7 @@ extends HolderSystem<EntityStore> {
         }
         holder.ensureComponent(EffectControllerComponent.getComponentType());
         holder.ensureComponent(ActiveAnimationComponent.getComponentType());
+        holder.ensureComponent(CachedStatsComponent.getComponentType());
         boolean fromPrefab = holder.getArchetype().contains(FromPrefab.getComponentType());
         boolean bl = spawnedOrPrefab = reason.equals((Object)AddReason.SPAWN) || fromPrefab;
         if (spawnedOrPrefab) {
@@ -231,7 +235,7 @@ extends HolderSystem<EntityStore> {
                 SpawnEffect spawnEffect = (SpawnEffect)((Object)roleBuilder);
                 TransformComponent transformComponent = holder.getComponent(this.transformComponentType);
                 assert (transformComponent != null);
-                spawnEffect.spawnEffect(transformComponent.getPosition(), transformComponent.getRotation(), store);
+                spawnEffect.spawnEffect(holder, builderSupport, transformComponent.getPosition(), transformComponent.getRotation(), store);
             }
         }
     }

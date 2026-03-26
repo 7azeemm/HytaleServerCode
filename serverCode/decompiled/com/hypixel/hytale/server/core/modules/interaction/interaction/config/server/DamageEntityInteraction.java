@@ -22,15 +22,12 @@ import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.WaitForDataFrom;
 import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffect;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
-import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.EntitySnapshot;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
+import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.knockback.KnockbackComponent;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.io.NetworkSerializable;
@@ -331,7 +328,6 @@ extends Interaction {
         HeadRotation attackerHeadRotationComponent = commandBuffer.getComponent(attackerRef, HeadRotation.getComponentType());
         Vector3f attackerDirection = attackerHeadRotationComponent != null ? attackerHeadRotationComponent.getRotation() : Vector3f.ZERO;
         if (damage != null && !damage.isEmpty()) {
-            Player attackerPlayerComponent;
             double[] knockbackMultiplier = new double[]{1.0};
             float[] armorDamageModifiers = new float[]{0.0f, 1.0f};
             DamageEntityInteraction.calculateKnockbackAndArmorModifiers(damageCalculator.getDamageClass(), damage, targetRef, attackerRef, armorDamageModifiers, knockbackMultiplier, commandBuffer);
@@ -348,7 +344,7 @@ extends Interaction {
                 knockbackComponent.setVelocityConfig(knockback.getVelocityConfig());
                 knockbackComponent.setDuration(knockback.getDuration());
             }
-            ItemStack itemInHand = (attackerPlayerComponent = commandBuffer.getComponent(attackerRef, Player.getComponentType())) == null || attackerPlayerComponent.canApplyItemStackPenalties(attackerRef, commandBuffer) ? context.getHeldItem() : null;
+            ItemStack itemInHand = ItemUtils.canApplyItemStackPenalties(attackerRef, commandBuffer) ? context.getHeldItem() : null;
             Damage[] hits = DamageCalculatorSystems.queueDamageCalculator(commandBuffer.getExternalData().getWorld(), damage, targetRef, context.getCommandBuffer(), source, itemInHand);
             if (hits.length > 0) {
                 Damage firstDamage = hits[0];
@@ -380,23 +376,15 @@ extends Interaction {
     }
 
     private static void calculateKnockbackAndArmorModifiers(@Nonnull DamageClass damageClass, @Nonnull Object2FloatMap<DamageCause> damage, @Nonnull Ref<EntityStore> targetRef, @Nonnull Ref<EntityStore> attackerRef, float[] armorDamageModifiers, double[] knockbackMultiplier, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        Entity entity;
+        InventoryComponent.Armor armorComponent;
         EffectControllerComponent effectControllerComponent = componentAccessor.getComponent(targetRef, EffectControllerComponent.getComponentType());
         if (effectControllerComponent != null) {
             knockbackMultiplier[0] = IntStream.of(effectControllerComponent.getActiveEffectIndexes()).mapToObj(i -> EntityEffect.getAssetStore().getAssetMap().getAsset(i)).filter(effect -> effect != null && effect.getApplicationEffects() != null).mapToDouble(effect -> effect.getApplicationEffects().getKnockbackMultiplier()).reduce(1.0, (a, b) -> a * b);
         }
-        if (!((entity = EntityUtils.getEntity(attackerRef, componentAccessor)) instanceof LivingEntity)) {
+        if ((armorComponent = componentAccessor.getComponent(attackerRef, InventoryComponent.Armor.getComponentType())) == null) {
             return;
         }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        Inventory inventory = livingEntity.getInventory();
-        if (inventory == null) {
-            return;
-        }
-        ItemContainer armorContainer = inventory.getArmor();
-        if (armorContainer == null) {
-            return;
-        }
+        ItemContainer armorContainer = armorComponent.getInventory();
         float knockbackEnhancementModifier = 1.0f;
         for (short i2 = 0; i2 < armorContainer.getCapacity(); i2 = (short)(i2 + 1)) {
             Item item;

@@ -7,27 +7,18 @@ import com.hypixel.hytale.assetstore.AssetLoadResult;
 import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.assetstore.AssetRegistry;
 import com.hypixel.hytale.assetstore.AssetStore;
-import com.hypixel.hytale.assetstore.JsonAsset;
 import com.hypixel.hytale.assetstore.codec.AssetCodec;
-import com.hypixel.hytale.assetstore.codec.AssetCodecMapCodec;
 import com.hypixel.hytale.assetstore.iterator.AssetStoreIterator;
 import com.hypixel.hytale.assetstore.iterator.CircularDependencyException;
 import com.hypixel.hytale.assetstore.map.BlockTypeAssetMap;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
-import com.hypixel.hytale.codec.EmptyExtraInfo;
-import com.hypixel.hytale.codec.schema.SchemaContext;
-import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.common.util.FormatUtil;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.ToClientPacket;
-import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Options;
-import com.hypixel.hytale.server.core.ShutdownReason;
-import com.hypixel.hytale.server.core.asset.AssetModule;
-import com.hypixel.hytale.server.core.asset.GenerateSchemaEvent;
 import com.hypixel.hytale.server.core.asset.HytaleAssetStore;
 import com.hypixel.hytale.server.core.asset.LoadAssetEvent;
 import com.hypixel.hytale.server.core.asset.type.ambiencefx.AmbienceFXPacketGenerator;
@@ -124,31 +115,20 @@ import com.hypixel.hytale.server.core.modules.item.ItemReticleConfigPacketGenera
 import com.hypixel.hytale.server.core.modules.projectile.config.ProjectileConfig;
 import com.hypixel.hytale.server.core.modules.projectile.config.ProjectileConfigPacketGenerator;
 import com.hypixel.hytale.server.core.universe.world.connectedblocks.CustomConnectedBlockTemplateAsset;
-import com.hypixel.hytale.server.core.util.BsonUtil;
 import com.hypixel.hytale.sneakythrow.SneakyThrow;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
-import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileAttribute;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Level;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.bson.BsonArray;
-import org.bson.BsonDocument;
-import org.bson.BsonInt32;
-import org.bson.BsonString;
 
 public class AssetRegistryLoader {
     public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -166,11 +146,13 @@ public class AssetRegistryLoader {
         }
     }
 
-    public static void loadAssets(@Nullable LoadAssetEvent event, @Nonnull AssetPack assetPack) {
+    public static boolean loadAssets(@Nullable LoadAssetEvent event, @Nonnull AssetPack assetPack) {
         AssetRegistry.ASSET_LOCK.writeLock().lock();
         try {
-            AssetRegistryLoader.loadAssets0(event, assetPack);
+            boolean failed = AssetRegistryLoader.loadAssets0(event, assetPack);
             AssetRegistry.HAS_INIT = true;
+            boolean bl = failed;
+            return bl;
         }
         catch (Throwable t) {
             if (event != null) {
@@ -226,12 +208,12 @@ public class AssetRegistryLoader {
         }
     }
 
-    private static void loadAssets0(@Nullable LoadAssetEvent event, @Nonnull AssetPack assetPack) {
+    private static boolean loadAssets0(@Nullable LoadAssetEvent event, @Nonnull AssetPack assetPack) {
         AssetStore.DISABLE_DYNAMIC_DEPENDENCIES = true;
         Path serverAssetDirectory = assetPack.getRoot().resolve("Server");
         HytaleLogger.getLogger().at(Level.INFO).log("Loading assets from: %s", serverAssetDirectory);
         long startAll = System.nanoTime();
-        boolean shouldFail = Options.getOptionSet().has(Options.VALIDATE_ASSETS) || !Constants.shouldSkipModValidation();
+        boolean shouldFail = Options.getOptionSet().has(Options.VALIDATE_ASSETS) || assetPack.isImmutable() && !Options.getOptionSet().has(Options.IGNORE_BROKEN_MODS);
         boolean failedToLoadAsset = false;
         LOGGER.at(Level.INFO).log("Loading assets from %s", serverAssetDirectory);
         Collection<AssetStore<?, ?, ?>> values = AssetRegistry.getStoreMap().values();
@@ -239,7 +221,8 @@ public class AssetRegistryLoader {
             while (((AssetStoreIterator)iterator).hasNext()) {
                 if (HytaleServer.get().isShuttingDown()) {
                     LOGGER.at(Level.INFO).log("Aborted asset loading due to server shutdown!");
-                    return;
+                    boolean bl = failedToLoadAsset;
+                    return bl;
                 }
                 AssetStore<?, ?, ?> assetStore = ((AssetStoreIterator)iterator).next();
                 if (assetStore == null) {
@@ -287,6 +270,7 @@ public class AssetRegistryLoader {
                 event.failed(shouldFail, "Mod " + assetPack.getName() + " failed to load. Check for mod updates or contact the mod author.");
             }
         }
+        return failedToLoadAsset;
     }
 
     /*
@@ -306,104 +290,6 @@ public class AssetRegistryLoader {
         }
     }
 
-    @Nonnull
-    public static Map<String, Schema> generateSchemas(@Nonnull SchemaContext context, @Nonnull BsonDocument vsCodeConfig) {
-        AssetStore[] values = (AssetStore[])AssetRegistry.getStoreMap().values().toArray(AssetStore[]::new);
-        Arrays.sort(values, Comparator.comparing(store -> store.getAssetClass().getSimpleName()));
-        BsonArray vsCodeSchemas = new BsonArray();
-        BsonDocument vsCodeFiles = new BsonDocument();
-        vsCodeConfig.put("json.schemas", vsCodeSchemas);
-        vsCodeConfig.put("files.associations", vsCodeFiles);
-        vsCodeConfig.put("editor.tabSize", new BsonInt32(2));
-        for (AssetStore store2 : values) {
-            Class assetClass = store2.getAssetClass();
-            String name = assetClass.getSimpleName();
-            AssetCodec codec = store2.getCodec();
-            context.addFileReference(name + ".json", codec);
-        }
-        HashMap<String, Schema> schemas = new HashMap<String, Schema>();
-        for (AssetStore store3 : values) {
-            List preload;
-            Class assetClass = store3.getAssetClass();
-            String path = store3.getPath();
-            String name = assetClass.getSimpleName();
-            AssetCodec codec = store3.getCodec();
-            Schema schema = codec.toSchema(context);
-            if (codec instanceof AssetCodecMapCodec) {
-                schema.setTitle(name);
-            }
-            schema.setId(name + ".json");
-            Schema.HytaleMetadata hytale = schema.getHytale();
-            hytale.setPath(path);
-            hytale.setExtension(store3.getExtension());
-            Class<JsonAsset<?>> idProvider = store3.getIdProvider();
-            if (idProvider != null) {
-                hytale.setIdProvider(idProvider.getSimpleName());
-            }
-            if ((preload = store3.getPreAddedAssets()) != null && !preload.isEmpty()) {
-                String[] internal = new String[preload.size()];
-                for (int i = 0; i < preload.size(); ++i) {
-                    Object p = preload.get(i);
-                    Object k = store3.getKeyFunction().apply(p);
-                    internal[i] = k.toString();
-                }
-                hytale.setInternalKeys(internal);
-            }
-            BsonDocument config = new BsonDocument();
-            config.put("fileMatch", new BsonArray(List.of(new BsonString("/Server/" + path + "/*" + store3.getExtension()), new BsonString("/Server/" + path + "/**/*" + store3.getExtension()))));
-            config.put("url", new BsonString("./Schema/" + name + ".json"));
-            vsCodeSchemas.add(config);
-            if (!store3.getExtension().equals(".json")) {
-                vsCodeFiles.put("*" + store3.getExtension(), new BsonString("json"));
-            }
-            schemas.put(name + ".json", schema);
-        }
-        HytaleServer.get().getEventBus().dispatchFor(GenerateSchemaEvent.class).dispatch(new GenerateSchemaEvent(schemas, context, vsCodeConfig));
-        Schema definitions = new Schema();
-        definitions.setDefinitions(context.getDefinitions());
-        definitions.setId("common.json");
-        schemas.put("common.json", definitions);
-        Schema otherDefinitions = new Schema();
-        otherDefinitions.setDefinitions(context.getOtherDefinitions());
-        otherDefinitions.setId("other.json");
-        schemas.put("other.json", otherDefinitions);
-        return schemas;
-    }
-
-    public static void writeSchemas(LoadAssetEvent event) {
-        if (!Options.getOptionSet().has(Options.GENERATE_SCHEMA)) {
-            return;
-        }
-        try {
-            AssetPack pack = AssetModule.get().getBaseAssetPack();
-            if (pack.isImmutable()) {
-                LOGGER.at(Level.SEVERE).log("Not generating schema due launcher assets");
-                HytaleServer.get().shutdownServer(ShutdownReason.VALIDATE_ERROR.withMessage("Not generating scheme due launcher assets"));
-                return;
-            }
-            BsonDocument vsCodeConfig = new BsonDocument();
-            Path assetDirectory = pack.getRoot();
-            Path schemaDir = assetDirectory.resolve("Schema");
-            Files.createDirectories(schemaDir, new FileAttribute[0]);
-            try (Stream<Path> stream = Files.walk(schemaDir, 1, new FileVisitOption[0]);){
-                stream.filter(v -> v.toString().endsWith(".json")).forEach(SneakyThrow.sneakyConsumer(Files::delete));
-            }
-            SchemaContext context = new SchemaContext();
-            Map<String, Schema> schemas = AssetRegistryLoader.generateSchemas(context, vsCodeConfig);
-            for (Map.Entry<String, Schema> schema : schemas.entrySet()) {
-                BsonUtil.writeDocument(schemaDir.resolve(schema.getKey()), Schema.CODEC.encode(schema.getValue(), EmptyExtraInfo.EMPTY).asDocument(), false).join();
-            }
-            Files.createDirectories(assetDirectory.resolve(".vscode"), new FileAttribute[0]);
-            BsonUtil.writeDocument(assetDirectory.resolve(".vscode/settings.json"), vsCodeConfig, false).join();
-        }
-        catch (Throwable t) {
-            ((HytaleLogger.Api)LOGGER.at(Level.SEVERE).withCause(t)).log("Schema generation failed");
-            HytaleServer.get().shutdownServer(ShutdownReason.CRASH.withMessage("Schema generation failed"));
-            return;
-        }
-        HytaleServer.get().shutdownServer(ShutdownReason.SHUTDOWN.withMessage("Schema generated"));
-    }
-
     static {
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(AmbienceFX.class, new IndexedAssetMap()).setPath("Audio/AmbienceFX")).setCodec((AssetCodec)AmbienceFX.CODEC)).setKeyFunction(AmbienceFX::getId)).setReplaceOnRemove(AmbienceFX::new)).setPacketGenerator(new AmbienceFXPacketGenerator()).loadsAfter(Weather.class, Environment.class, FluidFX.class, SoundEvent.class, BlockSoundSet.class, TagPattern.class, AudioCategory.class, ReverbEffect.class, EqualizerEffect.class)).preLoadAssets(Collections.singletonList(AmbienceFX.EMPTY))).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockBoundingBoxes.class, new IndexedLookupTableAssetMap(BlockBoundingBoxes[]::new)).setPath("Item/Block/Hitboxes")).setCodec((AssetCodec)BlockBoundingBoxes.CODEC)).setKeyFunction(BlockBoundingBoxes::getId)).setReplaceOnRemove(BlockBoundingBoxes::getUnitBoxFor)).setPacketGenerator(new BlockBoundingBoxesPacketGenerator()).preLoadAssets((List)Collections.singletonList(BlockBoundingBoxes.UNIT_BOX))).build());
@@ -414,7 +300,7 @@ public class AssetRegistryLoader {
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockBreakingDecal.class, new DefaultAssetMap()).setPath("Item/Block/BreakingDecals")).setCodec((AssetCodec)BlockBreakingDecal.CODEC)).setKeyFunction(BlockBreakingDecal::getId)).setPacketGenerator(new BlockBreakingDecalPacketGenerator()).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(Integer.class, BlockMigration.class, new DefaultAssetMap()).setPath("Item/Block/Migrations")).setCodec((AssetCodec)BlockMigration.CODEC)).setKeyFunction(BlockMigration::getId)).build());
         BlockTypeAssetMap blockTypeAssetMap = new BlockTypeAssetMap(BlockType[]::new, BlockType::getGroup);
-        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockType.class, blockTypeAssetMap).setPath("Item/Block/Blocks")).setCodec((AssetCodec)BlockType.CODEC)).setKeyFunction(BlockType::getId)).setPacketGenerator(new BlockTypePacketGenerator()).loadsAfter(BlockBoundingBoxes.class, BlockSoundSet.class, SoundEvent.class, BlockParticleSet.class, BlockBreakingDecal.class, CustomConnectedBlockTemplateAsset.class, PrefabListAsset.class, BlockTypeListAsset.class)).setNotificationItemFunction(item -> new ItemStack((String)item, 1).toPacket()).setReplaceOnRemove(BlockType::getUnknownFor)).preLoadAssets(Arrays.asList(BlockType.EMPTY, BlockType.UNKNOWN, BlockType.DEBUG_CUBE, BlockType.DEBUG_MODEL))).setIdProvider(Item.class)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockType.class, blockTypeAssetMap).setPath("Item/Block/Blocks")).setCodec((AssetCodec)BlockType.CODEC)).setKeyFunction(BlockType::getId)).setPacketGenerator(new BlockTypePacketGenerator()).loadsAfter(BlockBoundingBoxes.class, BlockSoundSet.class, SoundEvent.class, AmbienceFX.class, BlockParticleSet.class, BlockBreakingDecal.class, CustomConnectedBlockTemplateAsset.class, PrefabListAsset.class, BlockTypeListAsset.class)).setNotificationItemFunction(item -> new ItemStack((String)item, 1).toPacket()).setReplaceOnRemove(BlockType::getUnknownFor)).preLoadAssets(Arrays.asList(BlockType.EMPTY, BlockType.UNKNOWN, BlockType.DEBUG_CUBE, BlockType.DEBUG_MODEL))).setIdProvider(Item.class)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(Fluid.class, new IndexedLookupTableAssetMap(Fluid[]::new)).setPath("Item/Block/Fluids")).setCodec((AssetCodec)Fluid.CODEC)).setKeyFunction(Fluid::getId)).setReplaceOnRemove(Fluid::getUnknownFor)).setPacketGenerator(new FluidTypePacketGenerator()).loadsAfter(FluidFX.class, BlockSoundSet.class, BlockParticleSet.class, SoundEvent.class)).preLoadAssets(List.of(Fluid.EMPTY, Fluid.UNKNOWN))).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(ItemPlayerAnimations.class, new DefaultAssetMap()).setPath("Item/Animations")).setCodec((AssetCodec)ItemPlayerAnimations.CODEC)).setKeyFunction(ItemPlayerAnimations::getId)).setPacketGenerator(new ItemPlayerAnimationsPacketGenerator()).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(Environment.class, new IndexedLookupTableAssetMap(Environment[]::new)).setPath("Environments")).setCodec((AssetCodec)Environment.CODEC)).setKeyFunction(Environment::getId)).setReplaceOnRemove(Environment::getUnknownFor)).setPacketGenerator(new EnvironmentPacketGenerator()).loadsAfter(Weather.class, FluidFX.class, ParticleSystem.class)).preLoadAssets(Collections.singletonList(Environment.UNKNOWN))).build());

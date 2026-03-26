@@ -47,7 +47,8 @@ public class Options {
     public static final OptionSpec<ValidationOption> VALIDATE_PREFABS = PARSER.accepts("validate-prefabs", "Causes the server to exit with an error code if any prefabs are invalid.").withOptionalArg().withValuesSeparatedBy(',').ofType(ValidationOption.class);
     public static final OptionSpec<Void> VALIDATE_WORLD_GEN = PARSER.accepts("validate-world-gen", "Causes the server to exit with an error code if default world gen is invalid.");
     public static final OptionSpec<Void> SHUTDOWN_AFTER_VALIDATE = PARSER.accepts("shutdown-after-validate", "Automatically shutdown the server after asset and/or prefab validation.");
-    public static final OptionSpec<Void> GENERATE_SCHEMA = PARSER.accepts("generate-schema", "Causes the server generate schema, save it into the assets directory and then exit");
+    public static final OptionSpec<Path> GENERATE_ASSET_SCHEMA = PARSER.accepts("generate-asset-schema", "Generate asset JSON schemas to the specified directory and exit").withRequiredArg().withValuesConvertedBy(new PathConverter(PathConverter.PathType.ANY));
+    public static final OptionSpec<Path> GENERATE_CONFIG_SCHEMA = PARSER.accepts("generate-config-schema", "Generate config JSON schemas to the specified directory and exit").withRequiredArg().withValuesConvertedBy(new PathConverter(PathConverter.PathType.ANY));
     public static final OptionSpec<Path> WORLD_GEN_DIRECTORY = PARSER.accepts("world-gen", "World gen directory").withRequiredArg().withValuesConvertedBy(new PathConverter(PathConverter.PathType.DIR));
     public static final OptionSpec<Void> DISABLE_FILE_WATCHER = PARSER.accepts("disable-file-watcher");
     public static final OptionSpec<Void> DISABLE_SENTRY = PARSER.accepts("disable-sentry");
@@ -67,12 +68,14 @@ public class Options {
     public static final OptionSpec<Map<String, Path>> MIGRATIONS = PARSER.accepts("migrations", "The migrations to run").withRequiredArg().withValuesConvertedBy(new StringToPathMapConverter());
     public static final OptionSpec<String> MIGRATE_WORLDS = PARSER.accepts("migrate-worlds", "Worlds to migrate").availableIf(MIGRATIONS, new OptionSpec[0]).withRequiredArg().withValuesSeparatedBy(',');
     public static final OptionSpec<String> BOOT_COMMAND = PARSER.accepts("boot-command", "Runs command on boot. If multiple commands are provided they are executed synchronously in order.").withRequiredArg().withValuesSeparatedBy(',');
-    public static final OptionSpec<Void> SKIP_MOD_VALIDATION = PARSER.accepts("skip-mod-validation", "Skips mod validation, attempting to allow the server to boot even if one fails to load");
+    public static final OptionSpec<Void> IGNORE_BROKEN_MODS = PARSER.accepts("ignore-broken-mods", "Ignores broken mods, attempting to allow the server to boot even if one fails to load");
     public static final String ALLOW_SELF_OP_COMMAND_STRING = "allow-op";
     public static final OptionSpec<Void> ALLOW_SELF_OP_COMMAND = PARSER.accepts("allow-op");
     public static final OptionSpec<AuthMode> AUTH_MODE = PARSER.accepts("auth-mode", "Authentication mode").withRequiredArg().withValuesConvertedBy(new AuthModeConverter()).defaultsTo(AuthMode.AUTHENTICATED, (AuthMode[])new AuthMode[0]);
     public static final OptionSpec<String> SESSION_TOKEN = PARSER.accepts("session-token", "Session token for Session Service API").withRequiredArg().ofType(String.class);
     public static final OptionSpec<String> IDENTITY_TOKEN = PARSER.accepts("identity-token", "Identity token (JWT)").withRequiredArg().ofType(String.class);
+    public static final OptionSpec<Void> VERIFY_WORLDS = PARSER.accepts("verify-worlds", "Verify all worlds and then exits");
+    public static final OptionSpec<RecoveryMode> RECOVERY_MODE = PARSER.accepts("recovery-mode", "How to handle broken chunks when encountered during recovery").availableIf(VERIFY_WORLDS, new OptionSpec[0]).withRequiredArg().ofType(RecoveryMode.class);
     private static OptionSet optionSet;
 
     public static OptionSet getOptionSet() {
@@ -332,6 +335,12 @@ public class Options {
         AUTHENTICATED,
         OFFLINE,
         INSECURE;
+
+    }
+
+    public static enum RecoveryMode {
+        FROM_BACKUP_OR_REGENERATE,
+        REGENERATE;
 
     }
 }

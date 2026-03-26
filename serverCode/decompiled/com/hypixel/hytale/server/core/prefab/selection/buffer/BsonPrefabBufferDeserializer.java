@@ -202,16 +202,9 @@ implements PrefabBufferDeserializer<BsonDocument> {
     }
 
     private static void deserializeState(@Nonnull PrefabBufferBlockEntry blockEntry, @Nonnull BsonDocument blockDocument, int version, int worldVersion) {
-        if (version <= 2) {
-            BsonValue stateValue = blockDocument.get("state");
-            if (stateValue != null) {
-                blockEntry.state = SelectionPrefabSerializer.legacyStateDecode(stateValue.asDocument());
-            }
-        } else {
-            BsonValue stateValue = blockDocument.get("components");
-            if (stateValue != null) {
-                blockEntry.state = version < 4 ? ChunkStore.REGISTRY.deserialize(stateValue.asDocument(), worldVersion) : ChunkStore.REGISTRY.deserialize(stateValue.asDocument());
-            }
+        BsonValue stateValue = blockDocument.get("components");
+        if (stateValue != null) {
+            blockEntry.state = version < 4 ? ChunkStore.REGISTRY.deserialize(stateValue.asDocument(), worldVersion) : ChunkStore.REGISTRY.deserialize(stateValue.asDocument());
         }
     }
 

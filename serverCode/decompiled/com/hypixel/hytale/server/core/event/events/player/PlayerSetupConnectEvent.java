@@ -8,6 +8,7 @@ import com.hypixel.hytale.event.IEvent;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.HostAddress;
 import com.hypixel.hytale.protocol.packets.auth.ClientReferral;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import java.util.Objects;
@@ -19,18 +20,19 @@ import javax.annotation.Nullable;
 public class PlayerSetupConnectEvent
 implements IEvent<Void>,
 ICancellable {
-    public static final String DEFAULT_REASON = "You have been disconnected from the server!";
+    public static final Message DEFAULT_REASON = Message.translation("client.general.disconnect.setupCancelled");
     private final PacketHandler packetHandler;
     private final String username;
+    @Nonnull
     private final UUID uuid;
     private final PlayerAuthentication auth;
     private final byte[] referralData;
     private final HostAddress referralSource;
     private boolean cancelled;
-    private String reason;
+    private Message reason;
     private ClientReferral clientReferral;
 
-    public PlayerSetupConnectEvent(PacketHandler packetHandler, String username, UUID uuid, PlayerAuthentication auth, byte[] referralData, HostAddress referralSource) {
+    public PlayerSetupConnectEvent(PacketHandler packetHandler, String username, @Nonnull UUID uuid, PlayerAuthentication auth, byte[] referralData, HostAddress referralSource) {
         this.packetHandler = packetHandler;
         this.username = username;
         this.uuid = uuid;
@@ -45,6 +47,7 @@ ICancellable {
         return this.packetHandler;
     }
 
+    @Nonnull
     public UUID getUuid() {
         return this.uuid;
     }
@@ -93,11 +96,11 @@ ICancellable {
         this.clientReferral = new ClientReferral(new HostAddress(host, (short)port), data);
     }
 
-    public String getReason() {
+    public Message getReason() {
         return this.reason;
     }
 
-    public void setReason(String reason) {
+    public void setReason(Message reason) {
         Objects.requireNonNull(reason, "Reason can't be null");
         this.reason = reason;
     }
@@ -114,7 +117,7 @@ ICancellable {
 
     @Nonnull
     public String toString() {
-        return "PlayerSetupConnectEvent{username='" + this.username + "', uuid=" + String.valueOf(this.uuid) + ", auth=" + String.valueOf(this.auth) + ", referralData=" + (String)(this.referralData != null ? this.referralData.length + " bytes" : "null") + ", referralSource=" + (String)(this.referralSource != null ? this.referralSource.host + ":" + this.referralSource.port : "null") + ", cancelled=" + this.cancelled + ", reason='" + this.reason + "'}";
+        return "PlayerSetupConnectEvent{username='" + this.username + "', uuid=" + String.valueOf(this.uuid) + ", auth=" + String.valueOf(this.auth) + ", referralData=" + (String)(this.referralData != null ? this.referralData.length + " bytes" : "null") + ", referralSource=" + (String)(this.referralSource != null ? this.referralSource.host + ":" + this.referralSource.port : "null") + ", cancelled=" + this.cancelled + ", reason='" + String.valueOf(this.reason) + "'}";
     }
 }
 

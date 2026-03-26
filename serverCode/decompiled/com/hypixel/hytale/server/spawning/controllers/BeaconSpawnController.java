@@ -19,11 +19,12 @@ import com.hypixel.hytale.server.spawning.jobs.NPCBeaconSpawnJob;
 import com.hypixel.hytale.server.spawning.wrappers.BeaconSpawnWrapper;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.objects.Object2DoubleMap;
-import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2DoubleMap;
+import it.unimi.dsi.fastutil.objects.Reference2DoubleOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -41,11 +42,11 @@ extends SpawnController<NPCBeaconSpawnJob> {
     public static final double ROUNDING_BREAK_POINT = 0.25;
     @Nonnull
     private final Ref<EntityStore> ownerRef;
-    private final List<Ref<EntityStore>> spawnedEntities = new ObjectArrayList<Ref<EntityStore>>();
+    private final List<Ref<EntityStore>> spawnedEntities = new ReferenceArrayList<Ref<EntityStore>>();
     private final List<PlayerRef> playersInRegion = new ObjectArrayList<PlayerRef>();
     private int nextPlayerIndex = 0;
     private final Object2IntMap<UUID> entitiesPerPlayer = new Object2IntOpenHashMap<UUID>();
-    private final Object2DoubleMap<Ref<EntityStore>> entityTimeoutCounter = new Object2DoubleOpenHashMap<Ref<EntityStore>>();
+    private final Reference2DoubleMap<Ref<EntityStore>> entityTimeoutCounter = new Reference2DoubleOpenHashMap<Ref<EntityStore>>();
     private final IntSet unspawnableRoles = new IntOpenHashSet();
     private final Comparator<PlayerRef> threatComparator = Comparator.comparingInt(playerRef -> this.entitiesPerPlayer.getOrDefault((Object)playerRef.getUuid(), 0));
     private int baseMaxTotalSpawns;
@@ -184,7 +185,7 @@ extends SpawnController<NPCBeaconSpawnJob> {
         this.nextPlayerIndex = nextPlayerIndex;
     }
 
-    public Object2DoubleMap<Ref<EntityStore>> getEntityTimeoutCounter() {
+    public Reference2DoubleMap<Ref<EntityStore>> getEntityTimeoutCounter() {
         return this.entityTimeoutCounter;
     }
 

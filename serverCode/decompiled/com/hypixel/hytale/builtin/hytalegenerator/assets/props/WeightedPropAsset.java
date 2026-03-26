@@ -7,10 +7,11 @@ import com.hypixel.hytale.assetstore.AssetExtraInfo;
 import com.hypixel.hytale.assetstore.codec.AssetBuilderCodec;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
+import com.hypixel.hytale.builtin.hytalegenerator.WeightedMap;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.Cleanable;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.props.NoPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.EmptyPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.datastructures.WeightedMap;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
 import com.hypixel.hytale.builtin.hytalegenerator.props.WeightedProp;
 import com.hypixel.hytale.codec.Codec;
@@ -35,7 +36,7 @@ extends PropAsset {
     @Nonnull
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip() || this.entryAssets.length == 0) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         WeightedMap<Prop> weightedProps = new WeightedMap<Prop>(this.entryAssets.length);
         PropAsset.Argument childArgument = new PropAsset.Argument(argument);
@@ -69,7 +70,7 @@ extends PropAsset {
         private String id;
         private AssetExtraInfo.Data data;
         private double weight = 1.0;
-        private PropAsset propAsset = new NoPropAsset();
+        private PropAsset propAsset = new EmptyPropAsset();
 
         @Override
         public String getId() {

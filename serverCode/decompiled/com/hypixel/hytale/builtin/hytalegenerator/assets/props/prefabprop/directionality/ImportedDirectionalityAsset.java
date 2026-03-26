@@ -4,7 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality.DirectionalityAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.props.directionality.Directionality;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.directionality.Directionality;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;

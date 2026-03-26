@@ -14,7 +14,8 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.mountpoints.BlockMountPoint;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -27,9 +28,9 @@ implements Component<ChunkStore> {
     private BlockType expectedBlockType;
     private int expectedRotation;
     @Nonnull
-    private Map<BlockMountPoint, Ref<EntityStore>> entitiesByMountPoint = new Object2ObjectOpenHashMap<BlockMountPoint, Ref<EntityStore>>();
+    private Map<BlockMountPoint, Ref<EntityStore>> entitiesByMountPoint = new Object2ReferenceOpenHashMap<BlockMountPoint, Ref<EntityStore>>();
     @Nonnull
-    private Map<Ref<EntityStore>, BlockMountPoint> mountPointByEntity = new Object2ObjectOpenHashMap<Ref<EntityStore>, BlockMountPoint>();
+    private Map<Ref<EntityStore>, BlockMountPoint> mountPointByEntity = new Reference2ObjectOpenHashMap<Ref<EntityStore>, BlockMountPoint>();
 
     public static ComponentType<ChunkStore, BlockMountComponent> getComponentType() {
         return MountPlugin.getInstance().getBlockMountComponentType();
@@ -115,8 +116,8 @@ implements Component<ChunkStore> {
         seat.type = this.type;
         seat.blockPos = this.blockPos;
         seat.expectedBlockType = this.expectedBlockType;
-        seat.entitiesByMountPoint = new Object2ObjectOpenHashMap<BlockMountPoint, Ref<EntityStore>>(this.entitiesByMountPoint);
-        seat.mountPointByEntity = new Object2ObjectOpenHashMap<Ref<EntityStore>, BlockMountPoint>(this.mountPointByEntity);
+        seat.entitiesByMountPoint = new Object2ReferenceOpenHashMap<BlockMountPoint, Ref<EntityStore>>(this.entitiesByMountPoint);
+        seat.mountPointByEntity = new Reference2ObjectOpenHashMap<Ref<EntityStore>, BlockMountPoint>(this.mountPointByEntity);
         return seat;
     }
 }

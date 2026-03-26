@@ -27,7 +27,7 @@ import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.meta.state.LaunchPad;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -66,7 +66,7 @@ extends SimpleBlockInteraction {
         velocityComponent.addInstruction(new Vector3d(launchPadState.getVelocityX(), launchPadState.getVelocityY(), launchPadState.getVelocityZ()), null, ChangeVelocityType.Set);
         Vector3d particlePos = targetBlock.toVector3d().add(0.5, 0.5, 0.5);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = commandBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-        ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+        List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
         playerSpatialResource.getSpatialStructure().collect(particlePos, 75.0, results);
         ParticleUtil.spawnParticleEffect("Splash", particlePos, results, commandBuffer);
     }

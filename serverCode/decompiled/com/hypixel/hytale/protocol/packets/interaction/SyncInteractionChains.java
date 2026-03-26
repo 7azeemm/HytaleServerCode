@@ -58,8 +58,8 @@ ToClientPacket {
         if (updatesCount < 0) {
             throw ProtocolException.negativeLength("Updates", updatesCount);
         }
-        if (updatesCount > 4096000) {
-            throw ProtocolException.arrayTooLong("Updates", updatesCount, 4096000);
+        if (updatesCount > 128) {
+            throw ProtocolException.arrayTooLong("Updates", updatesCount, 128);
         }
         int updatesVarLen = VarInt.size(updatesCount);
         if ((long)(pos + updatesVarLen) + (long)updatesCount * 33L > (long)buf.readableBytes()) {
@@ -86,8 +86,8 @@ ToClientPacket {
 
     @Override
     public void serialize(@Nonnull ByteBuf buf) {
-        if (this.updates.length > 4096000) {
-            throw ProtocolException.arrayTooLong("Updates", this.updates.length, 4096000);
+        if (this.updates.length > 128) {
+            throw ProtocolException.arrayTooLong("Updates", this.updates.length, 128);
         }
         VarInt.write(buf, this.updates.length);
         for (SyncInteractionChain item : this.updates) {
@@ -114,8 +114,8 @@ ToClientPacket {
         if (updatesCount < 0) {
             return ValidationResult.error("Invalid array count for Updates");
         }
-        if (updatesCount > 4096000) {
-            return ValidationResult.error("Updates exceeds max length 4096000");
+        if (updatesCount > 128) {
+            return ValidationResult.error("Updates exceeds max length 128");
         }
         pos += VarInt.length(buffer, pos);
         for (int i = 0; i < updatesCount; ++i) {

@@ -40,6 +40,7 @@ public class BlockFilter {
     private final transient String toString0;
     private IntSet resolvedBlocks;
     private IntSet resolvedFluids;
+    private boolean hasInvalidBlocks;
 
     public BlockFilter(@Nonnull FilterType blockFilterType, @Nonnull String[] blocks, boolean inverted) {
         Objects.requireNonNull(blockFilterType);
@@ -55,7 +56,13 @@ public class BlockFilter {
             BlocksAndFluids result = BlockFilter.parseBlocksAndFluids(this.blocks);
             this.resolvedBlocks = result.blocks;
             this.resolvedFluids = result.fluids;
+            this.hasInvalidBlocks = result.hasInvalidBlocks;
         }
+    }
+
+    public boolean hasInvalidBlocks() {
+        this.resolve();
+        return this.hasInvalidBlocks;
     }
 
     @Nonnull
@@ -205,8 +212,10 @@ public class BlockFilter {
     private static BlocksAndFluids parseBlocksAndFluids(@Nonnull String[] blocksArgs) {
         IntOpenHashSet blocks = new IntOpenHashSet();
         IntOpenHashSet fluids = new IntOpenHashSet();
+        boolean invalid = false;
         for (String blockArg : blocksArgs) {
             BlockTypeListAsset blockTypeListAsset;
+            BlockType blockType;
             int fluidId;
             Item item = Item.getAssetMap().getAsset(blockArg);
             if (item != null && (fluidId = BlockFilter.getFluidIdFromItem(item)) >= 0) {
@@ -214,8 +223,10 @@ public class BlockFilter {
                 continue;
             }
             int blockId = BlockPattern.parseBlock(blockArg);
-            BlockType blockType = BlockType.getAssetMap().getAsset(blockId);
-            if (blockType != null && blockType.getBlockListAssetId() != null && (blockTypeListAsset = BlockTypeListAsset.getAssetMap().getAsset(blockType.getBlockListAssetId())) != null && blockTypeListAsset.getBlockPattern() != null) {
+            if (blockId == 0 && !blockArg.equalsIgnoreCase("Empty")) {
+                invalid = true;
+            }
+            if ((blockType = BlockType.getAssetMap().getAsset(blockId)) != null && blockType.getBlockListAssetId() != null && (blockTypeListAsset = BlockTypeListAsset.getAssetMap().getAsset(blockType.getBlockListAssetId())) != null && blockTypeListAsset.getBlockPattern() != null) {
                 Integer[] integerArray = blockTypeListAsset.getBlockPattern().getResolvedKeys();
                 int n = integerArray.length;
                 for (int i = 0; i < n; ++i) {
@@ -226,7 +237,7 @@ public class BlockFilter {
             }
             blocks.add(blockId);
         }
-        return new BlocksAndFluids(IntSets.unmodifiable(blocks), fluids.isEmpty() ? null : IntSets.unmodifiable(fluids));
+        return new BlocksAndFluids(IntSets.unmodifiable(blocks), fluids.isEmpty() ? null : IntSets.unmodifiable(fluids), invalid);
     }
 
     private static int getFluidIdFromItem(@Nonnull Item item) {
@@ -326,10 +337,12 @@ public class BlockFilter {
     private static class BlocksAndFluids {
         final IntSet blocks;
         final IntSet fluids;
+        final boolean hasInvalidBlocks;
 
-        BlocksAndFluids(IntSet blocks, IntSet fluids) {
+        BlocksAndFluids(IntSet blocks, IntSet fluids, boolean hasInvalidBlocks) {
             this.blocks = blocks;
             this.fluids = fluids;
+            this.hasInvalidBlocks = hasInvalidBlocks;
         }
     }
 

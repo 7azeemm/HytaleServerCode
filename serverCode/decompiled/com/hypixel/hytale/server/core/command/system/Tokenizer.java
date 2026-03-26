@@ -80,7 +80,7 @@ public class Tokenizer {
                     break;
                 }
                 case '\'': {
-                    if (quote == 0) {
+                    if (quote == 0 && tokenStart == i) {
                         quote = 39;
                         break;
                     }

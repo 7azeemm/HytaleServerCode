@@ -68,6 +68,19 @@ public class MaterialCache {
         return material;
     }
 
+    @Nonnull
+    public Material getMaterialRotated(@Nonnull Material material, @Nonnull RotationTuple rotation) {
+        SolidMaterial solid = material.solid();
+        RotationTuple newMaterialRotation = RotationTuple.get(solid.rotation).add(rotation);
+        int rotationIndex = newMaterialRotation.index();
+        SolidMaterial rotatedSolid = this.getSolidMaterial(solid.blockId, solid.support, rotationIndex, solid.filler, solid.holder);
+        assert (rotatedSolid != null);
+        if (rotatedSolid == null) {
+            return material;
+        }
+        return this.getMaterial(rotatedSolid, material.fluid());
+    }
+
     @Nullable
     public FluidMaterial getFluidMaterial(@Nonnull String fluidString) {
         int fluidId = 0;

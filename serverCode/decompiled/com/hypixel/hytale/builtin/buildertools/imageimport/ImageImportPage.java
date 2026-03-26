@@ -17,10 +17,12 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.packets.interface_.CustomPageLifetime;
 import com.hypixel.hytale.protocol.packets.interface_.CustomUIEventBindingType;
 import com.hypixel.hytale.protocol.packets.interface_.Page;
+import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.InteractiveCustomUIPage;
+import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.ui.DropdownEntryInfo;
 import com.hypixel.hytale.server.core.ui.LocalizableString;
@@ -61,7 +63,7 @@ extends InteractiveCustomUIPage<PageData> {
     @Nonnull
     private Origin origin = Origin.BOTTOM_CENTER;
     @Nullable
-    private String statusMessage = null;
+    private Message statusMessage = null;
     private boolean isError = false;
     private boolean isProcessing = false;
     private boolean showBrowser = false;
@@ -124,14 +126,14 @@ extends InteractiveCustomUIPage<PageData> {
         }
     }
 
-    private void setError(@Nonnull String message) {
+    private void setError(@Nonnull Message message) {
         this.statusMessage = message;
         this.isError = true;
         this.isProcessing = false;
         this.rebuild();
     }
 
-    private void setStatus(@Nonnull String message) {
+    private void setStatus(@Nonnull Message message) {
         this.statusMessage = message;
         this.isError = false;
         this.rebuild();
@@ -238,25 +240,27 @@ extends InteractiveCustomUIPage<PageData> {
     }
 
     private void performImport(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store) {
+        boolean isSingleplayerWorldOwner;
         if (this.imagePath.isEmpty()) {
-            this.setError("Please enter a path to an image file");
+            this.setError(Message.translation("server.builderTools.imageImport.emptyPath"));
             return;
         }
         Path path = Paths.get(this.imagePath, new String[0]);
-        if (!AssetModule.get().isWithinPackSubDir(path, ASSET_PACK_SUB_PATH)) {
-            this.setError("File must be within an asset pack's imports directory");
+        boolean bl = isSingleplayerWorldOwner = Constants.SINGLEPLAYER && SingleplayerModule.isOwner(this.playerRef);
+        if (!isSingleplayerWorldOwner && !AssetModule.get().isWithinPackSubDir(path, ASSET_PACK_SUB_PATH)) {
+            this.setError(Message.translation("server.builderTools.imageImport.notInImportsDir"));
             return;
         }
         if (!Files.exists(path, new LinkOption[0])) {
-            this.setError("File not found: " + this.imagePath);
+            this.setError(Message.translation("server.builderTools.imageImport.fileNotFound").param("path", this.imagePath));
             return;
         }
         this.isProcessing = true;
-        this.setStatus("Processing...");
+        this.setStatus(Message.translation("server.builderTools.imageImport.processing"));
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         PlayerRef playerRefComponent = store.getComponent(ref, PlayerRef.getComponentType());
         if (playerComponent == null || playerRefComponent == null) {
-            this.setError("Player not found");
+            this.setError(Message.translation("server.builderTools.imageImport.playerNotFound"));
             return;
         }
         String finalPath = this.imagePath;
@@ -276,7 +280,7 @@ extends InteractiveCustomUIPage<PageData> {
                     // empty catch block
                 }
                 if (image == null) {
-                    this.setError("Unable to read image file (unsupported format or corrupted). Try PNG format.");
+                    this.setError(Message.translation("server.builderTools.imageImport.unreadableImage"));
                     return;
                 }
                 int width = image.getWidth();
@@ -288,7 +292,7 @@ extends InteractiveCustomUIPage<PageData> {
                     height = Math.round((float)height * scale);
                 }
                 if ((colorIndex = BuilderToolsPlugin.get().getBlockColorIndex()).isEmpty()) {
-                    this.setError("Block color index not initialized");
+                    this.setError(Message.translation("server.builderTools.imageImport.colorIndexEmpty"));
                     return;
                 }
                 int sizeZ = switch (finalOrientation.ordinal()) {
@@ -382,15 +386,15 @@ extends InteractiveCustomUIPage<PageData> {
                 selection.setSelectionArea(new Vector3i(offsetX, offsetY, offsetZ), new Vector3i(sizeX - 1 + offsetX, sizeY - 1 + offsetY, sizeZ - 1 + offsetZ));
                 builderState.setSelection(selection);
                 builderState.sendSelectionToClient();
-                this.statusMessage = String.format("Success! %d blocks copied to clipboard (%dx%dx%d)", blockCount, sizeX, sizeY, sizeZ);
+                this.statusMessage = Message.translation("server.builderTools.imageImport.success").param("count", blockCount).param("width", sizeX).param("height", sizeY).param("depth", sizeZ);
                 this.isProcessing = false;
                 playerRefComponent.sendMessage(Message.translation("server.builderTools.imageImport.success").param("count", blockCount).param("width", sizeX).param("height", sizeY).param("depth", sizeZ));
                 playerComponent.getPageManager().setPage((Ref<EntityStore>)r, store, Page.None);
-                PasteToolUtil.switchToPasteTool(playerComponent, playerRefComponent);
+                PasteToolUtil.switchToPasteTool(r, playerComponent, playerRefComponent, componentAccessor);
             }
             catch (Exception e) {
                 ((HytaleLogger.Api)BuilderToolsPlugin.get().getLogger().at(Level.WARNING).withCause(e)).log("Image import error");
-                this.setError("Error: " + e.getMessage());
+                this.setError(Message.translation("server.builderTools.imageImport.error").param("message", e.getMessage()));
             }
         });
     }

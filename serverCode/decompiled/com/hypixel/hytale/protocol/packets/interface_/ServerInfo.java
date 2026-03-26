@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.protocol.packets.interface_;
 
+import com.hypixel.hytale.protocol.HostAddress;
 import com.hypixel.hytale.protocol.NetworkChannel;
 import com.hypixel.hytale.protocol.Packet;
 import com.hypixel.hytale.protocol.ToClientPacket;
@@ -22,14 +23,16 @@ ToClientPacket {
     public static final boolean IS_COMPRESSED = false;
     public static final int NULLABLE_BIT_FIELD_SIZE = 1;
     public static final int FIXED_BLOCK_SIZE = 5;
-    public static final int VARIABLE_FIELD_COUNT = 2;
-    public static final int VARIABLE_BLOCK_START = 13;
-    public static final int MAX_SIZE = 32768023;
+    public static final int VARIABLE_FIELD_COUNT = 3;
+    public static final int VARIABLE_BLOCK_START = 17;
+    public static final int MAX_SIZE = 32769058;
     @Nullable
     public String serverName;
     @Nullable
     public String motd;
     public int maxPlayers;
+    @Nullable
+    public HostAddress fallbackServer;
 
     @Override
     public int getId() {
@@ -44,16 +47,18 @@ ToClientPacket {
     public ServerInfo() {
     }
 
-    public ServerInfo(@Nullable String serverName, @Nullable String motd, int maxPlayers) {
+    public ServerInfo(@Nullable String serverName, @Nullable String motd, int maxPlayers, @Nullable HostAddress fallbackServer) {
         this.serverName = serverName;
         this.motd = motd;
         this.maxPlayers = maxPlayers;
+        this.fallbackServer = fallbackServer;
     }
 
     public ServerInfo(@Nonnull ServerInfo other) {
         this.serverName = other.serverName;
         this.motd = other.motd;
         this.maxPlayers = other.maxPlayers;
+        this.fallbackServer = other.fallbackServer;
     }
 
     @Nonnull
@@ -62,7 +67,7 @@ ToClientPacket {
         byte nullBits = buf.getByte(offset);
         obj.maxPlayers = buf.getIntLE(offset + 1);
         if ((nullBits & 1) != 0) {
-            int varPos0 = offset + 13 + buf.getIntLE(offset + 5);
+            int varPos0 = offset + 17 + buf.getIntLE(offset + 5);
             int serverNameLen = VarInt.peek(buf, varPos0);
             if (serverNameLen < 0) {
                 throw ProtocolException.negativeLength("ServerName", serverNameLen);
@@ -73,7 +78,7 @@ ToClientPacket {
             obj.serverName = PacketIO.readVarString(buf, varPos0, PacketIO.UTF8);
         }
         if ((nullBits & 2) != 0) {
-            int varPos1 = offset + 13 + buf.getIntLE(offset + 9);
+            int varPos1 = offset + 17 + buf.getIntLE(offset + 9);
             int motdLen = VarInt.peek(buf, varPos1);
             if (motdLen < 0) {
                 throw ProtocolException.negativeLength("Motd", motdLen);
@@ -83,16 +88,20 @@ ToClientPacket {
             }
             obj.motd = PacketIO.readVarString(buf, varPos1, PacketIO.UTF8);
         }
+        if ((nullBits & 4) != 0) {
+            int varPos2 = offset + 17 + buf.getIntLE(offset + 13);
+            obj.fallbackServer = HostAddress.deserialize(buf, varPos2);
+        }
         return obj;
     }
 
     public static int computeBytesConsumed(@Nonnull ByteBuf buf, int offset) {
         int sl;
         byte nullBits = buf.getByte(offset);
-        int maxEnd = 13;
+        int maxEnd = 17;
         if ((nullBits & 1) != 0) {
             int fieldOffset0 = buf.getIntLE(offset + 5);
-            int pos0 = offset + 13 + fieldOffset0;
+            int pos0 = offset + 17 + fieldOffset0;
             sl = VarInt.peek(buf, pos0);
             if ((pos0 += VarInt.length(buf, pos0) + sl) - offset > maxEnd) {
                 maxEnd = pos0 - offset;
@@ -100,10 +109,17 @@ ToClientPacket {
         }
         if ((nullBits & 2) != 0) {
             int fieldOffset1 = buf.getIntLE(offset + 9);
-            int pos1 = offset + 13 + fieldOffset1;
+            int pos1 = offset + 17 + fieldOffset1;
             sl = VarInt.peek(buf, pos1);
             if ((pos1 += VarInt.length(buf, pos1) + sl) - offset > maxEnd) {
                 maxEnd = pos1 - offset;
+            }
+        }
+        if ((nullBits & 4) != 0) {
+            int fieldOffset2 = buf.getIntLE(offset + 13);
+            int pos2 = offset + 17 + fieldOffset2;
+            if ((pos2 += HostAddress.computeBytesConsumed(buf, pos2)) - offset > maxEnd) {
+                maxEnd = pos2 - offset;
             }
         }
         return maxEnd;
@@ -119,11 +135,16 @@ ToClientPacket {
         if (this.motd != null) {
             nullBits = (byte)(nullBits | 2);
         }
+        if (this.fallbackServer != null) {
+            nullBits = (byte)(nullBits | 4);
+        }
         buf.writeByte(nullBits);
         buf.writeIntLE(this.maxPlayers);
         int serverNameOffsetSlot = buf.writerIndex();
         buf.writeIntLE(0);
         int motdOffsetSlot = buf.writerIndex();
+        buf.writeIntLE(0);
+        int fallbackServerOffsetSlot = buf.writerIndex();
         buf.writeIntLE(0);
         int varBlockStart = buf.writerIndex();
         if (this.serverName != null) {
@@ -138,24 +159,33 @@ ToClientPacket {
         } else {
             buf.setIntLE(motdOffsetSlot, -1);
         }
+        if (this.fallbackServer != null) {
+            buf.setIntLE(fallbackServerOffsetSlot, buf.writerIndex() - varBlockStart);
+            this.fallbackServer.serialize(buf);
+        } else {
+            buf.setIntLE(fallbackServerOffsetSlot, -1);
+        }
     }
 
     @Override
     public int computeSize() {
-        int size = 13;
+        int size = 17;
         if (this.serverName != null) {
             size += PacketIO.stringSize(this.serverName);
         }
         if (this.motd != null) {
             size += PacketIO.stringSize(this.motd);
         }
+        if (this.fallbackServer != null) {
+            size += this.fallbackServer.computeSize();
+        }
         return size;
     }
 
     public static ValidationResult validateStructure(@Nonnull ByteBuf buffer, int offset) {
         int pos;
-        if (buffer.readableBytes() - offset < 13) {
-            return ValidationResult.error("Buffer too small: expected at least 13 bytes");
+        if (buffer.readableBytes() - offset < 17) {
+            return ValidationResult.error("Buffer too small: expected at least 17 bytes");
         }
         byte nullBits = buffer.getByte(offset);
         if ((nullBits & 1) != 0) {
@@ -163,7 +193,7 @@ ToClientPacket {
             if (serverNameOffset < 0) {
                 return ValidationResult.error("Invalid offset for ServerName");
             }
-            pos = offset + 13 + serverNameOffset;
+            pos = offset + 17 + serverNameOffset;
             if (pos >= buffer.writerIndex()) {
                 return ValidationResult.error("Offset out of bounds for ServerName");
             }
@@ -184,7 +214,7 @@ ToClientPacket {
             if (motdOffset < 0) {
                 return ValidationResult.error("Invalid offset for Motd");
             }
-            pos = offset + 13 + motdOffset;
+            pos = offset + 17 + motdOffset;
             if (pos >= buffer.writerIndex()) {
                 return ValidationResult.error("Offset out of bounds for Motd");
             }
@@ -200,6 +230,21 @@ ToClientPacket {
                 return ValidationResult.error("Buffer overflow reading Motd");
             }
         }
+        if ((nullBits & 4) != 0) {
+            int fallbackServerOffset = buffer.getIntLE(offset + 13);
+            if (fallbackServerOffset < 0) {
+                return ValidationResult.error("Invalid offset for FallbackServer");
+            }
+            pos = offset + 17 + fallbackServerOffset;
+            if (pos >= buffer.writerIndex()) {
+                return ValidationResult.error("Offset out of bounds for FallbackServer");
+            }
+            ValidationResult fallbackServerResult = HostAddress.validateStructure(buffer, pos);
+            if (!fallbackServerResult.isValid()) {
+                return ValidationResult.error("Invalid FallbackServer: " + fallbackServerResult.error());
+            }
+            pos += HostAddress.computeBytesConsumed(buffer, pos);
+        }
         return ValidationResult.OK;
     }
 
@@ -208,6 +253,7 @@ ToClientPacket {
         copy.serverName = this.serverName;
         copy.motd = this.motd;
         copy.maxPlayers = this.maxPlayers;
+        copy.fallbackServer = this.fallbackServer != null ? this.fallbackServer.clone() : null;
         return copy;
     }
 
@@ -219,11 +265,11 @@ ToClientPacket {
             return false;
         }
         ServerInfo other = (ServerInfo)obj;
-        return Objects.equals(this.serverName, other.serverName) && Objects.equals(this.motd, other.motd) && this.maxPlayers == other.maxPlayers;
+        return Objects.equals(this.serverName, other.serverName) && Objects.equals(this.motd, other.motd) && this.maxPlayers == other.maxPlayers && Objects.equals(this.fallbackServer, other.fallbackServer);
     }
 
     public int hashCode() {
-        return Objects.hash(this.serverName, this.motd, this.maxPlayers);
+        return Objects.hash(this.serverName, this.motd, this.maxPlayers, this.fallbackServer);
     }
 }
 

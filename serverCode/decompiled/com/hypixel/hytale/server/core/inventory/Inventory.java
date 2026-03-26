@@ -6,20 +6,17 @@ package com.hypixel.hytale.server.core.inventory;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
-import com.hypixel.hytale.codec.codecs.EnumCodec;
+import com.hypixel.hytale.component.ComponentAccessor;
+import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.event.EventRegistration;
-import com.hypixel.hytale.event.IEventDispatcher;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.InteractionChainData;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.ItemArmorSlot;
 import com.hypixel.hytale.protocol.PickupLocation;
 import com.hypixel.hytale.protocol.SmartMoveType;
-import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.inventory.UpdatePlayerInventory;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemArmor;
@@ -33,21 +30,16 @@ import com.hypixel.hytale.server.core.entity.StatModifiersManager;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ItemContainerWindow;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.Window;
-import com.hypixel.hytale.server.core.event.events.entity.LivingEntityInventoryChangeEvent;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
-import com.hypixel.hytale.server.core.inventory.container.EmptyItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
-import com.hypixel.hytale.server.core.inventory.container.ItemContainerUtil;
-import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.SortType;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.inventory.transaction.ListTransaction;
 import com.hypixel.hytale.server.core.inventory.transaction.MoveTransaction;
-import com.hypixel.hytale.server.core.inventory.transaction.SlotTransaction;
-import com.hypixel.hytale.server.core.inventory.transaction.Transaction;
-import com.hypixel.hytale.server.core.io.NetworkSerializable;
 import com.hypixel.hytale.server.core.modules.entity.player.PlayerSettings;
+import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap;
 import com.hypixel.hytale.server.core.modules.interaction.InteractionModule;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Interaction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
@@ -58,13 +50,11 @@ import com.hypixel.hytale.server.core.util.UUIDUtil;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class Inventory
-implements NetworkSerializable<UpdatePlayerInventory> {
+@Deprecated(forRemoval=true)
+public class Inventory {
     public static final short DEFAULT_HOTBAR_CAPACITY = 9;
     public static final short DEFAULT_UTILITY_CAPACITY = 4;
     public static final short DEFAULT_TOOLS_CAPACITY = 23;
@@ -80,223 +70,51 @@ implements NetworkSerializable<UpdatePlayerInventory> {
     public static final int BACKPACK_SECTION_ID = -9;
     public static final byte INACTIVE_SLOT_INDEX = -1;
     public static final int VERSION = 4;
-    public static final BuilderCodec<Inventory> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(Inventory.class, () -> new Inventory(null)).versioned()).codecVersion(4)).append(new KeyedCodec<ItemContainer>("Storage", ItemContainer.CODEC), (o, i) -> {
-        o.storage = i;
-    }, o -> o.storage).add()).append(new KeyedCodec<ItemContainer>("Armor", ItemContainer.CODEC), (o, i) -> {
-        o.armor = i;
-    }, o -> o.armor).add()).append(new KeyedCodec<ItemContainer>("HotBar", ItemContainer.CODEC), (o, i) -> {
-        o.hotbar = i;
-    }, o -> o.hotbar).add()).append(new KeyedCodec<ItemContainer>("Utility", ItemContainer.CODEC), (o, i) -> {
-        o.utility = i;
-    }, o -> o.utility).add()).append(new KeyedCodec<ItemContainer>("Backpack", ItemContainer.CODEC), (o, i) -> {
-        o.backpack = i;
-    }, o -> o.backpack).add()).append(new KeyedCodec<Byte>("ActiveHotbarSlot", Codec.BYTE), (o, i) -> {
-        o.activeHotbarSlot = i;
-    }, o -> o.activeHotbarSlot).add()).append(new KeyedCodec<ItemContainer>("Tool", ItemContainer.CODEC), (o, i) -> {
-        o.tools = i;
-    }, o -> o.tools).add()).append(new KeyedCodec<Byte>("ActiveToolsSlot", Codec.BYTE), (o, i) -> {
-        o.activeToolsSlot = i;
-    }, o -> o.activeToolsSlot).add()).append(new KeyedCodec<Byte>("ActiveUtilitySlot", Codec.BYTE), (o, i) -> {
-        o.activeUtilitySlot = i;
-    }, o -> o.activeUtilitySlot).add()).append(new KeyedCodec<SortType>("SortType", new EnumCodec<SortType>(SortType.class, EnumCodec.EnumStyle.LEGACY)), (o, i) -> {
-        o.sortType = i;
-    }, o -> o.sortType).setVersionRange(0, 3).add()).append(new KeyedCodec<SortType>("SortType", new EnumCodec<SortType>(SortType.class)), (o, i) -> {
-        o.sortType = i;
-    }, o -> o.sortType).setVersionRange(4, 4).add()).afterDecode(Inventory::postDecode)).build();
-    private final AtomicBoolean isDirty = new AtomicBoolean();
-    private final AtomicBoolean needsSaving = new AtomicBoolean();
-    private ItemContainer storage = EmptyItemContainer.INSTANCE;
-    private ItemContainer armor = EmptyItemContainer.INSTANCE;
-    private ItemContainer hotbar = EmptyItemContainer.INSTANCE;
-    private ItemContainer utility = EmptyItemContainer.INSTANCE;
-    @Deprecated
-    private ItemContainer tools = EmptyItemContainer.INSTANCE;
-    private ItemContainer backpack = EmptyItemContainer.INSTANCE;
-    private CombinedItemContainer combinedHotbarStorageBackpack;
-    private CombinedItemContainer combinedHotbarFirst;
-    private CombinedItemContainer combinedStorageFirst;
-    private CombinedItemContainer combinedBackpackStorageHotbar;
-    private CombinedItemContainer combinedBackpackHotbarStorage;
-    private CombinedItemContainer combinedStorageHotbarBackpack;
-    private CombinedItemContainer combinedArmorHotbarStorage;
-    private CombinedItemContainer combinedArmorHotbarUtilityStorage;
-    private CombinedItemContainer combinedHotbarUtilityConsumableStorage;
-    private CombinedItemContainer combinedEverything;
-    private byte activeHotbarSlot;
-    private byte activeUtilitySlot = (byte)-1;
-    private byte activeToolsSlot = (byte)-1;
+    public static final BuilderCodec<Inventory> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(Inventory.class, Inventory::new).versioned()).codecVersion(4)).append(new KeyedCodec<ItemContainer>("Storage", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedStorage = i;
+    }, o -> o.deserializedStorage).add()).append(new KeyedCodec<ItemContainer>("Armor", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedArmor = i;
+    }, o -> o.deserializedArmor).add()).append(new KeyedCodec<ItemContainer>("HotBar", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedHotbar = i;
+    }, o -> o.deserializedHotbar).add()).append(new KeyedCodec<ItemContainer>("Utility", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedUtility = i;
+    }, o -> o.deserializedUtility).add()).append(new KeyedCodec<ItemContainer>("Backpack", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedBackpack = i;
+    }, o -> o.deserializedBackpack).add()).append(new KeyedCodec<Byte>("ActiveHotbarSlot", Codec.BYTE), (o, i) -> {
+        o.deserializedActiveHotbarSlot = i;
+    }, o -> o.deserializedActiveHotbarSlot).add()).append(new KeyedCodec<ItemContainer>("Tool", ItemContainer.CODEC), (o, i) -> {
+        o.deserializedTools = i;
+    }, o -> o.deserializedTools).add()).append(new KeyedCodec<Byte>("ActiveToolsSlot", Codec.BYTE), (o, i) -> {
+        o.deserializedActiveToolsSlot = i;
+    }, o -> o.deserializedActiveToolsSlot).add()).append(new KeyedCodec<Byte>("ActiveUtilitySlot", Codec.BYTE), (o, i) -> {
+        o.deserializedActiveUtilitySlot = i;
+    }, o -> o.deserializedActiveUtilitySlot).add()).build();
+    private ItemContainer deserializedStorage;
+    private ItemContainer deserializedArmor;
+    private ItemContainer deserializedHotbar;
+    private ItemContainer deserializedUtility;
+    private ItemContainer deserializedTools;
+    private ItemContainer deserializedBackpack;
+    private byte deserializedActiveHotbarSlot;
+    private byte deserializedActiveUtilitySlot = (byte)-1;
+    private byte deserializedActiveToolsSlot = (byte)-1;
+    @Nullable
+    private InventoryComponent.Storage storage;
+    @Nullable
+    private InventoryComponent.Armor armor;
+    @Nullable
+    private InventoryComponent.Hotbar hotbar;
+    @Nullable
+    private InventoryComponent.Utility utility;
+    @Nullable
+    private InventoryComponent.Tool tools;
+    @Nullable
+    private InventoryComponent.Backpack backpack;
     @Nullable
     private LivingEntity entity;
-    @Deprecated
-    private SortType sortType = SortType.NAME;
-    @Nullable
-    private EventRegistration armorChange;
-    @Nullable
-    private EventRegistration storageChange;
-    @Nullable
-    private EventRegistration hotbarChange;
-    @Nullable
-    private EventRegistration utilityChange;
-    @Nullable
-    private EventRegistration toolChange;
-    @Nullable
-    private EventRegistration backpackChange;
-    private boolean _usingToolsItem = false;
-
-    private Inventory(Void dummy) {
-    }
-
-    public Inventory() {
-        this(36, DEFAULT_ARMOR_CAPACITY, 9, 4, 23);
-    }
-
-    public Inventory(short storageCapacity, short armorCapacity, short hotbarCapacity, short utilityCapacity, short toolCapacity) {
-        this(storageCapacity == 0 ? EmptyItemContainer.INSTANCE : new SimpleItemContainer(storageCapacity), armorCapacity == 0 ? EmptyItemContainer.INSTANCE : new SimpleItemContainer(armorCapacity), hotbarCapacity == 0 ? EmptyItemContainer.INSTANCE : new SimpleItemContainer(hotbarCapacity), utilityCapacity == 0 ? EmptyItemContainer.INSTANCE : new SimpleItemContainer(utilityCapacity), toolCapacity == 0 ? EmptyItemContainer.INSTANCE : new SimpleItemContainer(toolCapacity), EmptyItemContainer.INSTANCE);
-    }
-
-    public Inventory(ItemContainer storage, ItemContainer armor, ItemContainer hotbar, ItemContainer utility, ItemContainer tools, ItemContainer backpack) {
-        this.storage = storage;
-        this.armor = ItemContainerUtil.trySetArmorFilters(armor);
-        this.hotbar = hotbar;
-        this.utility = ItemContainerUtil.trySetSlotFilters(utility, (type, container, slot, itemStack) -> itemStack == null || itemStack.getItem().getUtility().isUsable());
-        this.tools = tools;
-        this.backpack = backpack;
-        this.buildCombinedContains();
-        this.registerChangeEvents();
-    }
-
-    protected void registerChangeEvents() {
-        this.storageChange = this.storage.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-        });
-        this.armorChange = this.armor.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-            this.entity.invalidateEquipmentNetwork();
-        });
-        this.hotbarChange = this.hotbar.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-            if (this.activeHotbarSlot != -1 && this.entity != null && e.transaction().wasSlotModified(this.activeHotbarSlot)) {
-                SlotTransaction slot;
-                Transaction patt0$temp = e.transaction();
-                if (patt0$temp instanceof SlotTransaction && ItemStack.isEquivalentType((slot = (SlotTransaction)patt0$temp).getSlotBefore(), slot.getSlotAfter())) {
-                    return;
-                }
-                StatModifiersManager statModifiersManager = this.entity.getStatModifiersManager();
-                this.entity.invalidateEquipmentNetwork();
-                statModifiersManager.setRecalculate(true);
-                ItemStack itemStack = this.getItemInHand();
-                if (itemStack == null) {
-                    return;
-                }
-                ItemWeapon itemWeapon = itemStack.getItem().getWeapon();
-                if (itemWeapon == null) {
-                    return;
-                }
-                int[] entityStatsToClear = itemWeapon.getEntityStatsToClear();
-                if (entityStatsToClear == null) {
-                    return;
-                }
-                statModifiersManager.queueEntityStatsToClear(entityStatsToClear);
-            }
-        });
-        this.utilityChange = this.utility.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-            if (this.activeUtilitySlot != -1 && this.entity != null && e.transaction().wasSlotModified(this.activeUtilitySlot)) {
-                SlotTransaction slot;
-                Transaction patt0$temp = e.transaction();
-                if (patt0$temp instanceof SlotTransaction && ItemStack.isEquivalentType((slot = (SlotTransaction)patt0$temp).getSlotBefore(), slot.getSlotAfter())) {
-                    return;
-                }
-                StatModifiersManager statModifiersManager = this.entity.getStatModifiersManager();
-                this.entity.invalidateEquipmentNetwork();
-                statModifiersManager.setRecalculate(true);
-                ItemStack itemStack = this.getUtilityItem();
-                if (itemStack == null) {
-                    return;
-                }
-                ItemUtility itemUtility = itemStack.getItem().getUtility();
-                if (itemUtility == null) {
-                    return;
-                }
-                int[] entityStatsToClear = itemUtility.getEntityStatsToClear();
-                if (entityStatsToClear == null) {
-                    return;
-                }
-                statModifiersManager.queueEntityStatsToClear(entityStatsToClear);
-            }
-        });
-        this.toolChange = this.tools.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-        });
-        this.registerBackpackListener();
-    }
-
-    private void registerBackpackListener() {
-        this.unregisterBackpackChange();
-        this.backpackChange = this.backpack.registerChangeEvent(e -> {
-            this.markChanged();
-            IEventDispatcher<LivingEntityInventoryChangeEvent, LivingEntityInventoryChangeEvent> dispatcher = HytaleServer.get().getEventBus().dispatchFor(LivingEntityInventoryChangeEvent.class, this.entity.getWorld().getName());
-            if (dispatcher.hasListener()) {
-                dispatcher.dispatch(new LivingEntityInventoryChangeEvent(this.entity, e.container(), e.transaction()));
-            }
-        });
-    }
 
     public void unregister() {
         this.entity = null;
-        if (this.storageChange != null) {
-            this.storageChange.unregister();
-            this.storageChange = null;
-        }
-        if (this.armorChange != null) {
-            this.armorChange.unregister();
-            this.armorChange = null;
-        }
-        if (this.hotbarChange != null) {
-            this.hotbarChange.unregister();
-            this.hotbarChange = null;
-        }
-        if (this.utilityChange != null) {
-            this.utilityChange.unregister();
-            this.utilityChange = null;
-        }
-        if (this.toolChange != null) {
-            this.toolChange.unregister();
-            this.toolChange = null;
-        }
-        this.unregisterBackpackChange();
-    }
-
-    private void unregisterBackpackChange() {
-        if (this.backpackChange != null) {
-            this.backpackChange.unregister();
-            this.backpackChange = null;
-        }
-    }
-
-    public void markChanged() {
-        this.isDirty.set(true);
-        this.needsSaving.set(true);
     }
 
     public void moveItem(int fromSectionId, int fromSlotId, int quantity, int toSectionId, int toSlotId) {
@@ -308,14 +126,14 @@ implements NetworkSerializable<UpdatePlayerInventory> {
         if (toContainer == null) {
             return;
         }
-        if (this.entity instanceof Player && (toSectionId == -1 && this.activeHotbarSlot == toSlotId || fromSectionId == -1 && this.activeHotbarSlot == fromSlotId)) {
+        if (this.entity instanceof Player && this.hotbar != null && (toSectionId == -1 && this.hotbar.getActiveSlot() == toSlotId || fromSectionId == -1 && this.hotbar.getActiveSlot() == fromSlotId)) {
             ItemStack currentItem;
             ItemStack fromItem = fromContainer.getItemStack((short)fromSlotId);
             if (ItemStack.isStackableWith(fromItem, currentItem = toContainer.getItemStack((short)toSlotId)) || ItemStack.isSameItemType(fromItem, currentItem)) {
                 fromContainer.moveItemStackFromSlotToSlot((short)fromSlotId, quantity, toContainer, (short)toSlotId);
                 return;
             }
-            int interactionSlot = toSectionId == -1 && this.activeHotbarSlot == toSlotId ? toSlotId : this.activeHotbarSlot;
+            int interactionSlot = toSectionId == -1 && this.hotbar.getActiveSlot() == toSlotId ? toSlotId : this.hotbar.getActiveSlot();
             Ref<EntityStore> ref = this.entity.getReference();
             Store<EntityStore> store = ref.getStore();
             InteractionManager interactionManagerComponent = store.getComponent(ref, InteractionModule.get().getInteractionManagerComponent());
@@ -326,7 +144,16 @@ implements NetworkSerializable<UpdatePlayerInventory> {
                 context.getMetaStore().putMetaObject(Interaction.TARGET_SLOT, interactionSlot);
                 context.getMetaStore().putMetaObject(ChangeActiveSlotInteraction.PLACE_MOVED_ITEM, () -> {
                     fromContainer.moveItemStackFromSlotToSlot((short)fromSlotId, quantity, toContainer, (short)toSlotId);
-                    playerRefComponent.getPacketHandler().write((ToClientPacket)this.toPacket());
+                    if (!ref.isValid()) {
+                        return;
+                    }
+                    InventoryComponent.Storage storage = store.getComponent(ref, InventoryComponent.Storage.getComponentType());
+                    InventoryComponent.Armor armor = store.getComponent(ref, InventoryComponent.Armor.getComponentType());
+                    InventoryComponent.Hotbar hotbar = store.getComponent(ref, InventoryComponent.Hotbar.getComponentType());
+                    InventoryComponent.Utility utility = store.getComponent(ref, InventoryComponent.Utility.getComponentType());
+                    InventoryComponent.Tool tool = store.getComponent(ref, InventoryComponent.Tool.getComponentType());
+                    InventoryComponent.Backpack backpack = store.getComponent(ref, InventoryComponent.Backpack.getComponentType());
+                    playerRefComponent.getPacketHandler().writeNoCache(new UpdatePlayerInventory(storage != null ? storage.getInventory().toPacket() : null, armor != null ? armor.getInventory().toPacket() : null, hotbar != null ? hotbar.getInventory().toPacket() : null, utility != null ? utility.getInventory().toPacket() : null, tool != null ? tool.getInventory().toPacket() : null, backpack != null ? backpack.getInventory().toPacket() : null));
                 });
                 String interactions = context.getRootInteractionId(InteractionType.SwapFrom);
                 InteractionChainData data = new InteractionChainData(-1, UUIDUtil.EMPTY_UUID, null, null, null, -interactionSlot - 1, null);
@@ -338,7 +165,7 @@ implements NetworkSerializable<UpdatePlayerInventory> {
         fromContainer.moveItemStackFromSlotToSlot((short)fromSlotId, quantity, toContainer, (short)toSlotId);
     }
 
-    public void smartMoveItem(int fromSectionId, int fromSlotId, int quantity, @Nonnull SmartMoveType moveType, PlayerSettings settings) {
+    public void smartMoveItem(@Nonnull Ref<EntityStore> ref, int fromSectionId, int fromSlotId, int quantity, @Nonnull SmartMoveType moveType, PlayerSettings settings, @Nonnull ComponentAccessor<EntityStore> accessor) {
         ItemContainer targetContainer = this.getSectionById(fromSectionId);
         if (targetContainer == null) {
             return;
@@ -352,13 +179,17 @@ implements NetworkSerializable<UpdatePlayerInventory> {
                 if (this.tryEquipArmorPart(itemStack, fromSectionId, (short)fromSlotId, quantity, targetContainer, true)) {
                     return;
                 }
-                if (this.entity instanceof Player) {
-                    for (Window window : ((Player)this.entity).getWindowManager().getWindows()) {
+                LivingEntity livingEntity = this.entity;
+                if (livingEntity instanceof Player) {
+                    Player player = (Player)livingEntity;
+                    for (Window window : player.getWindowManager().getWindows()) {
                         if (!(window instanceof ItemContainerWindow)) continue;
-                        ((ItemContainerWindow)((Object)window)).getItemContainer().combineItemStacksIntoSlot(targetContainer, (short)fromSlotId);
+                        ItemContainerWindow itemContainerWindow = (ItemContainerWindow)((Object)window);
+                        itemContainerWindow.getItemContainer().combineItemStacksIntoSlot(targetContainer, (short)fromSlotId);
                     }
                 }
-                this.combinedEverything.combineItemStacksIntoSlot(targetContainer, (short)fromSlotId);
+                CombinedItemContainer everythingInventoryComponent = InventoryComponent.getCombined(accessor, ref, InventoryComponent.EVERYTHING);
+                everythingInventoryComponent.combineItemStacksIntoSlot(targetContainer, (short)fromSlotId);
                 break;
             }
             case PutInHotbarOrWindow: {
@@ -380,11 +211,11 @@ implements NetworkSerializable<UpdatePlayerInventory> {
                 }
                 switch (fromSectionId) {
                     case -1: {
-                        targetContainer.moveItemStackFromSlot((short)fromSlotId, quantity, this.storage);
+                        targetContainer.moveItemStackFromSlot((short)fromSlotId, quantity, this.storage.getInventory());
                         break block0;
                     }
                     case -2: {
-                        targetContainer.moveItemStackFromSlot((short)fromSlotId, quantity, this.hotbar);
+                        targetContainer.moveItemStackFromSlot((short)fromSlotId, quantity, this.hotbar.getInventory());
                         break block0;
                     }
                 }
@@ -404,8 +235,8 @@ implements NetworkSerializable<UpdatePlayerInventory> {
     private boolean tryEquipArmorPart(@Nonnull ItemStack itemStack, int fromSectionId, short fromSlotId, int quantity, ItemContainer targetContainer, boolean forceEquip) {
         Item item = itemStack.getItem();
         ItemArmor itemArmor = item.getArmor();
-        if (itemArmor != null && fromSectionId != -3 && (forceEquip || this.armor.getItemStack((short)itemArmor.getArmorSlot().ordinal()) == null)) {
-            targetContainer.moveItemStackFromSlotToSlot(fromSlotId, quantity, this.armor, (short)itemArmor.getArmorSlot().ordinal());
+        if (itemArmor != null && fromSectionId != -3 && (forceEquip || this.armor.getInventory().getItemStack((short)itemArmor.getArmorSlot().ordinal()) == null)) {
+            targetContainer.moveItemStackFromSlotToSlot(fromSlotId, quantity, this.armor.getInventory(), (short)itemArmor.getArmorSlot().ordinal());
             return true;
         }
         return false;
@@ -438,7 +269,7 @@ implements NetworkSerializable<UpdatePlayerInventory> {
     public ListTransaction<MoveTransaction<ItemStackTransaction>> putAll(int inventorySectionId) {
         ItemContainer sectionById = this.getSectionById(inventorySectionId);
         if (sectionById != null) {
-            return this.storage.moveAllItemStacksTo(sectionById);
+            return this.storage.getInventory().moveAllItemStacksTo(sectionById);
         }
         return null;
     }
@@ -447,7 +278,7 @@ implements NetworkSerializable<UpdatePlayerInventory> {
     public ListTransaction<MoveTransaction<ItemStackTransaction>> quickStack(int inventorySectionId) {
         ItemContainer sectionById = this.getSectionById(inventorySectionId);
         if (sectionById != null) {
-            return this.combinedHotbarFirst.quickStackTo(sectionById);
+            return this.getCombinedHotbarFirst().quickStackTo(sectionById);
         }
         return null;
     }
@@ -455,89 +286,155 @@ implements NetworkSerializable<UpdatePlayerInventory> {
     @Nonnull
     public List<ItemStack> dropAllItemStacks() {
         ObjectArrayList<ItemStack> items = new ObjectArrayList<ItemStack>();
-        items.addAll(this.storage.dropAllItemStacks());
-        items.addAll(this.armor.dropAllItemStacks());
-        items.addAll(this.hotbar.dropAllItemStacks());
-        items.addAll(this.utility.dropAllItemStacks());
-        items.addAll(this.backpack.dropAllItemStacks());
+        if (this.storage != null) {
+            items.addAll(this.storage.getInventory().dropAllItemStacks());
+        }
+        if (this.armor != null) {
+            items.addAll(this.armor.getInventory().dropAllItemStacks());
+        }
+        if (this.hotbar != null) {
+            items.addAll(this.hotbar.getInventory().dropAllItemStacks());
+        }
+        if (this.utility != null) {
+            items.addAll(this.utility.getInventory().dropAllItemStacks());
+        }
+        if (this.backpack != null) {
+            items.addAll(this.backpack.getInventory().dropAllItemStacks());
+        }
         return items;
     }
 
     public void clear() {
-        this.storage.clear();
-        this.armor.clear();
-        this.hotbar.clear();
-        this.utility.clear();
-        this.backpack.clear();
-    }
-
-    public ItemContainer getStorage() {
-        return this.storage;
-    }
-
-    public ItemContainer getArmor() {
-        return this.armor;
-    }
-
-    public ItemContainer getHotbar() {
-        return this.hotbar;
-    }
-
-    public ItemContainer getUtility() {
-        return this.utility;
-    }
-
-    public ItemContainer getTools() {
-        return this.tools;
-    }
-
-    public ItemContainer getBackpack() {
-        return this.backpack;
-    }
-
-    public void resizeBackpack(short capacity, List<ItemStack> remainder) {
-        this.backpack = capacity > 0 ? ItemContainer.ensureContainerCapacity(this.backpack, capacity, SimpleItemContainer::new, remainder) : ItemContainer.copy(this.backpack, EmptyItemContainer.INSTANCE, remainder);
-        this.buildCombinedContains();
-        if (this.entity != null) {
-            this.registerBackpackListener();
+        if (this.storage != null) {
+            this.storage.getInventory().clear();
         }
-        this.markChanged();
+        if (this.armor != null) {
+            this.armor.getInventory().clear();
+        }
+        if (this.hotbar != null) {
+            this.hotbar.getInventory().clear();
+        }
+        if (this.utility != null) {
+            this.utility.getInventory().clear();
+        }
+        if (this.backpack != null) {
+            this.backpack.getInventory().clear();
+        }
+    }
+
+    @Nullable
+    public ItemContainer getStorage() {
+        return this.storage != null ? this.storage.getInventory() : null;
+    }
+
+    @Nullable
+    public ItemContainer getArmor() {
+        return this.armor != null ? this.armor.getInventory() : null;
+    }
+
+    @Nullable
+    public ItemContainer getHotbar() {
+        return this.hotbar != null ? this.hotbar.getInventory() : null;
+    }
+
+    @Nullable
+    public ItemContainer getUtility() {
+        return this.utility != null ? this.utility.getInventory() : null;
+    }
+
+    @Nullable
+    public ItemContainer getTools() {
+        return this.tools != null ? this.tools.getInventory() : null;
+    }
+
+    @Nullable
+    public ItemContainer getBackpack() {
+        return this.backpack != null ? this.backpack.getInventory() : null;
     }
 
     public CombinedItemContainer getCombinedHotbarFirst() {
-        return this.combinedHotbarFirst;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.HOTBAR_FIRST);
     }
 
     public CombinedItemContainer getCombinedStorageFirst() {
-        return this.combinedStorageFirst;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.STORAGE_FIRST);
     }
 
     public CombinedItemContainer getCombinedBackpackStorageHotbar() {
-        return this.combinedBackpackStorageHotbar;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.BACKPACK_STORAGE_HOTBAR);
     }
 
     public CombinedItemContainer getCombinedBackpackStorageHotbarFirst() {
-        return this.combinedHotbarStorageBackpack;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.HOTBAR_STORAGE_BACKPACK);
     }
 
     public CombinedItemContainer getCombinedArmorHotbarUtilityStorage() {
-        return this.combinedArmorHotbarUtilityStorage;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.ARMOR_HOTBAR_UTILITY_STORAGE);
     }
 
     public CombinedItemContainer getCombinedHotbarUtilityConsumableStorage() {
-        return this.combinedHotbarUtilityConsumableStorage;
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.HOTBAR_UTILITY_CONSUMABLE_STORAGE);
     }
 
-    public CombinedItemContainer getCombinedEverything() {
-        return this.combinedEverything;
+    public CombinedItemContainer getCombinedStorageHotbarBackpack() {
+        if (this.entity == null) {
+            return null;
+        }
+        Ref<EntityStore> ref = this.entity.getReference();
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+        return InventoryComponent.getCombined(ref.getStore(), ref, InventoryComponent.STORAGE_HOTBAR_BACKPACK);
     }
 
     private ItemContainer getItemContainerForPickupLocation(@Nonnull PickupLocation pickupLocation) {
         return switch (pickupLocation) {
-            case PickupLocation.Hotbar -> this.combinedHotbarStorageBackpack;
-            case PickupLocation.Storage -> this.combinedStorageHotbarBackpack;
-            case PickupLocation.Backpack -> this.combinedBackpackStorageHotbar;
-            default -> this.combinedHotbarStorageBackpack;
+            case PickupLocation.Hotbar -> this.getCombinedBackpackStorageHotbarFirst();
+            case PickupLocation.Storage -> this.getCombinedStorageHotbarBackpack();
+            case PickupLocation.Backpack -> this.getCombinedBackpackStorageHotbar();
+            default -> this.getCombinedBackpackStorageHotbarFirst();
         };
     }
 
@@ -571,19 +468,19 @@ implements NetworkSerializable<UpdatePlayerInventory> {
         return this.getItemContainerForPickupLocation(playerSettings.miscItemsPreferredPickupLocation());
     }
 
-    public void setActiveSlot(int inventorySectionId, byte slot) {
+    public void setActiveSlot(@Nonnull Ref<EntityStore> ref, int inventorySectionId, byte slot, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         int[] entityStatsToClear = null;
         switch (inventorySectionId) {
             case -1: {
                 ItemWeapon weapon;
-                this.activeHotbarSlot = slot;
+                this.hotbar.setActiveSlot(slot);
                 ItemStack itemStack = this.getItemInHand();
                 if (itemStack == null || (weapon = itemStack.getItem().getWeapon()) == null) break;
                 entityStatsToClear = weapon.getEntityStatsToClear();
                 break;
             }
             case -5: {
-                this.activeUtilitySlot = slot;
+                this.utility.setActiveSlot(slot);
                 ItemStack itemStack = this.getUtilityItem();
                 if (itemStack == null) break;
                 ItemUtility utility = itemStack.getItem().getUtility();
@@ -591,79 +488,124 @@ implements NetworkSerializable<UpdatePlayerInventory> {
                 break;
             }
             case -8: {
-                this.activeToolsSlot = slot;
+                this.tools.setActiveSlot(slot);
                 break;
             }
             default: {
                 throw new IllegalArgumentException("Inventory section with id " + inventorySectionId + " cannot select an active slot");
             }
         }
-        StatModifiersManager statModifiersManager = this.entity.getStatModifiersManager();
         this.entity.invalidateEquipmentNetwork();
-        statModifiersManager.setRecalculate(true);
-        if (entityStatsToClear != null) {
-            statModifiersManager.queueEntityStatsToClear(entityStatsToClear);
+        EntityStatMap entityStatMapComponent = componentAccessor.getComponent(ref, EntityStatMap.getComponentType());
+        if (entityStatMapComponent != null) {
+            StatModifiersManager statModifiersManager = entityStatMapComponent.getStatModifiersManager();
+            statModifiersManager.scheduleRecalculate();
+            if (entityStatsToClear != null) {
+                statModifiersManager.queueEntityStatsToClear(entityStatsToClear);
+            }
+        }
+    }
+
+    public void setActiveSlot(@Nonnull Holder<EntityStore> holder, int inventorySectionId, byte slot) {
+        int[] entityStatsToClear = null;
+        switch (inventorySectionId) {
+            case -1: {
+                ItemWeapon weapon;
+                this.hotbar.setActiveSlot(slot);
+                ItemStack itemStack = this.getItemInHand();
+                if (itemStack == null || (weapon = itemStack.getItem().getWeapon()) == null) break;
+                entityStatsToClear = weapon.getEntityStatsToClear();
+                break;
+            }
+            case -5: {
+                this.utility.setActiveSlot(slot);
+                ItemStack itemStack = this.getUtilityItem();
+                if (itemStack == null) break;
+                ItemUtility utility = itemStack.getItem().getUtility();
+                entityStatsToClear = utility.getEntityStatsToClear();
+                break;
+            }
+            case -8: {
+                this.tools.setActiveSlot(slot);
+                break;
+            }
+            default: {
+                throw new IllegalArgumentException("Inventory section with id " + inventorySectionId + " cannot select an active slot");
+            }
+        }
+        this.entity.invalidateEquipmentNetwork();
+        EntityStatMap entityStatMapComponent = holder.getComponent(EntityStatMap.getComponentType());
+        if (entityStatMapComponent != null) {
+            StatModifiersManager statModifiersManager = entityStatMapComponent.getStatModifiersManager();
+            statModifiersManager.scheduleRecalculate();
+            if (entityStatsToClear != null) {
+                statModifiersManager.queueEntityStatsToClear(entityStatsToClear);
+            }
         }
     }
 
     public byte getActiveSlot(int inventorySectionId) {
         return switch (inventorySectionId) {
-            case -1 -> this.activeHotbarSlot;
-            case -5 -> this.activeUtilitySlot;
-            case -8 -> this.activeToolsSlot;
+            case -1 -> this.hotbar.getActiveSlot();
+            case -5 -> this.utility.getActiveSlot();
+            case -8 -> this.tools.getActiveSlot();
             default -> throw new IllegalArgumentException("Inventory section with id " + inventorySectionId + " cannot select an active slot");
         };
     }
 
     public byte getActiveHotbarSlot() {
-        return this.activeHotbarSlot;
+        return this.hotbar.getActiveSlot();
     }
 
-    public void setActiveHotbarSlot(byte slot) {
+    public void setActiveHotbarSlot(@Nonnull Ref<EntityStore> ref, byte slot, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         this.setUsingToolsItem(false);
-        this.setActiveSlot(-1, slot);
+        this.setActiveSlot(ref, -1, slot, componentAccessor);
     }
 
     @Nullable
     public ItemStack getActiveHotbarItem() {
-        return this.activeHotbarSlot == -1 ? null : this.hotbar.getItemStack(this.activeHotbarSlot);
+        return this.hotbar.getActiveItem();
     }
 
     @Nullable
     public ItemStack getActiveToolItem() {
-        return this.activeToolsSlot == -1 ? null : this.tools.getItemStack(this.activeToolsSlot);
+        return this.tools.getActiveItem();
     }
 
     @Nullable
     public ItemStack getItemInHand() {
-        return this._usingToolsItem ? this.getActiveToolItem() : this.getActiveHotbarItem();
+        return this.tools != null && this.tools.usingToolsItem ? this.getActiveToolItem() : this.getActiveHotbarItem();
     }
 
     public byte getActiveUtilitySlot() {
-        return this.activeUtilitySlot;
+        return this.utility.getActiveSlot();
     }
 
-    public void setActiveUtilitySlot(byte slot) {
-        this.setActiveSlot(-5, slot);
+    public void setActiveUtilitySlot(@Nonnull Ref<EntityStore> ref, byte slot, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
+        this.setActiveSlot(ref, -5, slot, componentAccessor);
+    }
+
+    public void setActiveUtilitySlot(@Nonnull Holder<EntityStore> holder, byte slot) {
+        this.setActiveSlot(holder, -5, slot);
     }
 
     @Nullable
     public ItemStack getUtilityItem() {
-        return this.activeUtilitySlot == -1 ? null : this.utility.getItemStack(this.activeUtilitySlot);
+        return this.utility.getActiveItem();
     }
 
     public byte getActiveToolsSlot() {
-        return this.activeToolsSlot;
+        return this.tools.getActiveSlot();
     }
 
-    public void setActiveToolsSlot(byte slot) {
+    public void setActiveToolsSlot(@Nonnull Ref<EntityStore> ref, byte slot, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         this.setUsingToolsItem(true);
-        this.setActiveSlot(-8, slot);
+        this.setActiveSlot(ref, -8, slot, componentAccessor);
     }
 
     @Nullable
     public ItemStack getToolsItem() {
-        return this.activeToolsSlot == -1 ? null : this.tools.getItemStack(this.activeToolsSlot);
+        return this.tools != null ? this.tools.getActiveItem() : null;
     }
 
     @Nullable
@@ -676,94 +618,69 @@ implements NetworkSerializable<UpdatePlayerInventory> {
             return null;
         }
         return switch (id) {
-            case -1 -> this.hotbar;
-            case -2 -> this.storage;
-            case -3 -> this.armor;
-            case -5 -> this.utility;
-            case -8 -> this.tools;
-            case -9 -> this.backpack;
+            case -1 -> this.hotbar.getInventory();
+            case -2 -> this.storage.getInventory();
+            case -3 -> this.armor.getInventory();
+            case -5 -> this.utility.getInventory();
+            case -8 -> this.tools.getInventory();
+            case -9 -> this.backpack.getInventory();
             default -> null;
         };
-    }
-
-    public boolean consumeIsDirty() {
-        return this.isDirty.getAndSet(false);
-    }
-
-    public boolean consumeNeedsSaving() {
-        return this.needsSaving.getAndSet(false);
     }
 
     public void setEntity(LivingEntity entity) {
         this.entity = entity;
     }
 
-    public void sortStorage(@Nonnull SortType type) {
-        this.sortType = type;
-        this.storage.sortItems(type);
-        this.markChanged();
+    public void sortStorage() {
+        this.storage.getInventory().sortItems(SortType.TYPE);
+        this.storage.markChanged();
     }
 
-    public void setSortType(SortType type) {
-        this.sortType = type;
-        this.markChanged();
-    }
-
-    public boolean containsBrokenItem() {
-        boolean hasBrokenItem = false;
-        for (short i = 0; i < this.combinedEverything.getCapacity(); i = (short)(i + 1)) {
-            ItemStack itemStack = this.combinedEverything.getItemStack(i);
+    public static boolean containsBrokenItem(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> accessor) {
+        CombinedItemContainer everythingInventoryComponent = InventoryComponent.getCombined(accessor, ref, InventoryComponent.EVERYTHING);
+        for (short i = 0; i < everythingInventoryComponent.getCapacity(); i = (short)(i + 1)) {
+            ItemStack itemStack = everythingInventoryComponent.getItemStack(i);
             if (ItemStack.isEmpty(itemStack) || !itemStack.isBroken()) continue;
-            hasBrokenItem = true;
+            return true;
         }
-        return hasBrokenItem;
+        return false;
     }
 
-    @Override
-    @Nonnull
-    public UpdatePlayerInventory toPacket() {
-        UpdatePlayerInventory packet = new UpdatePlayerInventory();
-        packet.storage = this.storage.toPacket();
-        packet.armor = this.armor.toPacket();
-        packet.hotbar = this.hotbar.toPacket();
-        packet.utility = this.utility.toPacket();
-        packet.tools = this.tools.toPacket();
-        packet.backpack = this.backpack.toPacket();
-        packet.sortType = this.sortType.toPacket();
-        return packet;
+    public void migrateToComponents(Holder<EntityStore> holder) {
+        if (this.deserializedStorage != null) {
+            holder.putComponent(InventoryComponent.Storage.getComponentType(), new InventoryComponent.Storage(this.deserializedStorage));
+            this.deserializedStorage = null;
+        }
+        if (this.deserializedArmor != null) {
+            holder.putComponent(InventoryComponent.Armor.getComponentType(), new InventoryComponent.Armor(this.deserializedArmor));
+            this.deserializedArmor = null;
+        }
+        if (this.deserializedHotbar != null) {
+            holder.putComponent(InventoryComponent.Hotbar.getComponentType(), new InventoryComponent.Hotbar(this.deserializedHotbar, this.deserializedActiveHotbarSlot));
+            this.deserializedHotbar = null;
+        }
+        if (this.deserializedUtility != null) {
+            holder.putComponent(InventoryComponent.Utility.getComponentType(), new InventoryComponent.Utility(this.deserializedUtility, this.deserializedActiveUtilitySlot));
+            this.deserializedUtility = null;
+        }
+        if (this.deserializedTools != null) {
+            holder.putComponent(InventoryComponent.Tool.getComponentType(), new InventoryComponent.Tool(this.deserializedTools, this.deserializedActiveToolsSlot));
+            this.deserializedTools = null;
+        }
+        if (this.deserializedBackpack != null) {
+            holder.putComponent(InventoryComponent.Backpack.getComponentType(), new InventoryComponent.Backpack(this.deserializedBackpack));
+            this.deserializedBackpack = null;
+        }
     }
 
-    public void doMigration(Function<String, String> blockMigration) {
-        Objects.requireNonNull(blockMigration);
-        this.hotbar.doMigration(blockMigration);
-        this.storage.doMigration(blockMigration);
-        this.armor.doMigration(blockMigration);
-        this.utility.doMigration(blockMigration);
-        this.tools.doMigration(blockMigration);
-        this.backpack.doMigration(blockMigration);
-    }
-
-    private void postDecode() {
-        this.armor = ItemContainerUtil.trySetArmorFilters(this.armor);
-        this.utility = ItemContainerUtil.trySetSlotFilters(this.utility, (type, container, slot, itemStack) -> itemStack == null || itemStack.getItem().getUtility().isUsable());
-        this.activeHotbarSlot = this.activeHotbarSlot < this.hotbar.getCapacity() ? this.activeHotbarSlot : (this.hotbar.getCapacity() > 0 ? 0 : -1);
-        this.activeUtilitySlot = (byte)(this.activeUtilitySlot < this.utility.getCapacity() ? (int)this.activeUtilitySlot : -1);
-        this.activeToolsSlot = (byte)(this.activeToolsSlot < this.tools.getCapacity() ? (int)this.activeToolsSlot : -1);
-        this.buildCombinedContains();
-        this.registerChangeEvents();
-    }
-
-    private void buildCombinedContains() {
-        this.combinedHotbarFirst = new CombinedItemContainer(this.hotbar, this.storage);
-        this.combinedStorageFirst = new CombinedItemContainer(this.storage, this.hotbar);
-        this.combinedBackpackStorageHotbar = new CombinedItemContainer(this.backpack, this.storage, this.hotbar);
-        this.combinedBackpackHotbarStorage = new CombinedItemContainer(this.backpack, this.hotbar, this.storage);
-        this.combinedStorageHotbarBackpack = new CombinedItemContainer(this.storage, this.hotbar, this.backpack);
-        this.combinedHotbarStorageBackpack = new CombinedItemContainer(this.hotbar, this.storage, this.backpack);
-        this.combinedArmorHotbarStorage = new CombinedItemContainer(this.armor, this.hotbar, this.storage);
-        this.combinedArmorHotbarUtilityStorage = new CombinedItemContainer(this.armor, this.hotbar, this.utility, this.storage);
-        this.combinedHotbarUtilityConsumableStorage = new CombinedItemContainer(this.hotbar, this.utility, this.storage);
-        this.combinedEverything = new CombinedItemContainer(this.armor, this.hotbar, this.utility, this.storage, this.backpack);
+    public void backwardsCompatHook(Holder<EntityStore> holder) {
+        this.storage = holder.getComponent(InventoryComponent.Storage.getComponentType());
+        this.armor = holder.getComponent(InventoryComponent.Armor.getComponentType());
+        this.hotbar = holder.getComponent(InventoryComponent.Hotbar.getComponentType());
+        this.utility = holder.getComponent(InventoryComponent.Utility.getComponentType());
+        this.tools = holder.getComponent(InventoryComponent.Tool.getComponentType());
+        this.backpack = holder.getComponent(InventoryComponent.Backpack.getComponentType());
     }
 
     public boolean equals(@Nullable Object o) {
@@ -774,18 +691,6 @@ implements NetworkSerializable<UpdatePlayerInventory> {
             return false;
         }
         Inventory inventory = (Inventory)o;
-        if (this.activeHotbarSlot != inventory.activeHotbarSlot) {
-            return false;
-        }
-        if (this.activeUtilitySlot != inventory.activeUtilitySlot) {
-            return false;
-        }
-        if (this.isDirty != inventory.isDirty) {
-            return false;
-        }
-        if (this.needsSaving != inventory.needsSaving) {
-            return false;
-        }
         if (!Objects.equals(this.storage, inventory.storage)) {
             return false;
         }
@@ -811,61 +716,23 @@ implements NetworkSerializable<UpdatePlayerInventory> {
         result = 31 * result + (this.utility != null ? this.utility.hashCode() : 0);
         result = 31 * result + (this.tools != null ? this.tools.hashCode() : 0);
         result = 31 * result + (this.backpack != null ? this.backpack.hashCode() : 0);
-        result = 31 * result + this.activeHotbarSlot;
-        result = 31 * result + this.activeUtilitySlot;
-        result = 31 * result + this.activeToolsSlot;
-        result = 31 * result + this.isDirty.hashCode();
-        result = 31 * result + this.needsSaving.hashCode();
         return result;
     }
 
     @Nonnull
     public String toString() {
-        return "Inventory{, storage=" + String.valueOf(this.storage) + ", armor=" + String.valueOf(this.armor) + ", hotbar=" + String.valueOf(this.hotbar) + ", utility=" + String.valueOf(this.utility) + ", activeHotbarSlot=" + this.activeHotbarSlot + ", activeUtilitySlot=" + this.activeUtilitySlot + ", activeToolsSlot=" + this.activeToolsSlot + ", isDirty=" + String.valueOf(this.isDirty) + ", needsSaving=" + String.valueOf(this.needsSaving) + "}";
-    }
-
-    @Nonnull
-    public static Inventory ensureCapacity(@Nonnull Inventory inventory, List<ItemStack> remainder) {
-        short activeToolsSlot;
-        short activeUtilitySlot;
-        ItemContainer storage = inventory.getStorage();
-        ItemContainer armor = inventory.getArmor();
-        ItemContainer hotbar = inventory.getHotbar();
-        ItemContainer utility = inventory.getUtility();
-        ItemContainer tool = inventory.getTools();
-        if (storage.getCapacity() == 36 && armor.getCapacity() == DEFAULT_ARMOR_CAPACITY && hotbar.getCapacity() == 9 && utility.getCapacity() == 4 && tool.getCapacity() == 23) {
-            return inventory;
-        }
-        ItemContainer newStorage = ItemContainer.ensureContainerCapacity(storage, (short)36, SimpleItemContainer::new, remainder);
-        ItemContainer newArmor = ItemContainer.ensureContainerCapacity(armor, DEFAULT_ARMOR_CAPACITY, SimpleItemContainer::new, remainder);
-        ItemContainer newHotbar = ItemContainer.ensureContainerCapacity(hotbar, (short)9, SimpleItemContainer::new, remainder);
-        ItemContainer newUtility = ItemContainer.ensureContainerCapacity(utility, (short)4, SimpleItemContainer::new, remainder);
-        ItemContainer newTool = ItemContainer.ensureContainerCapacity(tool, (short)23, SimpleItemContainer::new, remainder);
-        short activeHotbarSlot = inventory.getActiveHotbarSlot();
-        if (activeHotbarSlot > newHotbar.getCapacity()) {
-            short s = activeHotbarSlot = hotbar.getCapacity() > 0 ? (short)0 : -1;
-        }
-        if ((activeUtilitySlot = inventory.getActiveUtilitySlot()) > newUtility.getCapacity()) {
-            activeUtilitySlot = -1;
-        }
-        if ((activeToolsSlot = inventory.getActiveToolsSlot()) > newTool.getCapacity()) {
-            activeToolsSlot = -1;
-        }
-        inventory.unregister();
-        Inventory newInventory = new Inventory(newStorage, newArmor, newHotbar, newUtility, newTool, EmptyItemContainer.INSTANCE);
-        newInventory.activeHotbarSlot = (byte)activeHotbarSlot;
-        newInventory.activeUtilitySlot = (byte)activeUtilitySlot;
-        newInventory.activeToolsSlot = (byte)activeToolsSlot;
-        newInventory.setSortType(inventory.sortType);
-        return newInventory;
+        return "Inventory{, storage=" + String.valueOf(this.storage) + ", armor=" + String.valueOf(this.armor) + ", hotbar=" + String.valueOf(this.hotbar) + ", utility=" + String.valueOf(this.utility) + "}";
     }
 
     public void setUsingToolsItem(boolean value) {
-        this._usingToolsItem = value;
+        if (this.tools == null) {
+            return;
+        }
+        this.tools.setUsingToolsItem(value);
     }
 
     public boolean usingToolsItem() {
-        return this._usingToolsItem;
+        return this.tools != null && this.tools.isUsingToolsItem();
     }
 
     public static enum ItemPickupType {

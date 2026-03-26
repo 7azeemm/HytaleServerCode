@@ -18,6 +18,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.WaitForDataFrom;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
@@ -174,7 +175,7 @@ extends SimpleInstantInteraction {
                 return;
             }
             LOGGER.at(Level.SEVERE).log("No fallback world available for %s, disconnecting", playerRefComponent.getUsername());
-            playerRefComponent.getPacketHandler().disconnect("Failed to teleport - no world available");
+            playerRefComponent.getPacketHandler().disconnect(Message.translation("server.general.disconnect.teleportNoWorld"));
         });
     }
 }

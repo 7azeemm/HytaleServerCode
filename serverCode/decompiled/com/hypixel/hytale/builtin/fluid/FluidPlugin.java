@@ -3,8 +3,11 @@
  */
 package com.hypixel.hytale.builtin.fluid;
 
+import com.hypixel.hytale.assetstore.AssetRegistry;
+import com.hypixel.hytale.assetstore.event.LoadedAssetsEvent;
 import com.hypixel.hytale.assetstore.map.BlockTypeAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
+import com.hypixel.hytale.builtin.fluid.DisabledFluidResource;
 import com.hypixel.hytale.builtin.fluid.FluidCommand;
 import com.hypixel.hytale.builtin.fluid.FluidSystems;
 import com.hypixel.hytale.codec.Codec;
@@ -12,6 +15,7 @@ import com.hypixel.hytale.codec.lookup.Priority;
 import com.hypixel.hytale.component.ComponentRegistryProxy;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Holder;
+import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.event.EventPriority;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
@@ -24,6 +28,8 @@ import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.ChunkColumn;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
@@ -32,7 +38,11 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.ChunkSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.events.ChunkPreLoadProcessEvent;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.time.Instant;
+import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,9 +52,26 @@ extends JavaPlugin {
     @Nonnull
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     private static FluidPlugin instance;
+    private ResourceType<ChunkStore, DisabledFluidResource> disabledFluidResourceType;
 
     public static FluidPlugin get() {
         return instance;
+    }
+
+    @Nonnull
+    public ResourceType<ChunkStore, DisabledFluidResource> getDisabledFluidResourceType() {
+        return this.disabledFluidResourceType;
+    }
+
+    @Nonnull
+    static IntSet resolveFluidIds(@Nonnull Set<String> tags) {
+        IndexedLookupTableAssetMap<String, Fluid> assetMap = Fluid.getAssetMap();
+        IntOpenHashSet result = new IntOpenHashSet();
+        for (String tag : tags) {
+            int tagIndex = AssetRegistry.getOrCreateTagIndex(tag);
+            result.addAll(assetMap.getIndexesForTag(tagIndex));
+        }
+        return result.isEmpty() ? IntSets.EMPTY_SET : IntSets.unmodifiable(result);
     }
 
     public FluidPlugin(@Nonnull JavaPluginInit init) {
@@ -55,6 +82,7 @@ extends JavaPlugin {
     @Override
     protected void setup() {
         ComponentRegistryProxy<ChunkStore> chunkStoreRegistry = this.getChunkStoreRegistry();
+        this.disabledFluidResourceType = chunkStoreRegistry.registerResource(DisabledFluidResource.class, DisabledFluidResource::new);
         FluidTicker.CODEC.register(Priority.DEFAULT, "Default", (Class)DefaultFluidTicker.class, (Codec)DefaultFluidTicker.CODEC);
         FluidTicker.CODEC.register("Fire", (Class<FluidTicker>)FireFluidTicker.class, (Codec<FluidTicker>)FireFluidTicker.CODEC);
         FluidTicker.CODEC.register("Finite", (Class<FluidTicker>)FiniteFluidTicker.class, (Codec<FluidTicker>)FiniteFluidTicker.CODEC);
@@ -70,7 +98,15 @@ extends JavaPlugin {
         chunkStoreRegistry.registerSystem(new FluidSystems.ReplicateChanges(chunkSectionComponentType, fluidSectionComponentType, worldChunkComponentType));
         chunkStoreRegistry.registerSystem(new FluidSystems.Ticking(chunkSectionComponentType, fluidSectionComponentType, blockChunkComponentType));
         this.getEventRegistry().registerGlobal(EventPriority.FIRST, ChunkPreLoadProcessEvent.class, FluidPlugin::onChunkPreProcess);
+        this.getEventRegistry().register(LoadedAssetsEvent.class, Fluid.class, FluidPlugin::onFluidAssetsLoaded);
         this.getCommandRegistry().registerCommand(new FluidCommand());
+    }
+
+    private static void onFluidAssetsLoaded(@Nonnull LoadedAssetsEvent<String, Fluid, IndexedLookupTableAssetMap<String, Fluid>> event) {
+        ResourceType<ChunkStore, DisabledFluidResource> resourceType = DisabledFluidResource.getResourceType();
+        for (World world : Universe.get().getWorlds().values()) {
+            world.execute(() -> ((DisabledFluidResource)world.getChunkStore().getStore().getResource(resourceType)).invalidate());
+        }
     }
 
     private static void onChunkPreProcess(@Nonnull ChunkPreLoadProcessEvent event) {

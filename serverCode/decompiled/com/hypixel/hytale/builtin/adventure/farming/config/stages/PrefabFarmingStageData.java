@@ -150,16 +150,19 @@ extends FarmingStageData {
                     int bx = worldX + px;
                     int by = worldY + py;
                     int bz = worldZ + pz;
-                    if ((secondBlockId == 0 || secondBlockId == Integer.MIN_VALUE) && blockId != 0 && blockId != Integer.MIN_VALUE) {
-                        long chunkIndex = ChunkUtil.indexChunkFromBlock(bx, bz);
-                        WorldChunk nonTickingChunk = chunkAccessor.getNonTickingChunk(chunkIndex);
-                        if (nonTickingChunk == null) {
-                            return false;
-                        }
-                        int worldBlock = nonTickingChunk.getBlock(bx, by, bz);
-                        return !this.doesBlockObstruct(blockId, worldBlock);
+                    if (blockId == 0 || blockId == Integer.MIN_VALUE) {
+                        return true;
                     }
-                    return true;
+                    long chunkIndex = ChunkUtil.indexChunkFromBlock(bx, bz);
+                    WorldChunk nonTickingWorldChunkComponent = chunkAccessor.getNonTickingChunk(chunkIndex);
+                    if (nonTickingWorldChunkComponent == null) {
+                        return false;
+                    }
+                    int worldBlockId = nonTickingWorldChunkComponent.getBlock(bx, by, bz);
+                    if (worldBlockId == secondBlockId) {
+                        return true;
+                    }
+                    return !this.doesBlockObstruct(blockId, worldBlockId);
                 }, new PrefabBufferCall(random, prefabRotation), oldPrefabBuffer);
                 if (!isUnobstructed) {
                     return;
@@ -177,6 +180,7 @@ extends FarmingStageData {
                     if (random.nextDouble() > brokenParticlesRate) {
                         updatedSetBlockSettings |= 4;
                     }
+                    int worldBlockId = nonTickingChunk.getBlock(bx, by, bz);
                     if (blockId != 0 && blockId != Integer.MIN_VALUE) {
                         BlockType block = (BlockType)blockTypeMap.getAsset(blockId);
                         if (block == null) {
@@ -186,15 +190,17 @@ extends FarmingStageData {
                         if (filler != 0) {
                             return true;
                         }
-                        int worldBlock = nonTickingChunk.getBlock(bx, by, bz);
-                        if (!(secondBlockId != 0 && secondBlockId != Integer.MIN_VALUE || this.canReplace(worldBlock, blockTypeMap))) {
+                        if (!(secondBlockId != 0 && secondBlockId != Integer.MIN_VALUE || this.canReplace(worldBlockId, blockTypeMap))) {
+                            return true;
+                        }
+                        if (secondBlockId != 0 && secondBlockId != Integer.MIN_VALUE && secondBlockId != worldBlockId && !this.canReplace(worldBlockId, blockTypeMap)) {
                             return true;
                         }
                         nonTickingChunk.setBlock(bx, by, bz, blockId, block, rotation, filler, updatedSetBlockSettings);
                         if (stateWrapper != null) {
-                            nonTickingChunk.setState(bx, by, bz, (Holder<ChunkStore>)stateWrapper.clone());
+                            nonTickingChunk.setState(bx, by, bz, block, rotation, (Holder<ChunkStore>)stateWrapper.clone());
                         }
-                    } else if (secondBlockId != 0 && secondBlockId != Integer.MIN_VALUE) {
+                    } else if (secondBlockId != 0 && secondBlockId != Integer.MIN_VALUE && worldBlockId == secondBlockId) {
                         nonTickingChunk.breakBlock(bx, by, bz, updatedSetBlockSettings);
                     }
                     return true;
@@ -207,7 +213,7 @@ extends FarmingStageData {
             boolean isUnObstructed = prefabBuffer.forEachRaw(IPrefabBuffer.iterateAllColumns(), (blockX, blockY, blockZ, blockId, chance, holder, supportValue, rotation, filler, t) -> {
                 int bx = worldX + prefabRotation.getX(blockX, blockZ);
                 int by = worldY + blockY;
-                int bz = worldZ + prefabRotation.getX(blockZ, blockX);
+                int bz = worldZ + prefabRotation.getZ(blockX, blockZ);
                 if (blockId == 0 || blockId == Integer.MIN_VALUE) {
                     return true;
                 }
@@ -246,7 +252,7 @@ extends FarmingStageData {
                     }
                     nonTickingWorldChunkComponent.setBlock(bx, by, bz, blockId, blockTypeAsset, rotation, filler, 2);
                     if (holder != null) {
-                        nonTickingWorldChunkComponent.setState(bx, by, bz, (Holder<ChunkStore>)holder.clone());
+                        nonTickingWorldChunkComponent.setState(bx, by, bz, blockTypeAsset, rotation, (Holder<ChunkStore>)holder.clone());
                     }
                 }
             }, null, null, new PrefabBufferCall(random, prefabRotation));

@@ -18,6 +18,7 @@ import com.hypixel.hytale.builtin.tagset.config.NPCGroup;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
+import com.hypixel.hytale.codec.schema.SchemaContext;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.common.benchmark.TimeDistributionRecorder;
 import com.hypixel.hytale.common.util.FormatUtil;
@@ -45,9 +46,9 @@ import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.asset.AssetPackRegisterEvent;
 import com.hypixel.hytale.server.core.asset.AssetPackUnregisterEvent;
-import com.hypixel.hytale.server.core.asset.GenerateSchemaEvent;
 import com.hypixel.hytale.server.core.asset.HytaleAssetStore;
 import com.hypixel.hytale.server.core.asset.LoadAssetEvent;
+import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffect;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
@@ -68,6 +69,7 @@ import com.hypixel.hytale.server.core.modules.migrations.MigrationModule;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.schema.SchemaGenerator;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.npc.INonPlayerCharacter;
 import com.hypixel.hytale.server.core.universe.world.path.WorldPathChangedEvent;
@@ -141,6 +143,7 @@ import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.Buil
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterAnd;
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterAttitude;
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterCombat;
+import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterEntityEffect;
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterHeightDifference;
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterInsideBlock;
 import com.hypixel.hytale.server.npc.corecomponents.entity.filters.builders.BuilderEntityFilterInventory;
@@ -434,11 +437,19 @@ extends JavaPlugin {
         });
         eventRegistry.register(AssetPackRegisterEvent.class, event -> this.builderManager.loadBuilders(event.getAssetPack(), false));
         eventRegistry.register(AssetPackUnregisterEvent.class, event -> this.builderManager.unloadBuilders(event.getAssetPack()));
-        eventRegistry.register(GenerateSchemaEvent.class, this::onSchemaGenerate);
+        SchemaGenerator.registerAssetSchema("NPCRole.json", ctx -> {
+            Schema schema = this.builderManager.generateSchema((SchemaContext)ctx);
+            schema.setId("NPCRole.json");
+            schema.setTitle("NPCRole");
+            Schema.HytaleMetadata hytale = schema.getHytale();
+            hytale.setPath("NPC/Roles");
+            hytale.setExtension(".json");
+            return schema;
+        }, List.of("NPC/Roles/*.json", "NPC/Roles/**/*.json"), null);
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(AttitudeGroup.class, new IndexedLookupTableAssetMap(AttitudeGroup[]::new)).setPath("NPC/Attitude/Roles")).setCodec((AssetCodec)AttitudeGroup.CODEC)).setKeyFunction(AttitudeGroup::getId)).setReplaceOnRemove(AttitudeGroup::new)).loadsAfter(NPCGroup.class)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(ItemAttitudeGroup.class, new IndexedLookupTableAssetMap(ItemAttitudeGroup[]::new)).setPath("NPC/Attitude/Items")).setCodec((AssetCodec)ItemAttitudeGroup.CODEC)).setKeyFunction(ItemAttitudeGroup::getId)).setReplaceOnRemove(ItemAttitudeGroup::new)).loadsAfter(Item.class)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BalanceAsset.class, new DefaultAssetMap()).setPath("NPC/Balancing")).setCodec((AssetCodec)BalanceAsset.CODEC)).setKeyFunction(BalanceAsset::getId)).loadsAfter(Condition.class)).build());
-        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(Condition.class, new IndexedLookupTableAssetMap(Condition[]::new)).setPath("NPC/DecisionMaking/Conditions")).setCodec((AssetCodec)Condition.CODEC)).setKeyFunction(Condition::getId)).setReplaceOnRemove(Condition::getAlwaysTrueFor)).loadsAfter(ResponseCurve.class, NPCGroup.class, EntityStatType.class)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(Condition.class, new IndexedLookupTableAssetMap(Condition[]::new)).setPath("NPC/DecisionMaking/Conditions")).setCodec((AssetCodec)Condition.CODEC)).setKeyFunction(Condition::getId)).setReplaceOnRemove(Condition::getAlwaysTrueFor)).loadsAfter(ResponseCurve.class, NPCGroup.class, EntityStatType.class, EntityEffect.class)).build());
         this.getEntityRegistry().registerEntity("NPC", NPCEntity.class, NPCEntity::new, NPCEntity.CODEC);
         Interaction.CODEC.register("ContextualUseNPC", ContextualUseNPCInteraction.class, ContextualUseNPCInteraction.CODEC);
         Interaction.CODEC.register("UseNPC", UseNPCInteraction.class, UseNPCInteraction.CODEC);
@@ -483,6 +494,7 @@ extends JavaPlugin {
         entityStoreRegistry.registerSystem(new CombatViewSystems.EntityRemoved(this.combatDataComponentType, this.combatDataPoolResourceType));
         entityStoreRegistry.registerSystem(new CombatViewSystems.Ticking(this.combatDataComponentType, this.combatDataPoolResourceType));
         entityStoreRegistry.registerSystem(new NPCSystems.ModelChangeSystem());
+        entityStoreRegistry.registerSystem(new NPCSystems.OnNPCAdded());
         entityStoreRegistry.registerSystem(new RoleBuilderSystem());
         entityStoreRegistry.registerSystem(new BalancingInitialisationSystem());
         entityStoreRegistry.registerSystem(new RoleSystems.RoleActivateSystem(npcComponentType));
@@ -530,18 +542,7 @@ extends JavaPlugin {
         entityStoreRegistry.registerSystem(new NPCSystems.KillFeedDecedentEventSystem());
         entityStoreRegistry.registerSystem(new NPCSystems.PrefabPlaceEntityEventSystem());
         entityStoreRegistry.registerSystem(new NPCVelocityInstructionSystem());
-        this.getEntityStoreRegistry().registerSystem(new NPCEntityRegenerateStatsSystem());
-    }
-
-    public void onSchemaGenerate(@Nonnull GenerateSchemaEvent event) {
-        Schema schema = this.builderManager.generateSchema(event.getContext());
-        event.addSchema("NPCRole.json", schema);
-        event.addSchemaLink("NPCRole", List.of("NPC/Roles/*.json", "NPC/Roles/**/*.json"), null);
-        Schema.HytaleMetadata hytale = schema.getHytale();
-        hytale.setPath("NPC/Roles");
-        hytale.setExtension(".json");
-        schema.setId("NPCRole.json");
-        schema.setTitle("NPCRole");
+        entityStoreRegistry.registerSystem(new NPCEntityRegenerateStatsSystem());
     }
 
     @Override
@@ -645,7 +646,7 @@ extends JavaPlugin {
         this.registerCoreComponentType("Aim", BuilderHeadMotionAim::new).registerCoreComponentType("Watch", BuilderHeadMotionWatch::new).registerCoreComponentType("Observe", BuilderHeadMotionObserve::new).registerCoreComponentType("Sequence", BuilderHeadMotionSequence::new).registerCoreComponentType("Timer", BuilderHeadMotionTimer::new).registerCoreComponentType("Nothing", BuilderHeadMotionNothing::new);
         this.registerCoreComponentType("Appearance", BuilderActionAppearance::new).registerCoreComponentType("Timeout", BuilderActionTimeout::new).registerCoreComponentType("Spawn", BuilderActionSpawn::new).registerCoreComponentType("Nothing", BuilderActionNothing::new).registerCoreComponentType("Attack", BuilderActionAttack::new).registerCoreComponentType("State", BuilderActionState::new).registerCoreComponentType("ReleaseTarget", BuilderActionReleaseTarget::new).registerCoreComponentType("SetMarkedTarget", BuilderActionSetMarkedTarget::new).registerCoreComponentType("Inventory", BuilderActionInventory::new).registerCoreComponentType("DisplayName", BuilderActionDisplayName::new).registerCoreComponentType("Sequence", BuilderActionSequence::new).registerCoreComponentType("Random", BuilderActionRandom::new).registerCoreComponentType("Beacon", BuilderActionBeacon::new).registerCoreComponentType("SetLeashPosition", BuilderActionSetLeashPosition::new).registerCoreComponentType("PlaySound", BuilderActionPlaySound::new).registerCoreComponentType("Despawn", BuilderActionDespawn::new).registerCoreComponentType("PlayAnimation", BuilderActionPlayAnimation::new).registerCoreComponentType("DelayDespawn", BuilderActionDelayDespawn::new).registerCoreComponentType("SpawnParticles", BuilderActionSpawnParticles::new).registerCoreComponentType("Crouch", BuilderActionCrouch::new).registerCoreComponentType("TimerStart", BuilderActionTimerStart::new).registerCoreComponentType("TimerContinue", BuilderActionTimerContinue::new).registerCoreComponentType("TimerPause", BuilderActionTimerPause::new).registerCoreComponentType("TimerModify", BuilderActionTimerModify::new).registerCoreComponentType("TimerStop", BuilderActionTimerStop::new).registerCoreComponentType("TimerRestart", BuilderActionTimerRestart::new).registerCoreComponentType("Test", BuilderActionTest::new).registerCoreComponentType("Log", BuilderActionLog::new).registerCoreComponentType("Role", BuilderActionRole::new).registerCoreComponentType("SetFlag", BuilderActionSetFlag::new).registerCoreComponentType("DropItem", BuilderActionDropItem::new).registerCoreComponentType("PickUpItem", BuilderActionPickUpItem::new).registerCoreComponentType("ResetInstructions", BuilderActionResetInstructions::new).registerCoreComponentType("ParentState", BuilderActionParentState::new).registerCoreComponentType("Notify", BuilderActionNotify::new).registerCoreComponentType("TriggerSpawners", BuilderActionTriggerSpawners::new).registerCoreComponentType("ResetBlockSensors", BuilderActionResetBlockSensors::new).registerCoreComponentType("MakePath", BuilderActionMakePath::new).registerCoreComponentType("OverrideAttitude", BuilderActionOverrideAttitude::new).registerCoreComponentType("SetInteractable", BuilderActionSetInteractable::new).registerCoreComponentType("LockOnInteractionTarget", BuilderActionLockOnInteractionTarget::new).registerCoreComponentType("StorePosition", BuilderActionStorePosition::new).registerCoreComponentType("SetBlockToPlace", BuilderActionSetBlockToPlace::new).registerCoreComponentType("PlaceBlock", BuilderActionPlaceBlock::new).registerCoreComponentType("RecomputePath", BuilderActionRecomputePath::new).registerCoreComponentType("IgnoreForAvoidance", BuilderActionIgnoreForAvoidance::new).registerCoreComponentType("ModelAttachment", BuilderActionModelAttachment::new).registerCoreComponentType("SetAlarm", BuilderActionSetAlarm::new).registerCoreComponentType("ToggleStateEvaluator", BuilderActionToggleStateEvaluator::new).registerCoreComponentType("OverrideAltitude", BuilderActionOverrideAltitude::new).registerCoreComponentType("ResetSearchRays", BuilderActionResetSearchRays::new).registerCoreComponentType("Die", BuilderActionDie::new).registerCoreComponentType("Remove", BuilderActionRemove::new).registerCoreComponentType("ApplyEntityEffect", BuilderActionApplyEntityEffect::new).registerCoreComponentType("ResetPath", BuilderActionResetPath::new).registerCoreComponentType("SetStat", BuilderActionSetStat::new);
         this.registerCoreComponentType("Any", BuilderSensorAny::new).registerCoreComponentType("And", BuilderSensorAnd::new).registerCoreComponentType("Or", BuilderSensorOr::new).registerCoreComponentType("Not", BuilderSensorNot::new).registerCoreComponentType("Player", BuilderSensorPlayer::new).registerCoreComponentType("Mob", BuilderSensorEntity::new).registerCoreComponentType("State", BuilderSensorState::new).registerCoreComponentType("InAir", BuilderSensorInAir::new).registerCoreComponentType("OnGround", BuilderSensorOnGround::new).registerCoreComponentType("Eval", BuilderSensorEval::new).registerCoreComponentType("Damage", BuilderSensorDamage::new).registerCoreComponentType("IsBackingAway", BuilderSensorIsBackingAway::new).registerCoreComponentType("Kill", BuilderSensorKill::new).registerCoreComponentType("Beacon", BuilderSensorBeacon::new).registerCoreComponentType("MotionController", BuilderSensorMotionController::new).registerCoreComponentType("Leash", BuilderSensorLeash::new).registerCoreComponentType("Time", BuilderSensorTime::new).registerCoreComponentType("Count", BuilderSensorCount::new).registerCoreComponentType("Target", BuilderSensorTarget::new).registerCoreComponentType("Timer", BuilderSensorTimer::new).registerCoreComponentType("Switch", BuilderSensorSwitch::new).registerCoreComponentType("Light", BuilderSensorLight::new).registerCoreComponentType("Age", BuilderSensorAge::new).registerCoreComponentType("Flag", BuilderSensorFlag::new).registerCoreComponentType("DroppedItem", BuilderSensorDroppedItem::new).registerCoreComponentType("Path", BuilderSensorPath::new).registerCoreComponentType("Weather", BuilderSensorWeather::new).registerCoreComponentType("Block", BuilderSensorBlock::new).registerCoreComponentType("BlockChange", BuilderSensorBlockChange::new).registerCoreComponentType("EntityEvent", BuilderSensorEntityEvent::new).registerCoreComponentType("Random", BuilderSensorRandom::new).registerCoreComponentType("CanInteract", BuilderSensorCanInteract::new).registerCoreComponentType("HasInteracted", BuilderSensorHasInteracted::new).registerCoreComponentType("ReadPosition", BuilderSensorReadPosition::new).registerCoreComponentType("Animation", BuilderSensorAnimation::new).registerCoreComponentType("CanPlaceBlock", BuilderSensorCanPlace::new).registerCoreComponentType("Nav", BuilderSensorNav::new).registerCoreComponentType("InWater", BuilderSensorInWater::new).registerCoreComponentType("IsBusy", BuilderSensorIsBusy::new).registerCoreComponentType("InteractionContext", BuilderSensorInteractionContext::new).registerCoreComponentType("Alarm", BuilderSensorAlarm::new).registerCoreComponentType("AdjustPosition", BuilderSensorAdjustPosition::new).registerCoreComponentType("SearchRay", BuilderSensorSearchRay::new).registerCoreComponentType("BlockType", BuilderSensorBlockType::new).registerCoreComponentType("Self", BuilderSensorSelf::new).registerCoreComponentType("ValueProviderWrapper", BuilderSensorValueProviderWrapper::new);
-        this.registerCoreComponentType("Attitude", BuilderEntityFilterAttitude::new).registerCoreComponentType("LineOfSight", BuilderEntityFilterLineOfSight::new).registerCoreComponentType("HeightDifference", BuilderEntityFilterHeightDifference::new).registerCoreComponentType("ViewSector", BuilderEntityFilterViewSector::new).registerCoreComponentType("Combat", BuilderEntityFilterCombat::new).registerCoreComponentType("ItemInHand", BuilderEntityFilterItemInHand::new).registerCoreComponentType("NPCGroup", BuilderEntityFilterNPCGroup::new).registerCoreComponentType("MovementState", BuilderEntityFilterMovementState::new).registerCoreComponentType("SpotsMe", BuilderEntityFilterSpotsMe::new).registerCoreComponentType("StandingOnBlock", BuilderEntityFilterStandingOnBlock::new).registerCoreComponentType("Stat", BuilderEntityFilterStat::new).registerCoreComponentType("Inventory", BuilderEntityFilterInventory::new).registerCoreComponentType("Not", BuilderEntityFilterNot::new).registerCoreComponentType("And", BuilderEntityFilterAnd::new).registerCoreComponentType("Or", BuilderEntityFilterOr::new).registerCoreComponentType("Altitude", BuilderEntityFilterAltitude::new).registerCoreComponentType("InsideBlock", BuilderEntityFilterInsideBlock::new);
+        this.registerCoreComponentType("Attitude", BuilderEntityFilterAttitude::new).registerCoreComponentType("LineOfSight", BuilderEntityFilterLineOfSight::new).registerCoreComponentType("HeightDifference", BuilderEntityFilterHeightDifference::new).registerCoreComponentType("ViewSector", BuilderEntityFilterViewSector::new).registerCoreComponentType("Combat", BuilderEntityFilterCombat::new).registerCoreComponentType("ItemInHand", BuilderEntityFilterItemInHand::new).registerCoreComponentType("NPCGroup", BuilderEntityFilterNPCGroup::new).registerCoreComponentType("MovementState", BuilderEntityFilterMovementState::new).registerCoreComponentType("SpotsMe", BuilderEntityFilterSpotsMe::new).registerCoreComponentType("StandingOnBlock", BuilderEntityFilterStandingOnBlock::new).registerCoreComponentType("Stat", BuilderEntityFilterStat::new).registerCoreComponentType("Inventory", BuilderEntityFilterInventory::new).registerCoreComponentType("Not", BuilderEntityFilterNot::new).registerCoreComponentType("And", BuilderEntityFilterAnd::new).registerCoreComponentType("Or", BuilderEntityFilterOr::new).registerCoreComponentType("Altitude", BuilderEntityFilterAltitude::new).registerCoreComponentType("InsideBlock", BuilderEntityFilterInsideBlock::new).registerCoreComponentType("EntityEffect", BuilderEntityFilterEntityEffect::new);
         this.registerCoreComponentType("Attitude", BuilderSensorEntityPrioritiserAttitude::new);
         NPCConfig config = this.config.get();
         this.autoReload = config.isAutoReload();
@@ -964,12 +965,12 @@ extends JavaPlugin {
         }));
     }
 
-    protected void generateDescriptors() {
+    public void generateDescriptors() {
         this.getLogger().at(Level.INFO).log("===== Generating descriptors for NPC!");
         this.builderDescriptors = this.builderManager.generateDescriptors();
     }
 
-    protected void saveDescriptors() {
+    public void saveDescriptors() {
         this.getLogger().at(Level.INFO).log("===== Saving descriptors for NPC!");
         Path path = Path.of("npc_descriptors.json", new String[0]);
         BuilderManager.saveDescriptors(this.builderDescriptors, path);

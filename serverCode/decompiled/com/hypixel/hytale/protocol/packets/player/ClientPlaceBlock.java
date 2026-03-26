@@ -20,15 +20,16 @@ ToServerPacket {
     public static final int PACKET_ID = 117;
     public static final boolean IS_COMPRESSED = false;
     public static final int NULLABLE_BIT_FIELD_SIZE = 1;
-    public static final int FIXED_BLOCK_SIZE = 20;
+    public static final int FIXED_BLOCK_SIZE = 21;
     public static final int VARIABLE_FIELD_COUNT = 0;
-    public static final int VARIABLE_BLOCK_START = 20;
-    public static final int MAX_SIZE = 20;
+    public static final int VARIABLE_BLOCK_START = 21;
+    public static final int MAX_SIZE = 21;
     @Nullable
     public BlockPosition position;
     @Nullable
     public BlockRotation rotation;
     public int placedBlockId;
+    public boolean quickReplace;
 
     @Override
     public int getId() {
@@ -43,16 +44,18 @@ ToServerPacket {
     public ClientPlaceBlock() {
     }
 
-    public ClientPlaceBlock(@Nullable BlockPosition position, @Nullable BlockRotation rotation, int placedBlockId) {
+    public ClientPlaceBlock(@Nullable BlockPosition position, @Nullable BlockRotation rotation, int placedBlockId, boolean quickReplace) {
         this.position = position;
         this.rotation = rotation;
         this.placedBlockId = placedBlockId;
+        this.quickReplace = quickReplace;
     }
 
     public ClientPlaceBlock(@Nonnull ClientPlaceBlock other) {
         this.position = other.position;
         this.rotation = other.rotation;
         this.placedBlockId = other.placedBlockId;
+        this.quickReplace = other.quickReplace;
     }
 
     @Nonnull
@@ -66,11 +69,12 @@ ToServerPacket {
             obj.rotation = BlockRotation.deserialize(buf, offset + 13);
         }
         obj.placedBlockId = buf.getIntLE(offset + 16);
+        obj.quickReplace = buf.getByte(offset + 20) != 0;
         return obj;
     }
 
     public static int computeBytesConsumed(@Nonnull ByteBuf buf, int offset) {
-        return 20;
+        return 21;
     }
 
     @Override
@@ -94,16 +98,17 @@ ToServerPacket {
             buf.writeZero(3);
         }
         buf.writeIntLE(this.placedBlockId);
+        buf.writeByte(this.quickReplace ? 1 : 0);
     }
 
     @Override
     public int computeSize() {
-        return 20;
+        return 21;
     }
 
     public static ValidationResult validateStructure(@Nonnull ByteBuf buffer, int offset) {
-        if (buffer.readableBytes() - offset < 20) {
-            return ValidationResult.error("Buffer too small: expected at least 20 bytes");
+        if (buffer.readableBytes() - offset < 21) {
+            return ValidationResult.error("Buffer too small: expected at least 21 bytes");
         }
         return ValidationResult.OK;
     }
@@ -113,6 +118,7 @@ ToServerPacket {
         copy.position = this.position != null ? this.position.clone() : null;
         copy.rotation = this.rotation != null ? this.rotation.clone() : null;
         copy.placedBlockId = this.placedBlockId;
+        copy.quickReplace = this.quickReplace;
         return copy;
     }
 
@@ -124,11 +130,11 @@ ToServerPacket {
             return false;
         }
         ClientPlaceBlock other = (ClientPlaceBlock)obj;
-        return Objects.equals(this.position, other.position) && Objects.equals(this.rotation, other.rotation) && this.placedBlockId == other.placedBlockId;
+        return Objects.equals(this.position, other.position) && Objects.equals(this.rotation, other.rotation) && this.placedBlockId == other.placedBlockId && this.quickReplace == other.quickReplace;
     }
 
     public int hashCode() {
-        return Objects.hash(this.position, this.rotation, this.placedBlockId);
+        return Objects.hash(this.position, this.rotation, this.placedBlockId, this.quickReplace);
     }
 }
 

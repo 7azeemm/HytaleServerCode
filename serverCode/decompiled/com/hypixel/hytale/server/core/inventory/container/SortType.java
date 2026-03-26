@@ -42,26 +42,6 @@ public enum SortType {
     }
 
     @Nonnull
-    public com.hypixel.hytale.protocol.SortType toPacket() {
-        return switch (this.ordinal()) {
-            default -> throw new MatchException(null, null);
-            case 1 -> com.hypixel.hytale.protocol.SortType.Type;
-            case 2 -> com.hypixel.hytale.protocol.SortType.Rarity;
-            case 0 -> com.hypixel.hytale.protocol.SortType.Name;
-        };
-    }
-
-    @Nonnull
-    public static SortType fromPacket(@Nonnull com.hypixel.hytale.protocol.SortType sortType_) {
-        return switch (sortType_) {
-            default -> throw new MatchException(null, null);
-            case com.hypixel.hytale.protocol.SortType.Type -> TYPE;
-            case com.hypixel.hytale.protocol.SortType.Rarity -> RARITY;
-            case com.hypixel.hytale.protocol.SortType.Name -> NAME;
-        };
-    }
-
-    @Nonnull
     private static <U extends Comparable<U>> Comparator<ItemStack> comparatorFor(@Nonnull Function<ItemStack, U> key) {
         return (a, b) -> {
             Comparable bkey;
@@ -106,7 +86,7 @@ public enum SortType {
                 if (item.getTool() != null) {
                     return TOOL;
                 }
-                if (item.getBuilderToolData() != null) {
+                if (item.getBuilderTool() != null) {
                     return SPECIAL;
                 }
                 return ITEM;

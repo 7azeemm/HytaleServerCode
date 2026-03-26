@@ -175,7 +175,7 @@ extends InteractiveCustomUIPage<FileBrowserEventData> {
         playerComponent.getPageManager().setPage(ref, store, Page.None);
         BlockSelection prefab = PrefabStore.get().getPrefab(file);
         BuilderToolsPlugin.addToQueue(playerComponent, playerRefComponent, (r, s, componentAccessor) -> s.load(displayPath, prefab, (ComponentAccessor<EntityStore>)componentAccessor));
-        PasteToolUtil.switchToPasteTool(playerComponent, playerRefComponent);
+        PasteToolUtil.switchToPasteTool(ref, playerComponent, playerRefComponent, store);
     }
 
     private void buildCurrentPath(@Nonnull UICommandBuilder commandBuilder) {

@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.hypixel.hytale.assetstore.AssetPack;
+import com.hypixel.hytale.builtin.worldgen.modifier.EventHandler;
 import com.hypixel.hytale.common.map.IWeightedMap;
 import com.hypixel.hytale.common.map.WeightedMap;
 import com.hypixel.hytale.common.semver.Semver;
@@ -64,18 +65,35 @@ extends Loader<SeedStringResource, ChunkGenerator> {
         Path overrideDataFolder = this.loadOverrideDataFolderPath(worldJson, this.config.path());
         WorldGenConfig config = this.config.withOverride(overrideDataFolder);
         try (AssetFileSystem fs = FileIO.openFileIOSystem(new AssetFileSystem(config));){
-            ChunkGeneratorJsonLoader.logAssetPacks(fs.packs());
-            Vector2i worldSize = this.loadWorldSize(worldJson);
-            Vector2i worldOffset = this.loadWorldOffset(worldJson);
-            MaskProvider maskProvider = this.loadMaskProvider(worldJson, worldSize, worldOffset);
-            PrefabStoreRoot prefabStore = this.loadPrefabStore(worldJson);
-            ((SeedStringResource)this.seed.get()).setPrefabConfig(config, prefabStore);
-            ZonePatternProviderJsonLoader loader = this.loadZonePatternGenerator(maskProvider);
-            FileLoadingContext loadingContext = new FileContextLoader(overrideDataFolder, loader.loadZoneRequirement()).load();
-            Zone[] zones = new ZonesJsonLoader(this.seed, overrideDataFolder, loadingContext).load();
-            loader.setZones(zones);
-            ChunkGenerator chunkGenerator = new ChunkGenerator(loader.load(), overrideDataFolder);
-            return chunkGenerator;
+            EventHandler eh = EventHandler.acquire(config.path());
+            try {
+                ChunkGeneratorJsonLoader.logAssetPacks(fs.packs());
+                Vector2i worldSize = this.loadWorldSize(worldJson);
+                Vector2i worldOffset = this.loadWorldOffset(worldJson);
+                MaskProvider maskProvider = this.loadMaskProvider(worldJson, worldSize, worldOffset);
+                PrefabStoreRoot prefabStore = this.loadPrefabStore(worldJson);
+                ((SeedStringResource)this.seed.get()).setPrefabConfig(config, prefabStore);
+                ZonePatternProviderJsonLoader loader = this.loadZonePatternGenerator(maskProvider);
+                FileLoadingContext loadingContext = new FileContextLoader(config.name(), overrideDataFolder, loader.loadZoneRequirement()).load();
+                Zone[] zones = new ZonesJsonLoader(this.seed, overrideDataFolder, loadingContext).load();
+                loader.setZones(zones);
+                ChunkGenerator chunkGenerator = new ChunkGenerator(loader.load(), overrideDataFolder);
+                if (eh != null) {
+                    eh.close();
+                }
+                return chunkGenerator;
+            }
+            catch (Throwable throwable) {
+                if (eh != null) {
+                    try {
+                        eh.close();
+                    }
+                    catch (Throwable throwable2) {
+                        throwable.addSuppressed(throwable2);
+                    }
+                }
+                throw throwable;
+            }
         }
     }
 

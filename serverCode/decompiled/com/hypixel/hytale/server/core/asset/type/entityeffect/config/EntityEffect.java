@@ -28,6 +28,7 @@ import com.hypixel.hytale.server.core.asset.type.item.config.ItemArmor;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.io.NetworkSerializable;
+import com.hypixel.hytale.server.core.modules.entity.condition.Condition;
 import com.hypixel.hytale.server.core.modules.entity.damage.DamageCause;
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatsModule;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.EntityStatType;
@@ -48,7 +49,7 @@ public class EntityEffect
 implements JsonAssetWithMap<String, IndexedLookupTableAssetMap<String, EntityEffect>>,
 NetworkSerializable<com.hypixel.hytale.protocol.EntityEffect> {
     @Nonnull
-    public static final AssetBuilderCodec<String, EntityEffect> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(EntityEffect.class, EntityEffect::new, Codec.STRING, (entityEffect, s) -> {
+    public static final AssetBuilderCodec<String, EntityEffect> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(EntityEffect.class, EntityEffect::new, Codec.STRING, (entityEffect, s) -> {
         entityEffect.id = s;
     }, entityEffect -> entityEffect.id, (asset, data) -> {
         asset.data = data;
@@ -142,7 +143,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.EntityEffect> {
         entityEffect.deathMessageKey = s;
     }, entityEffect -> entityEffect.deathMessageKey, (entityEffect, parent) -> {
         entityEffect.deathMessageKey = parent.deathMessageKey;
-    }).documentation("Localization key used on the death screen when this EntityEffect kills a player.").add()).afterDecode(entityEffect -> {
+    }).documentation("Localization key used on the death screen when this EntityEffect kills a player.").add()).appendInherited(new KeyedCodec<T[]>("ApplyConditions", new ArrayCodec<Condition>(Condition.CODEC, Condition[]::new)), (entityEffect, conditions) -> {
+        entityEffect.applyConditions = conditions;
+    }, entityEffect -> entityEffect.applyConditions, (entityEffect, parent) -> {
+        entityEffect.applyConditions = parent.applyConditions;
+    }).documentation("Conditions that must ALL be true for this effect to remain active. If any condition fails, the effect is removed.").add()).afterDecode(entityEffect -> {
         entityEffect.entityStats = EntityStatsModule.resolveEntityStats(entityEffect.unknownEntityStats);
         entityEffect.statModifiers = EntityStatsModule.resolveEntityStats(entityEffect.rawStatModifiers);
         if (entityEffect.damageResistanceValuesRaw != null && !entityEffect.damageResistanceValuesRaw.isEmpty()) {
@@ -201,6 +206,8 @@ NetworkSerializable<com.hypixel.hytale.protocol.EntityEffect> {
     protected String locale;
     protected boolean invulnerable = false;
     protected String deathMessageKey;
+    @Nullable
+    protected Condition[] applyConditions;
     @Nullable
     protected Map<String, StaticModifier[]> rawStatModifiers;
     @Nullable
@@ -334,6 +341,11 @@ NetworkSerializable<com.hypixel.hytale.protocol.EntityEffect> {
 
     public String getDeathMessageKey() {
         return this.deathMessageKey;
+    }
+
+    @Nullable
+    public Condition[] getApplyConditions() {
+        return this.applyConditions;
     }
 
     @Override

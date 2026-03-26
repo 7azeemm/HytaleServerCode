@@ -13,6 +13,7 @@ import it.unimi.dsi.fastutil.bytes.Byte2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.bytes.Byte2IntMap;
 import it.unimi.dsi.fastutil.bytes.Byte2ShortMap;
 import it.unimi.dsi.fastutil.ints.Int2ByteMap;
+import it.unimi.dsi.fastutil.ints.Int2ShortMap;
 import java.util.BitSet;
 import javax.annotation.Nonnull;
 
@@ -29,8 +30,8 @@ extends AbstractByteSectionPalette {
         super(externalToInternal, internalToExternal, internalIdSet, internalIdCount, blocks);
     }
 
-    public HalfByteSectionPalette(@Nonnull int[] data, int[] unique, int count) {
-        super(new byte[16384], data, unique, count);
+    public HalfByteSectionPalette(@Nonnull int[] data, @Nonnull Int2ShortMap externalIdCounts) {
+        super(new byte[16384], data, externalIdCounts);
     }
 
     @Override

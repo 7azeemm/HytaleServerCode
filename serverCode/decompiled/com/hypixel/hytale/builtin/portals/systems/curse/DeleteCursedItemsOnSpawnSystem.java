@@ -13,6 +13,8 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.RefSystem;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,12 +23,12 @@ public class DeleteCursedItemsOnSpawnSystem
 extends RefSystem<EntityStore> {
     @Override
     public void onEntityAdded(@Nonnull Ref<EntityStore> ref, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-        PortalWorld portalWorld = store.getResource(PortalWorld.getResourceType());
-        if (portalWorld.exists()) {
+        PortalWorld portalWorldResource = store.getResource(PortalWorld.getResourceType());
+        if (portalWorldResource.exists()) {
             return;
         }
-        Player player = store.getComponent(ref, Player.getComponentType());
-        CursedItems.deleteAll(player);
+        CombinedItemContainer everythingInventoryComponent = InventoryComponent.getCombined(store, ref, InventoryComponent.EVERYTHING);
+        CursedItems.deleteAll(everythingInventoryComponent);
     }
 
     @Override

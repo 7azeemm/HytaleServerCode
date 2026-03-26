@@ -27,9 +27,13 @@ extends BuilderBase<WeightedAction> {
     private final DoubleHolder weight = new DoubleHolder();
 
     @Override
-    @Nonnull
+    @Nullable
     public WeightedAction build(@Nonnull BuilderSupport builderSupport) {
-        return new WeightedAction(this, builderSupport);
+        Action action = this.getAction(builderSupport);
+        if (action == null) {
+            return null;
+        }
+        return new WeightedAction(this, builderSupport, action);
     }
 
     @Override

@@ -144,6 +144,7 @@ extends JavaPlugin {
     private static void dismountNpc(@Nonnull ComponentAccessor<EntityStore> store, @Nonnull Ref<EntityStore> playerRef, int mountEntityId) {
         Ref<EntityStore> entityReference = store.getExternalData().getRefFromNetworkId(mountEntityId);
         if (entityReference == null || !entityReference.isValid()) {
+            MountPlugin.resetOriginalPlayerMovementSettings(playerRef, store);
             return;
         }
         NPCMountComponent mountComponent = store.getComponent(entityReference, NPCMountComponent.getComponentType());

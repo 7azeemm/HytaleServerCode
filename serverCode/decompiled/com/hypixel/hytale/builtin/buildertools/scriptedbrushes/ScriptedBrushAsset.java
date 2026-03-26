@@ -16,9 +16,13 @@ import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.operations.system
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.BuilderTool;
+import com.hypixel.hytale.server.core.asset.type.item.config.Item;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -35,6 +39,9 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, ScriptedBrushAsset>>
         }
     }, asset -> asset.operations != null ? asset.operations.toArray(new BrushOperation[0]) : new BrushOperation[]{}).documentation("The list of brush operations to execute sequentially").add()).documentation("A scripted brush asset containing multiple brush operations that will be executed sequentially")).build();
     private static DefaultAssetMap<String, ScriptedBrushAsset> ASSET_MAP;
+    public static final String DEFAULT_EDITOR_TOOL_ID = "EditorTool_ScriptedBrushTemplate";
+    @Nullable
+    private static volatile Map<String, String> brushToItemCache;
     protected AssetExtraInfo.Data data;
     protected String id;
     protected List<BrushOperation> operations = new ObjectArrayList<BrushOperation>();
@@ -50,6 +57,32 @@ implements JsonAssetWithMap<String, DefaultAssetMap<String, ScriptedBrushAsset>>
     @Nullable
     public static ScriptedBrushAsset get(@Nonnull String id) {
         return ScriptedBrushAsset.getAssetMap().getAsset(id);
+    }
+
+    @Nullable
+    public static String getEditorToolItemId(@Nonnull String brushId) {
+        Map<String, String> cache = brushToItemCache;
+        if (cache == null) {
+            cache = ScriptedBrushAsset.rebuildBrushToItemCache();
+        }
+        return cache.get(brushId);
+    }
+
+    @Nonnull
+    static Map<String, String> rebuildBrushToItemCache() {
+        Map<String, Item> items = Item.getAssetMap().getAssetMap();
+        Object2ObjectOpenHashMap<String, String> map = new Object2ObjectOpenHashMap<String, String>(items.size() / 4);
+        for (Map.Entry<String, Item> entry : items.entrySet()) {
+            BuilderTool builderTool = entry.getValue().getBuilderTool();
+            if (builderTool == null || builderTool.getBrushConfigurationCommand() == null || builderTool.getBrushConfigurationCommand().isEmpty()) continue;
+            map.put(builderTool.getBrushConfigurationCommand(), entry.getKey());
+        }
+        brushToItemCache = map;
+        return map;
+    }
+
+    public static void invalidateBrushToItemCache() {
+        brushToItemCache = null;
     }
 
     @Override

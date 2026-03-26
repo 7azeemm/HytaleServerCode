@@ -54,8 +54,8 @@ public class ItemLibrary {
                 throw ProtocolException.arrayTooLong("Items", itemsCount, 4096000);
             }
             varIntLen = VarInt.length(buf, varPos0);
-            if ((long)(varPos0 + varIntLen) + (long)itemsCount * 147L > (long)buf.readableBytes()) {
-                throw ProtocolException.bufferTooSmall("Items", varPos0 + varIntLen + itemsCount * 147, buf.readableBytes());
+            if ((long)(varPos0 + varIntLen) + (long)itemsCount * 148L > (long)buf.readableBytes()) {
+                throw ProtocolException.bufferTooSmall("Items", varPos0 + varIntLen + itemsCount * 148, buf.readableBytes());
             }
             obj.items = new ItemBase[itemsCount];
             int elemPos = varPos0 + varIntLen;

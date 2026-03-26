@@ -1,0 +1,13 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
+package com.hypixel.hytale.builtin.hytalegenerator.engine;
+
+import com.hypixel.hytale.math.vector.Vector3i;
+import javax.annotation.Nonnull;
+
+@FunctionalInterface
+public interface TerrainDensityProvider {
+    public double get(@Nonnull Vector3i var1);
+}
+

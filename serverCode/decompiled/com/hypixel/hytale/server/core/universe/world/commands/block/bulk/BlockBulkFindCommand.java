@@ -25,7 +25,6 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +77,6 @@ extends AbstractWorldCommand {
             long start = System.nanoTime();
             int tested = 0;
             int[] found = new int[]{0};
-            IntOpenHashSet temp = new IntOpenHashSet();
             ChunkStore chunkComponentStore = world.getChunkStore();
             SpiralIterator iterator = new SpiralIterator(originChunkX, originChunkZ, SpiralIterator.MAX_RADIUS);
             block0: while (iterator.hasNext()) {
@@ -91,7 +89,7 @@ extends AbstractWorldCommand {
                     int chunkX = ChunkUtil.xOfChunkIndex(key);
                     int chunkY = sectionIndex;
                     int chunkZ = ChunkUtil.zOfChunkIndex(key);
-                    section.find(idAsList, temp, blockIndex -> {
+                    section.find(idAsList, blockIndex -> {
                         if (found[0] >= count) {
                             return;
                         }
@@ -102,7 +100,6 @@ extends AbstractWorldCommand {
                         sender.sendMessage(Message.translation("server.commands.block.find.blockFound").param("x", x).param("y", y).param("z", z));
                     });
                     if (found[0] >= count) break block0;
-                    temp.clear();
                 }
                 if (++tested % 100 == 0) {
                     sender.sendMessage(Message.translation("server.commands.block.find.chunksTested").param("nb", tested));

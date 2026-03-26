@@ -20,13 +20,14 @@ import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ContainerBlockWindow;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.state.ItemContainerState;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import java.util.Map;
 import java.util.UUID;
@@ -36,6 +37,8 @@ import javax.annotation.Nullable;
 public class OpenContainerInteraction
 extends SimpleBlockInteraction {
     public static final BuilderCodec<OpenContainerInteraction> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(OpenContainerInteraction.class, OpenContainerInteraction::new, SimpleBlockInteraction.CODEC).documentation("Opens the container of the block currently being interacted with.")).build();
+    public static final String OPEN_WINDOW = "OpenWindow";
+    public static final String CLOSE_WINDOW = "CloseWindow";
 
     @Override
     protected void interactWithBlock(@Nonnull World world, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull InteractionType type, @Nonnull InteractionContext context, @Nullable ItemStack itemInHand, @Nonnull Vector3i pos, @Nonnull CooldownHandler cooldownHandler) {
@@ -45,22 +48,31 @@ extends SimpleBlockInteraction {
         if (playerComponent == null) {
             return;
         }
-        BlockState container = world.getState(pos.x, pos.y, pos.z, true);
-        if (!(container instanceof ItemContainerState)) {
-            playerComponent.sendMessage(Message.translation("server.interactions.invalidBlockState").param("interaction", this.getClass().getSimpleName()).param("blockState", container != null ? container.getClass().getSimpleName() : "null"));
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> chunkRef = chunkStore.getChunkReference(ChunkUtil.indexChunkFromBlock(pos.x, pos.z));
+        if (chunkRef == null) {
             return;
         }
-        ItemContainerState itemContainerState = (ItemContainerState)container;
+        BlockComponentChunk blockComponentChunk = chunkStore.getStore().getComponent(chunkRef, BlockComponentChunk.getComponentType());
+        if (blockComponentChunk == null) {
+            return;
+        }
+        Ref<ChunkStore> blockRef = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(pos.x, pos.y, pos.z));
+        if (blockRef == null) {
+            return;
+        }
+        ItemContainerBlock itemContainerBlock = chunkStore.getStore().getComponent(blockRef, ItemContainerBlock.getComponentType());
+        if (itemContainerBlock == null) {
+            playerComponent.sendMessage(Message.translation("server.interactions.invalidBlockState").param("interaction", this.getClass().getSimpleName()).param("blockState", chunkStore.getStore().getArchetype(blockRef).toString()));
+            return;
+        }
         BlockType blockType = world.getBlockType(pos.x, pos.y, pos.z);
-        if (!itemContainerState.isAllowViewing() || !itemContainerState.canOpen(ref, commandBuffer)) {
-            return;
-        }
         UUIDComponent uuidComponent = commandBuffer.getComponent(ref, UUIDComponent.getComponentType());
         assert (uuidComponent != null);
         UUID uuid = uuidComponent.getUuid();
         Object chunk = world.getChunk(ChunkUtil.indexChunkFromBlock(pos.x, pos.z));
-        ContainerBlockWindow window = new ContainerBlockWindow(pos.x, pos.y, pos.z, ((WorldChunk)chunk).getRotationIndex(pos.x, pos.y, pos.z), blockType, itemContainerState.getItemContainer());
-        Map<UUID, ContainerBlockWindow> windows = itemContainerState.getWindows();
+        ContainerBlockWindow window = new ContainerBlockWindow(pos.x, pos.y, pos.z, ((WorldChunk)chunk).getRotationIndex(pos.x, pos.y, pos.z), blockType, itemContainerBlock.getItemContainer());
+        Map<UUID, ContainerBlockWindow> windows = itemContainerBlock.getWindows();
         if (windows.putIfAbsent(uuid, window) == null) {
             if (playerComponent.getPageManager().setPageWithWindows(ref, store, Page.Bench, true, window)) {
                 BlockType interactionState;
@@ -69,9 +81,9 @@ extends SimpleBlockInteraction {
                     windows.remove(uuid, window);
                     BlockType currentBlockType = world.getBlockType(pos);
                     if (windows.isEmpty()) {
-                        world.setBlockInteractionState(pos, currentBlockType, "CloseWindow");
+                        world.setBlockInteractionState(pos, currentBlockType, CLOSE_WINDOW);
                     }
-                    if ((interactionState = currentBlockType.getBlockForState("CloseWindow")) == null) {
+                    if ((interactionState = currentBlockType.getBlockForState(CLOSE_WINDOW)) == null) {
                         return;
                     }
                     int soundEventIndex = interactionState.getInteractionSoundEventIndex();
@@ -85,9 +97,9 @@ extends SimpleBlockInteraction {
                     SoundUtil.playSoundEvent3d(ref, soundEventIndex, soundPos, (ComponentAccessor<EntityStore>)commandBuffer);
                 });
                 if (windows.size() == 1) {
-                    world.setBlockInteractionState(pos, blockType, "OpenWindow");
+                    world.setBlockInteractionState(pos, blockType, OPEN_WINDOW);
                 }
-                if ((interactionState = blockType.getBlockForState("OpenWindow")) == null) {
+                if ((interactionState = blockType.getBlockForState(OPEN_WINDOW)) == null) {
                     return;
                 }
                 int soundEventIndex = interactionState.getInteractionSoundEventIndex();
@@ -103,7 +115,6 @@ extends SimpleBlockInteraction {
                 windows.remove(uuid, window);
             }
         }
-        itemContainerState.onOpen(ref, world, store);
     }
 
     @Override

@@ -27,7 +27,7 @@ import com.hypixel.hytale.server.npc.role.RoleDebugFlags;
 import com.hypixel.hytale.server.npc.role.support.PositionCache;
 import com.hypixel.hytale.server.npc.role.support.WorldSupport;
 import com.hypixel.hytale.server.npc.sensorinfo.InfoProvider;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
@@ -47,12 +47,12 @@ extends ActionBase {
     public ActionBeacon(@Nonnull BuilderActionBeacon builderActionBeacon, @Nonnull BuilderSupport support) {
         super(builderActionBeacon);
         this.message = builderActionBeacon.getMessage(support);
-        this.range = builderActionBeacon.getRange();
+        this.range = builderActionBeacon.getRange(support);
         this.targetGroups = builderActionBeacon.getTargetGroups(support);
         this.targetToSendSlot = builderActionBeacon.getTargetToSendSlot(support);
         this.expirationTime = builderActionBeacon.getExpirationTime();
         this.sendCount = builderActionBeacon.getSendCount();
-        this.sendList = this.sendCount > 0 ? new ObjectArrayList(this.sendCount) : null;
+        this.sendList = this.sendCount > 0 ? new ReferenceArrayList(this.sendCount) : null;
     }
 
     @Override
@@ -120,7 +120,7 @@ extends ActionBase {
             matrix.rotateAxis(angleY + 1.5707963705062866, 0.0, 1.0, 0.0, tmp);
             double angleX = Math.atan2(Math.sqrt(x * x + z * z), -(y -= targetPos.getY() + (double)targetEyeHeight));
             matrix.rotateAxis(angleX, 1.0, 0.0, 0.0, tmp);
-            DebugUtils.addArrow(componentAccessor.getExternalData().getWorld(), matrix, color, pos.distanceTo(targetPos), 5.0f, true);
+            DebugUtils.addArrow(componentAccessor.getExternalData().getWorld(), matrix, color, pos.distanceTo(targetPos), 5.0f, DebugUtils.FLAG_FADE);
         }
         if ((beaconSupportComponent = componentAccessor.getComponent(targetRef, BeaconSupport.getComponentType())) != null) {
             beaconSupportComponent.postMessage(this.message, target, this.expirationTime);

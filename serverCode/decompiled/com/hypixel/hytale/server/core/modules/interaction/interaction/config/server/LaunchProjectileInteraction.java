@@ -21,6 +21,7 @@ import com.hypixel.hytale.server.core.asset.type.projectile.config.Projectile;
 import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
+import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.ProjectileComponent;
@@ -99,7 +100,7 @@ implements BallisticDataProvider {
             Inventory inventory;
             ItemContainer section;
             Item item = itemInHand.getItem();
-            if (attackerLivingEntity.canDecreaseItemStackDurability(sourceRef, commandBuffer) && !itemInHand.isUnbreakable() && item.getWeapon() != null && (section = (inventory = attackerLivingEntity.getInventory()).getSectionById(context.getHeldItemSectionId())) != null) {
+            if (ItemUtils.canDecreaseItemStackDurability(sourceRef, commandBuffer) && !itemInHand.isUnbreakable() && item.getWeapon() != null && (section = (inventory = attackerLivingEntity.getInventory()).getSectionById(context.getHeldItemSectionId())) != null) {
                 attackerLivingEntity.updateItemStackDurability(sourceRef, itemInHand, section, context.getHeldItemSlot(), -item.getDurabilityLossOnHit(), commandBuffer);
             }
             if (itemInHand.isBroken()) {

@@ -214,7 +214,7 @@ extends SimpleBlockInteraction {
         farmingBlock.setGeneration(farmingBlock.getGeneration() + 1);
         farmingBlock.setLastTickGameTime(now);
         ((HytaleLogger.Api)LOGGER.atInfo()).log("[ChangeFarmingStage] Updated FarmingBlock: stageSet=%s, growthProgress=%d, generation=%d", stageSetName, stageIndex, farmingBlock.getGeneration());
-        Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReference(ChunkUtil.chunkCoordinate(x), ChunkUtil.chunkCoordinate(y), ChunkUtil.chunkCoordinate(z));
+        Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReferenceAtBlock(x, y, z);
         if (sectionRef != null && sectionRef.isValid()) {
             BlockSection blockSectionComponent = chunkStore.getComponent(sectionRef, BlockSection.getComponentType());
             if (blockSectionComponent != null) {

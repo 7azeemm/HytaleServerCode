@@ -40,12 +40,19 @@ public enum RoleDebugFlags implements Supplier<String>
     DisplayName("Display the role name for this entity"),
     ValidateMath("Validate (some) math computations in movement"),
     VisAvoidance("Visualize avoidance vectors"),
+    VisSeparationSummed("Visualize summed separation distance vector"),
     VisSeparation("Visualize separation vector"),
+    VisSeparationTargets("Visualize separation targets"),
+    VisOrientation("Visualize orientation hint provided by avoidance and separation"),
     VisAiming("Visualize aiming"),
     VisMarkedTargets("Visualize arrows to marked targets"),
     VisSensorRanges("Visualize entity sensor detection ranges"),
     VisLeashPosition("Visualize NPC leash position"),
+    VisSteeringPre("Visualize motion steering pre separation/avoidance"),
+    VisSteeringPost("Visualize motion steering post separation/avoidance"),
+    VisTranslation("Visualize current translation vector"),
     VisFlock("Visualize flock member connections"),
+    VisPath("Visualize pathfinding waypoints"),
     BeaconMessages("Enable debugging of beacon message sending and receiving");
 
     private static final RoleDebugPreset[] presets;
@@ -157,7 +164,7 @@ public enum RoleDebugFlags implements Supplier<String>
     }
 
     static {
-        presets = new RoleDebugPreset[]{new RoleDebugPreset("none", EnumSet.noneOf(RoleDebugFlags.class)), new RoleDebugPreset("all", EnumSet.allOf(RoleDebugFlags.class)), new RoleDebugPreset("move", EnumSet.of(MotionControllerMove, Collisions)), new RoleDebugPreset("steer", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions)), new RoleDebugPreset("valid", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions, ValidatePositions)), new RoleDebugPreset("block", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions, BlockCollisions)), new RoleDebugPreset("visDist", EnumSet.of(VisAvoidance, VisSeparation)), new RoleDebugPreset("visSensorInfo", EnumSet.of(VisMarkedTargets, VisSensorRanges)), new RoleDebugPreset("display", EnumSet.of(DisplayState, new RoleDebugFlags[]{DisplayFlock, DisplayTime, DisplayTarget, DisplayAnim, DisplayLightLevel, DisplayCustom, DisplayHP, DisplayStamina, DisplaySpeed, DisplayFreeSlots, DisplayInternalId, DisplayName})), new RoleDebugPreset("default", EnumSet.complementOf(EnumSet.of(ValidatePositions)))};
+        presets = new RoleDebugPreset[]{new RoleDebugPreset("none", EnumSet.noneOf(RoleDebugFlags.class)), new RoleDebugPreset("all", EnumSet.allOf(RoleDebugFlags.class)), new RoleDebugPreset("move", EnumSet.of(MotionControllerMove, Collisions)), new RoleDebugPreset("steer", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions)), new RoleDebugPreset("valid", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions, ValidatePositions)), new RoleDebugPreset("block", EnumSet.of(MotionControllerMove, MotionControllerSteer, Collisions, BlockCollisions)), new RoleDebugPreset("visDist", EnumSet.of(VisAvoidance, new RoleDebugFlags[]{VisSeparation, VisSteeringPre, VisSteeringPost, VisSeparationTargets, VisSeparationSummed})), new RoleDebugPreset("visMove", EnumSet.of(VisSteeringPost, VisTranslation)), new RoleDebugPreset("visSensorInfo", EnumSet.of(VisMarkedTargets, VisSensorRanges)), new RoleDebugPreset("display", EnumSet.of(DisplayState, new RoleDebugFlags[]{DisplayFlock, DisplayTime, DisplayTarget, DisplayAnim, DisplayLightLevel, DisplayCustom, DisplayHP, DisplayStamina, DisplaySpeed, DisplayFreeSlots, DisplayInternalId, DisplayName})), new RoleDebugPreset("default", EnumSet.complementOf(EnumSet.of(ValidatePositions)))};
     }
 
     private static class RoleDebugPreset {

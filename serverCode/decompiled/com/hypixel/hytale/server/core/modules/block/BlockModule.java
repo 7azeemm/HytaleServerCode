@@ -3,7 +3,6 @@
  */
 package com.hypixel.hytale.server.core.modules.block;
 
-import com.hypixel.hytale.assetstore.map.BlockTypeAssetMap;
 import com.hypixel.hytale.common.plugin.PluginManifest;
 import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.CommandBuffer;
@@ -20,14 +19,18 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.SystemType;
 import com.hypixel.hytale.component.data.unknown.UnknownComponents;
 import com.hypixel.hytale.component.query.Query;
+import com.hypixel.hytale.component.spatial.KDTree;
+import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.RefSystem;
 import com.hypixel.hytale.event.EventPriority;
+import com.hypixel.hytale.function.consumer.BiIntConsumer;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.StateData;
 import com.hypixel.hytale.server.core.modules.LegacyModule;
+import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
+import com.hypixel.hytale.server.core.modules.block.system.ItemContainerBlockSpatialSystem;
+import com.hypixel.hytale.server.core.modules.block.system.ItemContainerSystems;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -37,13 +40,16 @@ import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.events.AddWorldEvent;
 import com.hypixel.hytale.server.core.universe.world.events.ChunkPreLoadProcessEvent;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
 import com.hypixel.hytale.server.core.universe.world.meta.state.BlockMapMarker;
 import com.hypixel.hytale.server.core.universe.world.meta.state.BlockMapMarkersResource;
 import com.hypixel.hytale.server.core.universe.world.meta.state.LaunchPad;
 import com.hypixel.hytale.server.core.universe.world.meta.state.RespawnBlock;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntConsumer;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,8 +63,10 @@ extends JavaPlugin {
     private ComponentType<ChunkStore, RespawnBlock> respawnBlockComponentType;
     private ComponentType<ChunkStore, BlockMapMarker> blockMapMarkerComponentType;
     private ResourceType<ChunkStore, BlockMapMarkersResource> blockMapMarkersResourceType;
+    private ComponentType<ChunkStore, ItemContainerBlock> itemContainerBlockComponentType;
     private ComponentType<ChunkStore, BlockStateInfo> blockStateInfoComponentType;
     private ResourceType<ChunkStore, BlockStateInfoNeedRebuild> blockStateInfoNeedRebuildResourceType;
+    private ResourceType<ChunkStore, SpatialResource<Ref<ChunkStore>, ChunkStore>> itemContainerSpatialResourceType;
 
     public static BlockModule get() {
         return instance;
@@ -81,11 +89,19 @@ extends JavaPlugin {
         chunkStoreRegistry.registerSystem(new MigrateLaunchPad());
         this.respawnBlockComponentType = chunkStoreRegistry.registerComponent(RespawnBlock.class, "RespawnBlock", RespawnBlock.CODEC);
         chunkStoreRegistry.registerSystem(new RespawnBlock.OnRemove());
+        this.itemContainerBlockComponentType = chunkStoreRegistry.registerComponent(ItemContainerBlock.class, "ItemContainerBlock", ItemContainerBlock.CODEC);
+        chunkStoreRegistry.registerSystem(new MigrateItemContainer());
+        chunkStoreRegistry.registerSystem(new ItemContainerSystems.OnAddedOrRemoved());
+        chunkStoreRegistry.registerSystem(new ItemContainerSystems.OnReplaced());
+        chunkStoreRegistry.registerSystem(new ItemContainerSystems.OnReplacedHolder());
         this.blockMapMarkerComponentType = chunkStoreRegistry.registerComponent(BlockMapMarker.class, "BlockMapMarker", BlockMapMarker.CODEC);
         this.blockMapMarkersResourceType = chunkStoreRegistry.registerResource(BlockMapMarkersResource.class, "BlockMapMarkers", BlockMapMarkersResource.CODEC);
         chunkStoreRegistry.registerSystem(new BlockMapMarker.OnAddRemove());
         this.getEventRegistry().registerGlobal(AddWorldEvent.class, event -> event.getWorld().getWorldMapManager().getMarkerProviders().put("blockMapMarkers", BlockMapMarker.MarkerProvider.INSTANCE));
         this.blockStateInfoNeedRebuildResourceType = chunkStoreRegistry.registerResource(BlockStateInfoNeedRebuild.class, BlockStateInfoNeedRebuild::new);
+        this.itemContainerSpatialResourceType = this.getChunkStoreRegistry().registerSpatialResource(() -> new KDTree<Ref>(Ref::isValid));
+        this.getChunkStoreRegistry().registerSystem(new ItemContainerBlockSpatialSystem(this.itemContainerSpatialResourceType));
+        this.getChunkStoreRegistry().registerSystem(new ItemContainerStateRefSystem());
         this.getEventRegistry().registerGlobal(EventPriority.EARLY, ChunkPreLoadProcessEvent.class, BlockModule::onChunkPreLoadProcessEnsureBlockEntity);
     }
 
@@ -106,10 +122,6 @@ extends JavaPlugin {
             blockRef = chunk.getWorld().getChunkStore().getStore().addEntity((Holder<ChunkStore>)data, AddReason.SPAWN);
             return blockRef;
         }
-        BlockState state = BlockState.ensureState(chunk, x, y, z);
-        if (state != null) {
-            return state.getReference();
-        }
         return null;
     }
 
@@ -117,9 +129,7 @@ extends JavaPlugin {
         if (!event.isNewlyGenerated()) {
             return;
         }
-        BlockTypeAssetMap<String, BlockType> blockTypeAssetMap = BlockType.getAssetMap();
         Holder<ChunkStore> holder = event.getHolder();
-        WorldChunk chunk = event.getChunk();
         ChunkColumn chunkColumnComponent = holder.getComponent(ChunkColumn.getComponentType());
         if (chunkColumnComponent == null) {
             return;
@@ -132,30 +142,27 @@ extends JavaPlugin {
         if (blockComponentModule == null) {
             return;
         }
+        BlockEntityPreprocessor preprocessor = BlockEntityPreprocessor.LOCAL.get();
         for (int sectionIndex = 0; sectionIndex < 10; ++sectionIndex) {
             BlockSection section = sectionHolders[sectionIndex].ensureAndGetComponent(BlockSection.getComponentType());
             if (section.isSolidAir()) continue;
-            int sectionYBlock = sectionIndex << 5;
-            for (int sectionY = 0; sectionY < 32; ++sectionY) {
-                int y = sectionYBlock | sectionY;
-                for (int z = 0; z < 32; ++z) {
-                    for (int x = 0; x < 32; ++x) {
-                        StateData state;
-                        int blockId = section.get(x, y, z);
-                        BlockType blockType = blockTypeAssetMap.getAsset(blockId);
-                        if (blockType == null || blockType.isUnknown() || section.getFiller(x, y, z) != 0) continue;
-                        int index = ChunkUtil.indexBlockInColumn(x, y, z);
-                        if (blockType.getBlockEntity() != null) {
-                            if (blockComponentModule.getEntityHolder(index) != null) continue;
-                            blockComponentModule.addEntityHolder(index, (Holder<ChunkStore>)blockType.getBlockEntity().clone());
-                        }
-                        if ((state = blockType.getState()) == null || state.getId() == null || blockComponentModule.getEntityHolder(index) != null) continue;
-                        Vector3i position = new Vector3i(x, y, z);
-                        BlockState blockState = BlockStateModule.get().createBlockState(state.getId(), chunk, position, blockType);
-                        if (blockState == null) continue;
-                        blockComponentModule.addEntityHolder(index, blockState.toHolder());
-                    }
-                }
+            preprocessor.clear();
+            section.forEachValue(preprocessor.typeCollector);
+            if (preprocessor.ids.isEmpty()) continue;
+            section.find(preprocessor.ids, preprocessor.blockCollector);
+            assert (preprocessor.indices.size() == preprocessor.blockIds.size());
+            int sectionMinBlockY = ChunkUtil.minBlock(sectionIndex);
+            for (int i = 0; i < preprocessor.indices.size(); ++i) {
+                int index = preprocessor.indices.getInt(i);
+                int blockId = preprocessor.blockIds.getInt(i);
+                Holder entity = (Holder)preprocessor.blockEntities.get(blockId);
+                if (entity == null) continue;
+                int x = ChunkUtil.xFromIndex(index);
+                int z = ChunkUtil.zFromIndex(index);
+                int y = ChunkUtil.yFromIndex(index) | sectionMinBlockY;
+                int chunkIndex = ChunkUtil.indexBlockInColumn(x, y, z);
+                if (section.getFiller(index) != 0 || blockComponentModule.getEntityHolder(chunkIndex) != null) continue;
+                blockComponentModule.addEntityHolder(chunkIndex, (Holder<ChunkStore>)entity.clone());
             }
         }
     }
@@ -186,6 +193,14 @@ extends JavaPlugin {
 
     public ResourceType<ChunkStore, BlockStateInfoNeedRebuild> getBlockStateInfoNeedRebuildResourceType() {
         return this.blockStateInfoNeedRebuildResourceType;
+    }
+
+    public ComponentType<ChunkStore, ItemContainerBlock> getItemContainerBlockComponentType() {
+        return this.itemContainerBlockComponentType;
+    }
+
+    public ResourceType<ChunkStore, SpatialResource<Ref<ChunkStore>, ChunkStore>> getItemContainerSpatialResourceType() {
+        return this.itemContainerSpatialResourceType;
     }
 
     @Nullable
@@ -369,6 +384,29 @@ extends JavaPlugin {
         }
     }
 
+    public static class MigrateItemContainer
+    extends MigrationSystem {
+        @Override
+        public void onEntityAdd(@Nonnull Holder<ChunkStore> holder, @Nonnull AddReason reason, @Nonnull Store<ChunkStore> store) {
+            UnknownComponents<ChunkStore> unknownComponents = holder.getComponent(ChunkStore.REGISTRY.getUnknownComponentType());
+            assert (unknownComponents != null);
+            ItemContainerBlock itemContainerBlock = unknownComponents.removeComponent("container", ItemContainerBlock.CODEC);
+            if (itemContainerBlock != null) {
+                holder.putComponent(ItemContainerBlock.getComponentType(), itemContainerBlock);
+            }
+        }
+
+        @Override
+        public void onEntityRemoved(@Nonnull Holder<ChunkStore> holder, @Nonnull RemoveReason reason, @Nonnull Store<ChunkStore> store) {
+        }
+
+        @Override
+        @Nullable
+        public Query<ChunkStore> getQuery() {
+            return ChunkStore.REGISTRY.getUnknownComponentType();
+        }
+    }
+
     public static class BlockStateInfoNeedRebuild
     implements Resource<ChunkStore> {
         private boolean needRebuild;
@@ -400,6 +438,62 @@ extends JavaPlugin {
         @Override
         public Resource<ChunkStore> clone() {
             return new BlockStateInfoNeedRebuild(this.needRebuild);
+        }
+    }
+
+    public static class ItemContainerStateRefSystem
+    extends RefSystem<ChunkStore> {
+        private static final Query<ChunkStore> query = ItemContainerBlock.getComponentType();
+
+        @Override
+        public Query<ChunkStore> getQuery() {
+            return query;
+        }
+
+        @Override
+        public void onEntityAdded(@Nonnull Ref<ChunkStore> ref, @Nonnull AddReason reason, @Nonnull Store<ChunkStore> store, @Nonnull CommandBuffer<ChunkStore> commandBuffer) {
+            commandBuffer.getExternalData().getWorld().getChunkStore().getStore().getResource(BlockStateInfoNeedRebuild.getResourceType()).markAsNeedRebuild();
+        }
+
+        @Override
+        public void onEntityRemove(@Nonnull Ref<ChunkStore> ref, @Nonnull RemoveReason reason, @Nonnull Store<ChunkStore> store, @Nonnull CommandBuffer<ChunkStore> commandBuffer) {
+            commandBuffer.getExternalData().getWorld().getChunkStore().getStore().getResource(BlockStateInfoNeedRebuild.getResourceType()).markAsNeedRebuild();
+        }
+
+        @Nonnull
+        public String toString() {
+            return "ItemContainerStateRefSystem{}";
+        }
+    }
+
+    public static final class BlockEntityPreprocessor {
+        public static final ThreadLocal<BlockEntityPreprocessor> LOCAL = ThreadLocal.withInitial(BlockEntityPreprocessor::new);
+        public final IntList ids = new IntArrayList();
+        public final Int2ObjectMap<Holder<ChunkStore>> blockEntities = new Int2ObjectOpenHashMap<Holder<ChunkStore>>();
+        public final IntList indices = new IntArrayList();
+        public final IntList blockIds = new IntArrayList();
+        public final IntConsumer typeCollector = this::collectType;
+        public final BiIntConsumer blockCollector = this::collectBlock;
+
+        public void clear() {
+            this.ids.clear();
+            this.blockEntities.clear();
+            this.indices.clear();
+            this.blockIds.clear();
+        }
+
+        private void collectType(int value) {
+            BlockType type = BlockType.getAssetMap().getAsset(value);
+            if (type == null || type.isUnknown() || type.getBlockEntity() == null) {
+                return;
+            }
+            this.ids.add(value);
+            this.blockEntities.put(value, type.getBlockEntity());
+        }
+
+        private void collectBlock(int index, int blockId) {
+            this.indices.add(index);
+            this.blockIds.add(blockId);
         }
     }
 }

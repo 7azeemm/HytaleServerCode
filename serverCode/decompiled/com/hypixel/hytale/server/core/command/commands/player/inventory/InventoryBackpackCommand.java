@@ -11,8 +11,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalAr
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
 import com.hypixel.hytale.server.core.entity.ItemUtils;
-import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -31,19 +30,20 @@ extends AbstractPlayerCommand {
 
     @Override
     protected void execute(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
-        Player playerComponent = store.getComponent(ref, Player.getComponentType());
-        assert (playerComponent != null);
-        Inventory inventory = playerComponent.getInventory();
+        InventoryComponent.Backpack backpackInventoryComponent = store.getComponent(ref, InventoryComponent.Backpack.getComponentType());
+        if (backpackInventoryComponent == null) {
+            return;
+        }
         if (!this.sizeArg.provided(context)) {
-            context.sendMessage(Message.translation("server.commands.inventory.backpack.size").param("capacity", inventory.getBackpack().getCapacity()));
+            context.sendMessage(Message.translation("server.commands.inventory.backpack.size").param("capacity", backpackInventoryComponent.getInventory().getCapacity()));
         } else {
             short capacity = ((Integer)this.sizeArg.get(context)).shortValue();
             ObjectArrayList<ItemStack> remainder = new ObjectArrayList<ItemStack>();
-            inventory.resizeBackpack(capacity, remainder);
+            backpackInventoryComponent.resize(capacity, remainder);
             for (ItemStack item : remainder) {
                 ItemUtils.dropItem(ref, item, store);
             }
-            context.sendMessage(Message.translation("server.commands.inventory.backpack.resized").param("capacity", inventory.getBackpack().getCapacity()).param("dropped", remainder.size()));
+            context.sendMessage(Message.translation("server.commands.inventory.backpack.resized").param("capacity", backpackInventoryComponent.getInventory().getCapacity()).param("dropped", remainder.size()));
         }
     }
 }

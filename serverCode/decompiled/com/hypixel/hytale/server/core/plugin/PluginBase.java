@@ -31,8 +31,8 @@ import com.hypixel.hytale.server.core.plugin.registry.CodecMapRegistry;
 import com.hypixel.hytale.server.core.plugin.registry.IRegistry;
 import com.hypixel.hytale.server.core.plugin.registry.MapKeyMapRegistry;
 import com.hypixel.hytale.server.core.registry.ClientFeatureRegistry;
+import com.hypixel.hytale.server.core.schema.SchemaGenerator;
 import com.hypixel.hytale.server.core.task.TaskRegistry;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateRegistry;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.Config;
@@ -72,7 +72,6 @@ implements CommandOwner {
     private final ClientFeatureRegistry clientFeatureRegistry = new ClientFeatureRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString, this);
     private final CommandRegistry commandRegistry = new CommandRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString, this);
     private final EventRegistry eventRegistry = new EventRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString, HytaleServer.get().getEventBus());
-    private final BlockStateRegistry blockStateRegistry = new BlockStateRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString);
     private final EntityRegistry entityRegistry = new EntityRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString);
     private final TaskRegistry taskRegistry = new TaskRegistry(this.shutdownTasks, () -> this.state != PluginState.NONE && this.state != PluginState.DISABLED, this.notEnabledString);
     private final ComponentRegistryProxy<EntityStore> entityStoreRegistry = new ComponentRegistryProxy<EntityStore>(this.shutdownTasks, EntityStore.REGISTRY);
@@ -109,6 +108,9 @@ implements CommandOwner {
         }
         Config<T> config = new Config<T>(this.dataDirectory, name, configCodec);
         this.configs.add(config);
+        PluginIdentifier id = this.getIdentifier();
+        String schemaName = "Plugin." + id.getGroup() + "." + id.getName() + "." + name;
+        SchemaGenerator.registerConfig(schemaName, configCodec, "Config/Plugin/" + id.getGroup() + "/" + id.getName(), null);
         return config;
     }
 
@@ -168,11 +170,6 @@ implements CommandOwner {
     @Nonnull
     public EventRegistry getEventRegistry() {
         return this.eventRegistry;
-    }
-
-    @Nonnull
-    public BlockStateRegistry getBlockStateRegistry() {
-        return this.blockStateRegistry;
     }
 
     @Nonnull
@@ -292,7 +289,6 @@ implements CommandOwner {
         this.commandRegistry.shutdown();
         this.eventRegistry.shutdown();
         this.clientFeatureRegistry.shutdown();
-        this.blockStateRegistry.shutdown();
         this.taskRegistry.shutdown();
         this.entityStoreRegistry.shutdown();
         this.chunkStoreRegistry.shutdown();

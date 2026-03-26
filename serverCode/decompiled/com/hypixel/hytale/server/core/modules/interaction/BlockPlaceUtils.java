@@ -3,7 +3,9 @@
  */
 package com.hypixel.hytale.server.core.modules.interaction;
 
+import com.hypixel.hytale.codec.EmptyExtraInfo;
 import com.hypixel.hytale.component.ComponentAccessor;
+import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.logger.HytaleLogger;
@@ -44,8 +46,6 @@ import com.hypixel.hytale.server.core.universe.world.chunk.ChunkColumn;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.connectedblocks.ConnectedBlocksUtil;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.state.PlacedByBlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
@@ -77,7 +77,7 @@ public class BlockPlaceUtils {
     @Nonnull
     private static final Message MESSAGE_MODULES_INTERACTION_BUILD_FORBIDDEN = Message.translation("server.modules.interaction.buildForbidden");
 
-    public static void placeBlock(@Nonnull Ref<EntityStore> ref, @Nonnull ItemStack itemStack, @Nullable String blockTypeKey, @Nonnull ItemContainer itemContainer, @Nonnull Vector3i placementNormal, @Nonnull Vector3i blockPosition, @Nonnull BlockRotation blockRotation, @Nullable Inventory inventory, byte activeSlot, boolean removeItemInHand, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ComponentAccessor<EntityStore> entityStore) {
+    public static void placeBlock(@Nonnull Ref<EntityStore> ref, @Nonnull ItemStack itemStack, @Nullable String blockTypeKey, @Nonnull ItemContainer itemContainer, @Nonnull Vector3i placementNormal, @Nonnull Vector3i blockPosition, @Nonnull BlockRotation blockRotation, @Nullable Inventory inventory, byte activeSlot, boolean removeItemInHand, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ComponentAccessor<EntityStore> entityStore, boolean quickReplace) {
         String prefabListAssetId;
         boolean isAdventureMode;
         boolean positionIsDifferent;
@@ -142,9 +142,9 @@ public class BlockPlaceUtils {
         if (worldChunkComponent == null) {
             return;
         }
-        boolean success = BlockPlaceUtils.tryPlaceBlock(ref, placementNormal, targetBlockPosition, blockTypeKey, targetRotation, worldChunkComponent, targetBlockChunkComponent, chunkReference, chunkStore, entityStore);
+        boolean success = BlockPlaceUtils.tryPlaceBlock(ref, placementNormal, targetBlockPosition, blockTypeKey, targetRotation, worldChunkComponent, targetBlockChunkComponent, chunkReference, chunkStore, entityStore, quickReplace);
         if (success) {
-            BlockPlaceUtils.onPlaceBlockSuccess(itemStack, worldChunkComponent, targetBlockPosition);
+            BlockPlaceUtils.onPlaceBlockSuccess(itemStack, worldChunkComponent, targetBlockPosition, blockTypeAsset, targetRotation);
         } else {
             BlockPlaceUtils.onPlaceBlockFailure(itemStack, inventory, activeSlot, playerComponent, targetBlockSection, targetBlockPosition);
         }
@@ -165,7 +165,7 @@ public class BlockPlaceUtils {
         blockSection.invalidateBlock(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
     }
 
-    private static void onPlaceBlockSuccess(@Nullable ItemStack itemStack, @Nonnull WorldChunk worldChunkComponent, @Nonnull Vector3i blockPosition) {
+    private static void onPlaceBlockSuccess(@Nullable ItemStack itemStack, @Nonnull WorldChunk worldChunkComponent, @Nonnull Vector3i blockPosition, BlockType blockTypeAsset, RotationTuple targetRotation) {
         if (itemStack == null) {
             return;
         }
@@ -173,17 +173,17 @@ public class BlockPlaceUtils {
         if (metadata == null) {
             return;
         }
-        BsonValue bsonValue = metadata.get("BlockState");
+        BsonValue bsonValue = metadata.get("BlockHolder");
         if (bsonValue == null) {
             return;
         }
         try {
             BsonDocument document = bsonValue.asDocument();
-            BlockState blockState = BlockState.load(document, worldChunkComponent, blockPosition.clone());
-            if (blockState != null) {
-                worldChunkComponent.setState(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ(), blockState);
+            Holder<ChunkStore> blockEntity = ChunkStore.REGISTRY.getEntityCodec().decode(document, EmptyExtraInfo.EMPTY);
+            if (blockEntity != null) {
+                worldChunkComponent.setState(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ(), blockTypeAsset, targetRotation.index(), blockEntity);
             } else {
-                LOGGER.at(Level.WARNING).log("Failed to set BlockState from item metadata: %s, %s", (Object)itemStack.getItemId(), (Object)document);
+                LOGGER.at(Level.WARNING).log("Failed to set Block Entity from item metadata: %s, %s", (Object)itemStack.getItemId(), (Object)document);
             }
         }
         catch (Exception e) {
@@ -245,9 +245,8 @@ public class BlockPlaceUtils {
         return true;
     }
 
-    private static boolean tryPlaceBlock(@Nonnull Ref<EntityStore> ref, @Nonnull Vector3i placementNormal, @Nonnull Vector3i blockPosition, @Nonnull String blockTypeKey, @Nonnull RotationTuple rotation, @Nonnull WorldChunk worldChunkComponent, @Nonnull BlockChunk blockChunkComponent, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ComponentAccessor<EntityStore> entityStore) {
+    private static boolean tryPlaceBlock(@Nonnull Ref<EntityStore> ref, @Nonnull Vector3i placementNormal, @Nonnull Vector3i blockPosition, @Nonnull String blockTypeKey, @Nonnull RotationTuple rotation, @Nonnull WorldChunk worldChunkComponent, @Nonnull BlockChunk blockChunkComponent, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ComponentAccessor<EntityStore> entityStore, boolean quickReplace) {
         Ref<ChunkStore> blockRef;
-        BlockState blockState;
         boolean isAdventure;
         WorldConfig worldConfig = entityStore.getExternalData().getWorld().getGameplayConfig().getWorldConfig();
         if (!worldConfig.isBlockPlacementAllowed()) {
@@ -268,7 +267,7 @@ public class BlockPlaceUtils {
         }
         BlockType blockType = (BlockType)BlockType.getAssetMap().getAsset(blockTypeKey);
         int rotationIndex = rotation.index();
-        if (blockType == null || !worldChunkComponent.testPlaceBlock(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ(), blockType, rotationIndex)) {
+        if (!(quickReplace || blockType != null && worldChunkComponent.testPlaceBlock(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ(), blockType, rotationIndex))) {
             return false;
         }
         BlockBoundingBoxes hitBoxType = BlockBoundingBoxes.getAssetMap().getAsset(blockType.getHitboxTypeIndex());
@@ -289,10 +288,6 @@ public class BlockPlaceUtils {
                 BlockPhysics.markDeco(chunkStore, sectionRef, blockPosition.x, blockPosition.y, blockPosition.z);
             }
         }
-        if ((blockState = worldChunkComponent.getState(blockPosition.x, blockPosition.y, blockPosition.z)) instanceof PlacedByBlockState) {
-            PlacedByBlockState placedByBlockState = (PlacedByBlockState)((Object)blockState);
-            placedByBlockState.placedBy(ref, blockTypeKey, blockState, entityStore);
-        }
         int blockIndexInChunk = ChunkUtil.indexBlockInColumn(blockPosition.x, blockPosition.y, blockPosition.z);
         BlockComponentChunk blockComponentChunk = worldChunkComponent.getBlockComponentChunk();
         Ref<ChunkStore> ref2 = blockRef = blockComponentChunk == null ? null : blockComponentChunk.getEntityReference(blockIndexInChunk);
@@ -307,13 +302,17 @@ public class BlockPlaceUtils {
     }
 
     private static void breakAndDropReplacedBlock(@Nonnull Vector3i blockPosition, @Nonnull WorldChunk worldChunkComponent, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<ChunkStore> chunkStore, @Nonnull ComponentAccessor<EntityStore> entityStore) {
-        BlockType existingBlock = worldChunkComponent.getBlockType(blockPosition);
-        if (existingBlock != null) {
+        int targetBlockId = worldChunkComponent.getBlock(blockPosition);
+        if (targetBlockId == 0) {
+            return;
+        }
+        BlockType targetBlockType = BlockType.getAssetMap().getAsset(targetBlockId);
+        if (targetBlockType != null) {
             SoftBlockDropType softGathering;
-            if (existingBlock.getMaterial() != BlockMaterial.Empty) {
+            if (targetBlockType.getMaterial() != BlockMaterial.Empty) {
                 return;
             }
-            BlockGathering gathering = existingBlock.getGathering();
+            BlockGathering gathering = targetBlockType.getGathering();
             int dropQuantity = 1;
             String itemId = null;
             String dropListId = null;
@@ -322,7 +321,7 @@ public class BlockPlaceUtils {
                 dropListId = softGathering.getDropListId();
             }
             int setBlockSettings = 288;
-            BlockHarvestUtils.performBlockBreak(chunkStore.getExternalData().getWorld(), blockPosition, existingBlock, null, dropQuantity, itemId, dropListId, 288, ref, chunkReference, entityStore, chunkStore);
+            BlockHarvestUtils.performBlockBreak(chunkStore.getExternalData().getWorld(), blockPosition, targetBlockType, null, dropQuantity, itemId, dropListId, 288, ref, chunkReference, entityStore, chunkStore);
         }
     }
 

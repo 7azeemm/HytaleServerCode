@@ -11,23 +11,19 @@ import com.hypixel.hytale.codec.store.StoredCodec;
 import com.hypixel.hytale.common.map.IWeightedElement;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.prefab.config.SelectionPrefabSerializer;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import javax.annotation.Nonnull;
-import org.bson.BsonDocument;
 
 public class BlockSpawnerEntry
 implements IWeightedElement {
     @Nonnull
-    public static BuilderCodec<BlockSpawnerEntry> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(BlockSpawnerEntry.class, BlockSpawnerEntry::new).append(new KeyedCodec<String>("Name", Codec.STRING), (entry, key) -> {
+    public static BuilderCodec<BlockSpawnerEntry> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(BlockSpawnerEntry.class, BlockSpawnerEntry::new).append(new KeyedCodec<String>("Name", Codec.STRING), (entry, key) -> {
         entry.blockName = key;
     }, entry -> entry.blockName).addValidatorLate(() -> BlockType.VALIDATOR_CACHE.getValidator().late()).add()).append(new KeyedCodec<RotationMode>("RotationMode", RotationMode.CODEC), (entry, b) -> {
         entry.rotationMode = b;
     }, entry -> entry.rotationMode).add()).append(new KeyedCodec<Double>("Weight", Codec.DOUBLE), (entry, d) -> {
         entry.weight = d;
-    }, entry -> entry.weight).add()).append(new KeyedCodec<BsonDocument>("State", Codec.BSON_DOCUMENT), (entry, wrapper, extraInfo) -> {
-        entry.blockComponents = SelectionPrefabSerializer.legacyStateDecode(wrapper);
-    }, (entry, extraInfo) -> null).add()).append(new KeyedCodec<Holder<ChunkStore>>("Components", new StoredCodec<Holder<ChunkStore>>(ChunkStore.HOLDER_CODEC_KEY)), (entry, holder) -> {
+    }, entry -> entry.weight).add()).append(new KeyedCodec<Holder<ChunkStore>>("Components", new StoredCodec<Holder<ChunkStore>>(ChunkStore.HOLDER_CODEC_KEY)), (entry, holder) -> {
         entry.blockComponents = holder;
     }, entry -> entry.blockComponents).add()).build();
     @Nonnull

@@ -17,9 +17,9 @@ import javax.annotation.Nonnull;
 public class BrushOriginArg
 extends ToolArg<BrushOrigin> {
     public static final EnumCodec<BrushOrigin> BRUSH_ORIGIN_CODEC = new EnumCodec<BrushOrigin>(BrushOrigin.class);
-    public static final BuilderCodec<BrushOriginArg> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(BrushOriginArg.class, BrushOriginArg::new, ToolArg.DEFAULT_CODEC).addField(new KeyedCodec<BrushOrigin>("Default", BRUSH_ORIGIN_CODEC), (originArg, o) -> {
+    public static final BuilderCodec<BrushOriginArg> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(BrushOriginArg.class, BrushOriginArg::new, ToolArg.DEFAULT_CODEC).append(new KeyedCodec<BrushOrigin>("Default", BRUSH_ORIGIN_CODEC), (originArg, o) -> {
         originArg.value = o;
-    }, originArg -> (BrushOrigin)((Object)((Object)originArg.value)))).build();
+    }, originArg -> (BrushOrigin)((Object)((Object)originArg.value))).add()).build();
 
     public BrushOriginArg() {
     }

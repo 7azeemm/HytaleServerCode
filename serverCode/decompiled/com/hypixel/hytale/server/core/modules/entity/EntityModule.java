@@ -8,6 +8,7 @@ import com.hypixel.hytale.assetstore.codec.AssetCodec;
 import com.hypixel.hytale.assetstore.event.LoadedAssetsEvent;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
+import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.DirectDecodeCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.common.plugin.PluginManifest;
@@ -33,7 +34,6 @@ import com.hypixel.hytale.component.system.HolderSystem;
 import com.hypixel.hytale.component.system.ISystem;
 import com.hypixel.hytale.component.system.RefChangeSystem;
 import com.hypixel.hytale.component.system.RefSystem;
-import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.protocol.packets.player.UpdateMovementSettings;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
@@ -42,7 +42,6 @@ import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.Frozen;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.damage.DamageDataComponent;
 import com.hypixel.hytale.server.core.entity.damage.DamageDataSetupSystem;
@@ -51,7 +50,6 @@ import com.hypixel.hytale.server.core.entity.entities.BlockEntity;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.ProjectileComponent;
 import com.hypixel.hytale.server.core.entity.entities.player.CameraManager;
-import com.hypixel.hytale.server.core.entity.entities.player.HotbarManager;
 import com.hypixel.hytale.server.core.entity.entities.player.data.UniqueItemUsagesComponent;
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementConfig;
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager;
@@ -62,7 +60,8 @@ import com.hypixel.hytale.server.core.entity.movement.MovementStatesSystems;
 import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.entity.nameplate.NameplateSystems;
 import com.hypixel.hytale.server.core.entity.reference.PersistentRefCount;
-import com.hypixel.hytale.server.core.event.events.entity.LivingEntityInventoryChangeEvent;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
+import com.hypixel.hytale.server.core.inventory.InventorySystems;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.modules.collision.CollisionModule;
 import com.hypixel.hytale.server.core.modules.collision.TangiableEntitySpatialSystem;
@@ -75,6 +74,7 @@ import com.hypixel.hytale.server.core.modules.entity.LegacyProjectileSystems;
 import com.hypixel.hytale.server.core.modules.entity.component.ActiveAnimationComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.AudioComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.BoundingBox;
+import com.hypixel.hytale.server.core.modules.entity.component.CachedStatsComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.CollisionResultComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.DynamicLight;
@@ -99,6 +99,23 @@ import com.hypixel.hytale.server.core.modules.entity.component.RotateObjectCompo
 import com.hypixel.hytale.server.core.modules.entity.component.SnapshotBuffer;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.WorldGenId;
+import com.hypixel.hytale.server.core.modules.entity.condition.AliveCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.ChargingCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.CheckPlayerGameModeCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.Condition;
+import com.hypixel.hytale.server.core.modules.entity.condition.EnvironmentCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.GlidingCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.HasEffectCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.InFluidCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.IsPlayerCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.LogicCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.NoDamageTakenCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.OutOfCombatCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.RegenHealthCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.SprintingCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.StatCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.SuffocatingCondition;
+import com.hypixel.hytale.server.core.modules.entity.condition.WieldingCondition;
 import com.hypixel.hytale.server.core.modules.entity.damage.DamageCause;
 import com.hypixel.hytale.server.core.modules.entity.dynamiclight.DynamicLightSystems;
 import com.hypixel.hytale.server.core.modules.entity.hitboxcollision.HitboxCollision;
@@ -267,6 +284,7 @@ extends JavaPlugin {
     private ComponentType<EntityStore, MovementAudioComponent> movementAudioComponentType;
     private ComponentType<EntityStore, PositionDataComponent> positionDataComponentType;
     private ComponentType<EntityStore, ActiveAnimationComponent> activeAnimationComponentType;
+    private ComponentType<EntityStore, CachedStatsComponent> cachedStatsComponentType;
     private ComponentType<EntityStore, NewSpawnComponent> newSpawnComponentType;
     private ComponentType<EntityStore, ItemComponent> itemComponentType;
     private ComponentType<EntityStore, PickupItemComponent> pickupItemComponentType;
@@ -276,6 +294,13 @@ extends JavaPlugin {
     private ComponentType<EntityStore, PersistentDynamicLight> persistentDynamicLightComponentType;
     private ComponentType<EntityStore, PrefabCopyableComponent> prefabCopyableComponentType;
     private ComponentType<EntityStore, UniqueItemUsagesComponent> uniqueItemUsagesComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Storage> storageInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Armor> armorInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Hotbar> hotbarInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Utility> utilityInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Backpack> backpackInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Tool> toolInventoryComponentType;
+    private ComponentType<EntityStore, InventoryComponent.Combined> combinedInventoryComponentType;
 
     public static EntityModule get() {
         return instance;
@@ -288,34 +313,6 @@ extends JavaPlugin {
 
     @Override
     protected void setup() {
-        this.getEventRegistry().registerGlobal(LivingEntityInventoryChangeEvent.class, event -> {
-            Ref<EntityStore> entityRef = ((LivingEntity)event.getEntity()).getReference();
-            if (entityRef == null || !entityRef.isValid()) {
-                return;
-            }
-            Store<EntityStore> store = entityRef.getStore();
-            World world = store.getExternalData().getWorld();
-            world.execute(() -> {
-                if (!entityRef.isValid()) {
-                    return;
-                }
-                Player playerComponent = store.getComponent(entityRef, Player.getComponentType());
-                if (playerComponent == null) {
-                    return;
-                }
-                HotbarManager hotbarManager = playerComponent.getHotbarManager();
-                if (hotbarManager.getIsCurrentlyLoadingHotbar()) {
-                    return;
-                }
-                if (!playerComponent.getGameMode().equals((Object)GameMode.Creative)) {
-                    return;
-                }
-                if (!event.getItemContainer().equals(playerComponent.getInventory().getHotbar())) {
-                    return;
-                }
-                hotbarManager.saveHotbar(entityRef, (short)hotbarManager.getCurrentHotbarIndex(), store);
-            });
-        });
         ComponentRegistryProxy<EntityStore> entityStoreRegistry = this.getEntityStoreRegistry();
         this.physicsValuesComponentType = entityStoreRegistry.registerComponent(PhysicsValues.class, PhysicsValues::new);
         this.velocityComponentType = entityStoreRegistry.registerComponent(Velocity.class, "Velocity", Velocity.CODEC);
@@ -342,6 +339,7 @@ extends JavaPlugin {
         this.movementAudioComponentType = entityStoreRegistry.registerComponent(MovementAudioComponent.class, MovementAudioComponent::new);
         this.positionDataComponentType = entityStoreRegistry.registerComponent(PositionDataComponent.class, PositionDataComponent::new);
         this.activeAnimationComponentType = entityStoreRegistry.registerComponent(ActiveAnimationComponent.class, ActiveAnimationComponent::new);
+        this.cachedStatsComponentType = entityStoreRegistry.registerComponent(CachedStatsComponent.class, CachedStatsComponent::new);
         this.newSpawnComponentType = entityStoreRegistry.registerComponent(NewSpawnComponent.class, () -> {
             throw new UnsupportedOperationException("Not implemented");
         });
@@ -401,8 +399,6 @@ extends JavaPlugin {
         this.displayNameComponentType = entityStoreRegistry.registerComponent(DisplayNameComponent.class, "DisplayName", DisplayNameComponent.CODEC);
         entityStoreRegistry.registerSystem(new PlayerSystems.PlayerSpawnedSystem());
         entityStoreRegistry.registerSystem(new PlayerSystems.PlayerAddedSystem(this.movementManagerComponentType));
-        entityStoreRegistry.registerSystem(new PlayerSystems.EnsurePlayerInput());
-        entityStoreRegistry.registerSystem(new PlayerSystems.EnsureEffectControllerSystem());
         entityStoreRegistry.registerSystem(new PlayerSystems.PlayerRemovedSystem());
         entityStoreRegistry.registerSystem(new PlayerSystems.ProcessPlayerInput());
         entityStoreRegistry.registerSystem(new PlayerSystems.UpdatePlayerRef());
@@ -548,7 +544,41 @@ extends JavaPlugin {
         this.getEventRegistry().register(LoadedAssetsEvent.class, MovementConfig.class, this::onMovementConfigLoadedAssetsEvent);
         this.getEventRegistry().register(LoadedAssetsEvent.class, GameplayConfig.class, this::onGameplayConfigLoadedAssetsEvent);
         this.uniqueItemUsagesComponentType = entityStoreRegistry.registerComponent(UniqueItemUsagesComponent.class, "UniqueItemUsages", UniqueItemUsagesComponent.CODEC);
-        entityStoreRegistry.registerSystem(new PlayerSystems.EnsureUniqueItemUsagesSystem());
+        this.storageInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Storage.class, "StorageInventory", InventoryComponent.Storage.CODEC);
+        this.armorInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Armor.class, "ArmorInventory", InventoryComponent.Armor.CODEC);
+        this.hotbarInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Hotbar.class, "HotbarInventory", InventoryComponent.Hotbar.CODEC);
+        this.utilityInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Utility.class, "UtilityInventory", InventoryComponent.Utility.CODEC);
+        this.backpackInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Backpack.class, "BackpackInventory", InventoryComponent.Backpack.CODEC);
+        this.toolInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Tool.class, "ToolInventory", InventoryComponent.Tool.CODEC);
+        this.combinedInventoryComponentType = entityStoreRegistry.registerComponent(InventoryComponent.Combined.class, InventoryComponent.Combined::new);
+        InventoryComponent.setupCombined(this.storageInventoryComponentType, this.armorInventoryComponentType, this.hotbarInventoryComponentType, this.utilityInventoryComponentType, this.backpackInventoryComponentType, this.toolInventoryComponentType);
+        entityStoreRegistry.registerSystem(new InventorySystems.StorageChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.ArmorChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.HotbarChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.UtilityChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.BackpackChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.ToolChangeEventSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.LegacyArmorChangeStatSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.LegacyHotbarChangeStatSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.LegacyUtilityChangeStatSystem());
+        entityStoreRegistry.registerSystem(new InventorySystems.PlayerInventoryChangeEventSystem());
+        entityStoreRegistry.registerSystem(new PlayerSystems.PlayerInitSystem());
+        Condition.CODEC.register("LogicCondition", (Class<Condition>)LogicCondition.class, (Codec<Condition>)LogicCondition.CODEC);
+        Condition.CODEC.register("RegenHealth", (Class<Condition>)RegenHealthCondition.class, (Codec<Condition>)RegenHealthCondition.CODEC);
+        Condition.CODEC.register("NoDamageTaken", (Class<Condition>)NoDamageTakenCondition.class, (Codec<Condition>)NoDamageTakenCondition.CODEC);
+        Condition.CODEC.register("Suffocating", (Class<Condition>)SuffocatingCondition.class, (Codec<Condition>)SuffocatingCondition.CODEC);
+        Condition.CODEC.register("Charging", (Class<Condition>)ChargingCondition.class, (Codec<Condition>)ChargingCondition.CODEC);
+        Condition.CODEC.register("Alive", (Class<Condition>)AliveCondition.class, (Codec<Condition>)AliveCondition.CODEC);
+        Condition.CODEC.register("Environment", (Class<Condition>)EnvironmentCondition.class, (Codec<Condition>)EnvironmentCondition.CODEC);
+        Condition.CODEC.register("CheckPlayerGameMode", (Class<Condition>)CheckPlayerGameModeCondition.class, (Codec<Condition>)CheckPlayerGameModeCondition.CODEC);
+        Condition.CODEC.register("OutOfCombat", (Class<Condition>)OutOfCombatCondition.class, (Codec<Condition>)OutOfCombatCondition.CODEC);
+        Condition.CODEC.register("Wielding", (Class<Condition>)WieldingCondition.class, (Codec<Condition>)WieldingCondition.CODEC);
+        Condition.CODEC.register("Sprinting", (Class<Condition>)SprintingCondition.class, (Codec<Condition>)SprintingCondition.CODEC);
+        Condition.CODEC.register("Gliding", (Class<Condition>)GlidingCondition.class, (Codec<Condition>)GlidingCondition.CODEC);
+        Condition.CODEC.register("Stat", (Class<Condition>)StatCondition.class, (Codec<Condition>)StatCondition.CODEC);
+        Condition.CODEC.register("InFluid", (Class<Condition>)InFluidCondition.class, (Codec<Condition>)InFluidCondition.CODEC);
+        Condition.CODEC.register("HasEffect", (Class<Condition>)HasEffectCondition.class, (Codec<Condition>)HasEffectCondition.CODEC);
+        Condition.CODEC.register("IsPlayer", (Class<Condition>)IsPlayerCondition.class, (Codec<Condition>)IsPlayerCondition.CODEC);
     }
 
     @Override
@@ -918,8 +948,40 @@ extends JavaPlugin {
         return this.uniqueItemUsagesComponentType;
     }
 
+    public ComponentType<EntityStore, InventoryComponent.Storage> getStorageInventoryComponentType() {
+        return this.storageInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Armor> getArmorInventoryComponentType() {
+        return this.armorInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Hotbar> getHotbarInventoryComponentType() {
+        return this.hotbarInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Utility> getUtilityInventoryComponentType() {
+        return this.utilityInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Backpack> getBackpackInventoryComponentType() {
+        return this.backpackInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Tool> getToolInventoryComponentType() {
+        return this.toolInventoryComponentType;
+    }
+
+    public ComponentType<EntityStore, InventoryComponent.Combined> getCombinedInventoryComponentType() {
+        return this.combinedInventoryComponentType;
+    }
+
     public ComponentType<EntityStore, ActiveAnimationComponent> getActiveAnimationComponentType() {
         return this.activeAnimationComponentType;
+    }
+
+    public ComponentType<EntityStore, CachedStatsComponent> getCachedStatsComponentType() {
+        return this.cachedStatsComponentType;
     }
 
     @Nullable

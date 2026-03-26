@@ -75,7 +75,7 @@ implements RandomTickProcedure {
         double sunlightFactor = worldTimeResource.getSunlightFactor();
         BlockSection aboveSection = blockSection;
         if (!ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, worldX, worldY + 1, worldZ)) {
-            Ref<ChunkStore> aboveChunk = store.getExternalData().getChunkSectionReference(commandBuffer, ChunkUtil.chunkCoordinate(worldX), ChunkUtil.chunkCoordinate(worldY + 1), ChunkUtil.chunkCoordinate(worldZ));
+            Ref<ChunkStore> aboveChunk = store.getExternalData().getChunkSectionReferenceAtBlock(commandBuffer, worldX, worldY + 1, worldZ);
             if (aboveChunk == null) {
                 return;
             }
@@ -107,14 +107,14 @@ implements RandomTickProcedure {
                 int targetY = worldY + direction.y + y;
                 int targetZ = worldZ + direction.z;
                 BlockSection targetBlockSection = blockSection;
-                if (!ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, targetX, targetY, targetZ) && ((otherChunk = store.getExternalData().getChunkSectionReference(commandBuffer, ChunkUtil.chunkCoordinate(targetX), ChunkUtil.chunkCoordinate(targetY), ChunkUtil.chunkCoordinate(targetZ))) == null || (targetBlockSection = commandBuffer.getComponent(otherChunk, BlockSection.getComponentType())) == null) || !validSpreadTargets.contains(targetBlockId = targetBlockSection.get(targetIndex = ChunkUtil.indexBlock(targetX, targetY, targetZ)))) continue;
+                if (!ChunkUtil.isSameChunkSection(worldX, worldY, worldZ, targetX, targetY, targetZ) && ((otherChunk = store.getExternalData().getChunkSectionReferenceAtBlock(commandBuffer, targetX, targetY, targetZ)) == null || (targetBlockSection = commandBuffer.getComponent(otherChunk, BlockSection.getComponentType())) == null) || !validSpreadTargets.contains(targetBlockId = targetBlockSection.get(targetIndex = ChunkUtil.indexBlock(targetX, targetY, targetZ)))) continue;
                 if (this.requireEmptyAboveTarget) {
                     int aboveTargetBlockId;
                     if (ChunkUtil.isSameChunkSection(targetX, targetY, targetZ, targetX, targetY + 1, targetZ)) {
                         aboveTargetBlockId = targetBlockSection.get(ChunkUtil.indexBlock(targetX, targetY + 1, targetZ));
                     } else {
                         BlockSection aboveBlockSection;
-                        Ref<ChunkStore> aboveChunk = store.getExternalData().getChunkSectionReference(commandBuffer, ChunkUtil.chunkCoordinate(targetX), ChunkUtil.chunkCoordinate(targetY + 1), ChunkUtil.chunkCoordinate(targetZ));
+                        Ref<ChunkStore> aboveChunk = store.getExternalData().getChunkSectionReferenceAtBlock(commandBuffer, targetX, targetY + 1, targetZ);
                         if (aboveChunk == null || (aboveBlockSection = commandBuffer.getComponent(aboveChunk, BlockSection.getComponentType())) == null) continue;
                         aboveTargetBlockId = aboveBlockSection.get(ChunkUtil.indexBlock(targetX, targetY + 1, targetZ));
                     }

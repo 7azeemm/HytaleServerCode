@@ -40,7 +40,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntConsumer;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
@@ -199,7 +198,6 @@ extends SimpleInteraction {
         int originZ = MathUtil.floor(position.z);
         int radiusSquared = this.range * this.range;
         BlockSearchConsumer consumer = new BlockSearchConsumer(originX, originY, originZ, radiusSquared, this.maxCount);
-        IntOpenHashSet internalIdHolder = new IntOpenHashSet();
         int minY = Math.max(0, originY - this.range);
         int maxY = Math.min(319, originY + this.range);
         for (int x = originX - this.range & 0xFFFFFFE0; x < originX + this.range; x += 32) {
@@ -212,8 +210,7 @@ extends SimpleInteraction {
                     int sectionIndex = ChunkUtil.indexSection(y);
                     if (sectionIndex < 0 || sectionIndex >= 10 || (section = blockChunk.getSectionAtIndex(sectionIndex)).isSolidAir() || !section.containsAny(blockIds)) continue;
                     consumer.setSection(x, z, sectionIndex);
-                    section.find(blockIds, internalIdHolder, consumer);
-                    internalIdHolder.clear();
+                    section.find(blockIds, consumer);
                 }
             }
         }

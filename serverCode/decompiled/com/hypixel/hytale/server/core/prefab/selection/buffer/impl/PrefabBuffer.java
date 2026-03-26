@@ -11,14 +11,13 @@ import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
-import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerState;
+import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerBlock;
 import com.hypixel.hytale.server.core.prefab.PrefabRotation;
 import com.hypixel.hytale.server.core.prefab.PrefabWeights;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.PrefabBufferCall;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.IPrefabBuffer;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.PrefabBufferBlockEntry;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.PrefabBufferColumn;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.io.ByteBufUtil;
@@ -276,8 +275,8 @@ public class PrefabBuffer {
         }
 
         private void handleBlockComponents(int blockRotation, int x, int y, int z, @Nonnull Holder<ChunkStore> holder) {
-            ComponentType<ChunkStore, PrefabSpawnerState> componentType = BlockStateModule.get().getComponentType(PrefabSpawnerState.class);
-            PrefabSpawnerState spawnerState = holder.getComponent(componentType);
+            ComponentType<ChunkStore, PrefabSpawnerBlock> componentType = PrefabSpawnerBlock.getComponentType();
+            PrefabSpawnerBlock spawnerState = holder.getComponent(componentType);
             if (spawnerState == null) {
                 return;
             }

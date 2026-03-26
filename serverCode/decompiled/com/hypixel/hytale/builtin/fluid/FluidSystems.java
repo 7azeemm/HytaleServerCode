@@ -4,6 +4,7 @@
 package com.hypixel.hytale.builtin.fluid;
 
 import com.hypixel.hytale.builtin.blocktick.system.ChunkBlockTickSystem;
+import com.hypixel.hytale.builtin.fluid.DisabledFluidResource;
 import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
@@ -44,6 +45,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -101,12 +103,18 @@ public class FluidSystems {
             if (blockSection.getTickingBlocksCountCopy() == 0) {
                 return;
             }
+            World world = store.getExternalData().getWorld();
+            DisabledFluidResource disabledFluidResource = store.getResource(DisabledFluidResource.getResourceType());
+            IntSet disabledFluidIds = disabledFluidResource.getDisabledFluidIds(world.getWorldConfig());
             FluidTicker.CachedAccessor accessor = FluidTicker.CachedAccessor.of(commandBuffer, fluidSectionComponent, blockSection, 5);
             blockSection.forEachTicking(accessor, commandBuffer, fluidSectionComponent.getY(), (accessor1, commandBuffer1, x, y, z, block) -> {
                 FluidSection fluidSection1 = accessor1.selfFluidSection;
                 BlockSection blockSection1 = accessor1.selfBlockSection;
                 int fluidId = fluidSection1.getFluidId(x, y, z);
                 if (fluidId == 0) {
+                    return BlockTickStrategy.IGNORED;
+                }
+                if (disabledFluidIds.contains(fluidId)) {
                     return BlockTickStrategy.IGNORED;
                 }
                 int blockX = fluidSection1.getX() << 5 | x;
@@ -165,12 +173,14 @@ public class FluidSystems {
             assert (chunkSectionComponent != null);
             World world = commandBuffer.getExternalData().getWorld();
             WorldChunk worldChunkComponent = commandBuffer.getComponent(chunkSectionComponent.getChunkColumnReference(), this.worldChunkComponentType);
+            int sectionX = chunkSectionComponent.getX();
             int sectionY = chunkSectionComponent.getY();
+            int sectionZ = chunkSectionComponent.getZ();
             world.execute(() -> {
                 if (worldChunkComponent == null || worldChunkComponent.getWorld() == null) {
                     return;
                 }
-                worldChunkComponent.getWorld().getChunkLighting().invalidateLightInChunkSection(worldChunkComponent, sectionY);
+                worldChunkComponent.getWorld().getChunkLighting().invalidateLightInChunkSection((ChunkStore)store.getExternalData(), sectionX, sectionY, sectionZ);
             });
             Collection<PlayerRef> playerRefs = store.getExternalData().getWorld().getPlayerRefs();
             if (playerRefs.isEmpty()) {

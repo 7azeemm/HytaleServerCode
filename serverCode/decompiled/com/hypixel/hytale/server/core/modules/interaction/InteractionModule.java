@@ -46,7 +46,7 @@ import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.CameraManager;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.hitboxcollision.HitboxCollisionConfig;
@@ -104,6 +104,7 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.config.non
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.StatsConditionInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.StatsConditionWithModifierInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.simple.ApplyEffectInteraction;
+import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.simple.CommandInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.simple.RemoveEntityInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.none.simple.SendMessageInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.selector.AOECircleSelector;
@@ -119,7 +120,6 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.config.ser
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.CheckUniqueItemUsageInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.ClearEntityEffectInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.DamageEntityInteraction;
-import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.DestroyConditionInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.DoorInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.EquipItemInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.IncreaseBackpackCapacityInteraction;
@@ -226,6 +226,7 @@ extends JavaPlugin {
         Interaction.CODEC.register("StatsConditionWithModifier", StatsConditionWithModifierInteraction.class, StatsConditionWithModifierInteraction.CODEC);
         Interaction.CODEC.register("SpawnPrefab", SpawnPrefabInteraction.class, SpawnPrefabInteraction.CODEC);
         Interaction.CODEC.register("SendMessage", SendMessageInteraction.class, SendMessageInteraction.CODEC);
+        Interaction.CODEC.register("Command", CommandInteraction.class, CommandInteraction.CODEC);
         Interaction.CODEC.register("EquipItem", EquipItemInteraction.class, EquipItemInteraction.CODEC);
         Interaction.CODEC.register("RefillContainer", RefillContainerInteraction.class, RefillContainerInteraction.CODEC);
         Interaction.CODEC.register("Door", DoorInteraction.class, DoorInteraction.CODEC);
@@ -234,7 +235,6 @@ extends JavaPlugin {
         Interaction.CODEC.register("LaunchPad", LaunchPadInteraction.class, LaunchPadInteraction.CODEC);
         Interaction.CODEC.register("OpenContainer", OpenContainerInteraction.class, OpenContainerInteraction.CODEC);
         Interaction.CODEC.register("OpenItemStackContainer", OpenItemStackContainerInteraction.class, OpenItemStackContainerInteraction.CODEC);
-        Interaction.CODEC.register("DestroyCondition", DestroyConditionInteraction.class, DestroyConditionInteraction.CODEC);
         Interaction.CODEC.register("OpenCustomUI", OpenCustomUIInteraction.class, OpenCustomUIInteraction.CODEC);
         Interaction.CODEC.register("OpenPage", OpenPageInteraction.class, OpenPageInteraction.CODEC);
         Interaction.CODEC.register("ApplyEffect", ApplyEffectInteraction.class, ApplyEffectInteraction.CODEC);
@@ -311,15 +311,19 @@ extends JavaPlugin {
         if (this.isDisabled()) {
             return;
         }
-        byte activeHotbarSlot = playerComponent.getInventory().getActiveHotbarSlot();
+        InventoryComponent.Hotbar hotbarComponent = componentAccessor.getComponent(ref, InventoryComponent.Hotbar.getComponentType());
+        if (hotbarComponent == null) {
+            return;
+        }
+        byte activeHotbarSlot = hotbarComponent.getActiveSlot();
         if (activeHotbarSlot != packet.activeSlot) {
             playerComponent.sendMessage(Message.translation("server.modules.interaction.failedGetActiveSlot").param("server", activeHotbarSlot).param("packet", packet.activeSlot));
             return;
         }
         MouseButtonType mouseButtonType = packet.mouseButton != null ? packet.mouseButton.mouseButtonType : MouseButtonType.Left;
-        Inventory inventory = playerComponent.getInventory();
-        ItemStack itemInHand = inventory.getItemInHand();
-        ItemStack itemInOffHand = inventory.getUtilityItem();
+        ItemStack itemInHand = InventoryComponent.getItemInHand(componentAccessor, ref);
+        InventoryComponent.Utility utilityComponent = componentAccessor.getComponent(ref, InventoryComponent.Utility.getComponentType());
+        ItemStack itemInOffHand = utilityComponent != null ? utilityComponent.getActiveItem() : null;
         Item primaryItem = itemInHand == null || itemInHand.isEmpty() ? null : itemInHand.getItem();
         Item item = secondaryItem = itemInOffHand == null || itemInOffHand.isEmpty() ? null : itemInOffHand.getItem();
         Item item2 = mouseButtonType == MouseButtonType.Left ? primaryItem : (mouseButtonType == MouseButtonType.Right && secondaryItem != null ? secondaryItem : primaryItem);

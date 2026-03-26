@@ -36,7 +36,7 @@ extends JsonLoader<K, BlendNoiseProperty> {
     }
 
     protected NoiseProperty[] loadNoise() {
-        JsonArray noise = this.mustGetArray("Noise", Constants.EMPTY_ARRAY);
+        JsonArray noise = this.mustGetArray("Noise", EMPTY_ARRAY);
         NoiseProperty[] noises = new NoiseProperty[noise.size()];
         for (int i = 0; i < noise.size(); ++i) {
             noises[i] = new NoisePropertyJsonLoader(this.seed, this.dataFolder, noise.get(i)).load();
@@ -45,7 +45,7 @@ extends JsonLoader<K, BlendNoiseProperty> {
     }
 
     protected double[] loadThresholds() {
-        JsonArray thresholds = this.mustGetArray("Thresholds", Constants.EMPTY_ARRAY);
+        JsonArray thresholds = this.mustGetArray("Thresholds", EMPTY_ARRAY);
         double[] values = new double[thresholds.size()];
         for (int i = 0; i < thresholds.size(); ++i) {
             values[i] = BlendNoisePropertyJsonLoader.mustGet("$" + i, thresholds.get(i), null, Number.class, JsonLoader::isNumber, JsonElement::getAsNumber).doubleValue();

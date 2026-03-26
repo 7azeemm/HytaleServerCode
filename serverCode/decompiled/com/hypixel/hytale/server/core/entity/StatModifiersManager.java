@@ -9,11 +9,8 @@ import com.hypixel.hytale.server.core.asset.type.entityeffect.config.EntityEffec
 import com.hypixel.hytale.server.core.asset.type.gameplay.BrokenPenalties;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemArmor;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap;
@@ -28,19 +25,17 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2FloatMap;
 import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class StatModifiersManager {
-    @Nonnull
-    private final AtomicBoolean recalculate = new AtomicBoolean();
+    private boolean recalculate = true;
     @Nonnull
     private final IntSet statsToClear = new IntOpenHashSet();
 
-    public void setRecalculate(boolean value) {
-        this.recalculate.set(value);
+    public void scheduleRecalculate() {
+        this.recalculate = true;
     }
 
     public void queueEntityStatsToClear(@Nonnull int[] entityStatsToClear) {
@@ -50,7 +45,7 @@ public class StatModifiersManager {
     }
 
     public void recalculateEntityStatModifiers(@Nonnull Ref<EntityStore> ref, @Nonnull EntityStatMap statMap, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        if (!this.recalculate.getAndSet(false)) {
+        if (!this.recalculate) {
             return;
         }
         if (!this.statsToClear.isEmpty()) {
@@ -61,21 +56,20 @@ public class StatModifiersManager {
             this.statsToClear.clear();
         }
         World world = componentAccessor.getExternalData().getWorld();
-        Entity entity = EntityUtils.getEntity(ref, componentAccessor);
-        if (!(entity instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        Inventory inventory = livingEntity.getInventory();
         Int2ObjectOpenHashMap<Object2FloatMap<StaticModifier.CalculationType>> effectModifiers = StatModifiersManager.calculateEffectStatModifiers(ref, componentAccessor);
         StatModifiersManager.applyEffectModifiers(statMap, effectModifiers);
         BrokenPenalties brokenPenalties = world.getGameplayConfig().getItemDurabilityConfig().getBrokenPenalties();
-        Int2ObjectMap<Object2FloatMap<StaticModifier.CalculationType>> statModifiers = StatModifiersManager.computeStatModifiers(brokenPenalties, inventory);
-        StatModifiersManager.applyStatModifiers(statMap, statModifiers);
-        ItemStack itemInHand = inventory.getItemInHand();
+        InventoryComponent.Armor armorComponent = componentAccessor.getComponent(ref, InventoryComponent.Armor.getComponentType());
+        if (armorComponent != null) {
+            Int2ObjectMap<Object2FloatMap<StaticModifier.CalculationType>> statModifiers = StatModifiersManager.computeStatModifiers(brokenPenalties, armorComponent.getInventory());
+            StatModifiersManager.applyStatModifiers(statMap, statModifiers);
+        }
+        ItemStack itemInHand = InventoryComponent.getItemInHand(componentAccessor, ref);
         StatModifiersManager.addItemStatModifiers(itemInHand, statMap, "*Weapon_", v -> v.getWeapon() != null ? v.getWeapon().getStatModifiers() : null);
         if (itemInHand == null || itemInHand.getItem().getUtility().isCompatible()) {
-            StatModifiersManager.addItemStatModifiers(inventory.getUtilityItem(), statMap, "*Utility_", v -> v.getUtility().getStatModifiers());
+            InventoryComponent.Utility utilityComponent = componentAccessor.getComponent(ref, InventoryComponent.Utility.getComponentType());
+            ItemStack utilityItem = utilityComponent != null ? utilityComponent.getActiveItem() : null;
+            StatModifiersManager.addItemStatModifiers(utilityItem, statMap, "*Utility_", v -> v.getUtility().getStatModifiers());
         }
     }
 
@@ -147,10 +141,9 @@ public class StatModifiersManager {
     }
 
     @Nonnull
-    private static Int2ObjectMap<Object2FloatMap<StaticModifier.CalculationType>> computeStatModifiers(@Nonnull BrokenPenalties brokenPenalties, @Nonnull Inventory inventory) {
+    private static Int2ObjectMap<Object2FloatMap<StaticModifier.CalculationType>> computeStatModifiers(@Nonnull BrokenPenalties brokenPenalties, @Nonnull ItemContainer armorContainer) {
         Int2ObjectOpenHashMap<Object2FloatMap<StaticModifier.CalculationType>> statModifiers = new Int2ObjectOpenHashMap<Object2FloatMap<StaticModifier.CalculationType>>();
         double armorBrokenPenalty = brokenPenalties.getArmor(0.0);
-        ItemContainer armorContainer = inventory.getArmor();
         for (short i = 0; i < armorContainer.getCapacity(); i = (short)(i + 1)) {
             ItemStack armorItemStack = armorContainer.getItemStack(i);
             if (armorItemStack == null) continue;

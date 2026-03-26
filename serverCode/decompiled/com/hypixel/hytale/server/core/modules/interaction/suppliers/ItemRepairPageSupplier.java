@@ -9,10 +9,11 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.CustomUIPage;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.itemrepair.ItemRepairPage;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemContext;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.OpenCustomUIInteraction;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -29,13 +30,12 @@ implements OpenCustomUIInteraction.CustomPageSupplier {
 
     @Override
     public CustomUIPage tryCreate(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor, @Nonnull PlayerRef playerRef, @Nonnull InteractionContext context) {
-        Player playerComponent = componentAccessor.getComponent(ref, Player.getComponentType());
-        assert (playerComponent != null);
         ItemContext itemContext = context.createHeldItemContext();
         if (itemContext == null) {
             return null;
         }
-        return new ItemRepairPage(playerRef, playerComponent.getInventory().getCombinedArmorHotbarUtilityStorage(), this.repairPenalty, itemContext);
+        CombinedItemContainer hotbarUtilityCombinedContainer = InventoryComponent.getCombined(componentAccessor, ref, InventoryComponent.ARMOR_HOTBAR_UTILITY_STORAGE);
+        return new ItemRepairPage(playerRef, hotbarUtilityCombinedContainer, this.repairPenalty, itemContext);
     }
 }
 

@@ -16,6 +16,7 @@ import com.hypixel.hytale.codec.codecs.map.EnumMapCodec;
 import com.hypixel.hytale.codec.schema.metadata.ui.UIDefaultCollapsedState;
 import com.hypixel.hytale.codec.validation.ValidatorCache;
 import com.hypixel.hytale.codec.validation.Validators;
+import com.hypixel.hytale.common.util.MapUtil;
 import com.hypixel.hytale.protocol.BlockSoundEvent;
 import com.hypixel.hytale.protocol.FloatRange;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
@@ -26,6 +27,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMaps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.lang.ref.SoftReference;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
@@ -40,10 +42,10 @@ NetworkSerializable<com.hypixel.hytale.protocol.BlockSoundSet> {
         blockSounds.id = s;
     }, blockSounds -> blockSounds.id, (asset, data) -> {
         asset.data = data;
-    }, asset -> asset.data).appendInherited(new KeyedCodec("SoundEvents", new EnumMapCodec<BlockSoundEvent, String>(BlockSoundEvent.class, Codec.STRING)), (blockParticleSet, s) -> {
-        blockParticleSet.soundEventIds = s;
-    }, blockParticleSet -> blockParticleSet.soundEventIds, (blockParticleSet, parent) -> {
-        blockParticleSet.soundEventIds = parent.soundEventIds;
+    }, asset -> asset.data).appendInherited(new KeyedCodec("SoundEvents", new EnumMapCodec<BlockSoundEvent, String>(BlockSoundEvent.class, Codec.STRING)), (blockSounds, s) -> {
+        blockSounds.soundEventIds = MapUtil.combineUnmodifiable(blockSounds.soundEventIds, s, () -> new EnumMap(BlockSoundEvent.class));
+    }, blockSounds -> blockSounds.soundEventIds, (blockSounds, parent) -> {
+        blockSounds.soundEventIds = parent.soundEventIds;
     }).addValidator(Validators.nonNull()).addValidator(SoundEvent.VALIDATOR_CACHE.getMapValueValidator()).addValidator(SoundEventValidators.MONO_VALIDATOR_CACHE.getMapValueValidator()).addValidator(SoundEventValidators.ONESHOT_VALIDATOR_CACHE.getMapValueValidator()).metadata(UIDefaultCollapsedState.UNCOLLAPSED).add()).appendInherited(new KeyedCodec<com.hypixel.hytale.math.range.FloatRange>("MoveInRepeatRange", com.hypixel.hytale.math.range.FloatRange.CODEC), (blockSounds, f) -> {
         blockSounds.moveInRepeatRange = f;
     }, blockSounds -> blockSounds.moveInRepeatRange, (blockSounds, parent) -> {

@@ -241,7 +241,7 @@ extends SimpleInstantInteraction {
                 RotationTuple rotationTuple = RotationTuple.get(rotationIndex);
                 IndexedLookupTableAssetMap<String, BlockBoundingBoxes> hitboxAssetMap = BlockBoundingBoxes.getAssetMap();
                 Box hitbox = hitboxAssetMap.getAsset(blockType.getHitboxTypeIndex()).get(rotationIndex).getBoundingBox();
-                Vector3d position = this.positionOffset != null ? rotationTuple.rotate(this.positionOffset) : new Vector3d();
+                Vector3d position = this.positionOffset != null ? rotationTuple.rotatedVector(this.positionOffset) : new Vector3d();
                 position.x += hitbox.middleX() + (double)targetBlock.x;
                 position.y += hitbox.middleY() + (double)targetBlock.y;
                 position.z += hitbox.middleZ() + (double)targetBlock.z;

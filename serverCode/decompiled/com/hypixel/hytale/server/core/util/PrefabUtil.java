@@ -121,7 +121,7 @@ public class PrefabUtil {
             String blockKey = block.getId();
             if (filler != 0) {
                 if (holder != null) {
-                    chunk.setState(bx, by, bz, (Holder<ChunkStore>)holder.clone());
+                    chunk.setState(bx, by, bz, block, blockRotation, (Holder<ChunkStore>)holder.clone());
                 }
                 return;
             }
@@ -153,7 +153,7 @@ public class PrefabUtil {
                 }
             }
             if (holder != null) {
-                chunk.setState(bx, by, bz, (Holder<ChunkStore>)holder.clone());
+                chunk.setState(bx, by, bz, block, blockRotation, (Holder<ChunkStore>)holder.clone());
             }
         }, (x, z, entityWrappers, t) -> {
             if (!loadEntities) {

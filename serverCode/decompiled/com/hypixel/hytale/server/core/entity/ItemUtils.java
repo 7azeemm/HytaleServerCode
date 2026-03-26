@@ -11,12 +11,13 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
+import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.ecs.DropItemEvent;
 import com.hypixel.hytale.server.core.event.events.ecs.InteractivelyPickupItemEvent;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
@@ -33,13 +34,12 @@ public class ItemUtils {
     public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
     public static void interactivelyPickupItem(@Nonnull Ref<EntityStore> ref, @Nonnull ItemStack itemStack, @Nullable Vector3d origin, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        LivingEntity entity = (LivingEntity)EntityUtils.getEntity(ref, componentAccessor);
         InteractivelyPickupItemEvent event = new InteractivelyPickupItemEvent(itemStack);
         componentAccessor.invoke(ref, event);
         if (event.isCancelled()) {
-            ItemUtils.dropItem(ref, itemStack, componentAccessor);
             return;
         }
+        itemStack = event.getItemStack();
         Player playerComponent = componentAccessor.getComponent(ref, Player.getComponentType());
         if (playerComponent != null) {
             Holder<EntityStore> pickupItemHolder = null;
@@ -65,7 +65,8 @@ public class ItemUtils {
                 componentAccessor.addEntity(pickupItemHolder, AddReason.SPAWN);
             }
         } else {
-            SimpleItemContainer.addOrDropItemStack(componentAccessor, ref, entity.getInventory().getCombinedHotbarFirst(), itemStack);
+            CombinedItemContainer hotbarFirstCombinedItemContainer = InventoryComponent.getCombined(componentAccessor, ref, InventoryComponent.HOTBAR_FIRST);
+            SimpleItemContainer.addOrDropItemStack(componentAccessor, ref, hotbarFirstCombinedItemContainer, itemStack);
         }
     }
 
@@ -120,6 +121,22 @@ public class ItemUtils {
     @Nullable
     public static Ref<EntityStore> dropItem(@Nonnull Ref<EntityStore> ref, @Nonnull ItemStack itemStack, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         return ItemUtils.throwItem(ref, itemStack, 1.0f, componentAccessor);
+    }
+
+    public static boolean canDecreaseItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> accessor) {
+        Player playerComponent = accessor.getComponent(ref, Player.getComponentType());
+        if (playerComponent != null) {
+            return playerComponent.getGameMode() != GameMode.Creative;
+        }
+        return false;
+    }
+
+    public static boolean canApplyItemStackPenalties(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> accessor) {
+        Player playerComponent = accessor.getComponent(ref, Player.getComponentType());
+        if (playerComponent != null) {
+            return playerComponent.getGameMode() != GameMode.Creative;
+        }
+        return true;
     }
 }
 

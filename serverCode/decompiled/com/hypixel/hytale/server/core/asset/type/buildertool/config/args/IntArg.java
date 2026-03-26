@@ -16,13 +16,13 @@ import javax.annotation.Nonnull;
 
 public class IntArg
 extends ToolArg<Integer> {
-    public static final BuilderCodec<IntArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(IntArg.class, IntArg::new, ToolArg.DEFAULT_CODEC).addField(new KeyedCodec<Integer>("Default", Codec.INTEGER), (intArg, d) -> {
+    public static final BuilderCodec<IntArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(IntArg.class, IntArg::new, ToolArg.DEFAULT_CODEC).append(new KeyedCodec<Integer>("Default", Codec.INTEGER), (intArg, d) -> {
         intArg.value = d;
-    }, intArg -> (Integer)intArg.value)).addField(new KeyedCodec<Integer>("Min", Codec.INTEGER), (intArg, d) -> {
+    }, intArg -> (Integer)intArg.value).add()).append(new KeyedCodec<Integer>("Min", Codec.INTEGER), (intArg, d) -> {
         intArg.min = d;
-    }, intArg -> intArg.min)).addField(new KeyedCodec<Integer>("Max", Codec.INTEGER), (intArg, d) -> {
+    }, intArg -> intArg.min).add()).append(new KeyedCodec<Integer>("Max", Codec.INTEGER), (intArg, d) -> {
         intArg.max = d;
-    }, intArg -> intArg.max)).build();
+    }, intArg -> intArg.max).add()).build();
     protected int min;
     protected int max;
 

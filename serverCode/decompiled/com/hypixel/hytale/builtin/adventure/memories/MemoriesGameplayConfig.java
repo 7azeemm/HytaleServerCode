@@ -10,6 +10,7 @@ import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelParticle;
+import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -17,7 +18,7 @@ public class MemoriesGameplayConfig {
     @Nonnull
     public static final String ID = "Memories";
     @Nonnull
-    public static final BuilderCodec<MemoriesGameplayConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(MemoriesGameplayConfig.class, MemoriesGameplayConfig::new).appendInherited(new KeyedCodec<int[]>("MemoriesAmountPerLevel", Codec.INT_ARRAY), (config, value) -> {
+    public static final BuilderCodec<MemoriesGameplayConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(MemoriesGameplayConfig.class, MemoriesGameplayConfig::new).appendInherited(new KeyedCodec<int[]>("MemoriesAmountPerLevel", Codec.INT_ARRAY), (config, value) -> {
         config.memoriesAmountPerLevel = value;
     }, config -> config.memoriesAmountPerLevel, (config, parent) -> {
         config.memoriesAmountPerLevel = parent.memoriesAmountPerLevel;
@@ -37,12 +38,22 @@ public class MemoriesGameplayConfig {
         memoriesGameplayConfig.memoriesCatchParticleViewDistance = integer;
     }, memoriesGameplayConfig -> memoriesGameplayConfig.memoriesCatchParticleViewDistance, (memoriesGameplayConfig, parent) -> {
         memoriesGameplayConfig.memoriesCatchParticleViewDistance = parent.memoriesCatchParticleViewDistance;
-    }).addValidator(Validators.greaterThan(16)).add()).build();
+    }).addValidator(Validators.greaterThan(16)).add()).appendInherited(new KeyedCodec<String>("MemoriesRestoreSoundEventId", Codec.STRING), (activationEffects, s) -> {
+        activationEffects.memoriesRestoreSoundEventId = s;
+    }, activationEffects -> activationEffects.memoriesRestoreSoundEventId, (activationEffects, parent) -> {
+        activationEffects.memoriesRestoreSoundEventId = parent.memoriesRestoreSoundEventId;
+    }).addValidator(Validators.nonNull()).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()).appendInherited(new KeyedCodec<String>("MemoriesCatchSoundEventId", Codec.STRING), (memoriesGameplayConfig, s) -> {
+        memoriesGameplayConfig.memoriesCatchSoundEventId = s;
+    }, memoriesGameplayConfig -> memoriesGameplayConfig.memoriesCatchSoundEventId, (memoriesGameplayConfig, parent) -> {
+        memoriesGameplayConfig.memoriesCatchSoundEventId = parent.memoriesCatchSoundEventId;
+    }).addValidator(Validators.nonNull()).addValidator(SoundEvent.VALIDATOR_CACHE.getValidator()).add()).build();
     private int[] memoriesAmountPerLevel;
     private String memoriesRecordParticles;
     private String memoriesCatchItemId;
     private ModelParticle memoriesCatchEntityParticle;
     private int memoriesCatchParticleViewDistance = 64;
+    private String memoriesRestoreSoundEventId;
+    private String memoriesCatchSoundEventId;
 
     @Nullable
     public static MemoriesGameplayConfig get(@Nonnull GameplayConfig config) {
@@ -59,6 +70,14 @@ public class MemoriesGameplayConfig {
 
     public String getMemoriesCatchItemId() {
         return this.memoriesCatchItemId;
+    }
+
+    public String getMemoriesRestoreSoundEventId() {
+        return this.memoriesRestoreSoundEventId;
+    }
+
+    public String getMemoriesCatchSoundEventId() {
+        return this.memoriesCatchSoundEventId;
     }
 
     public ModelParticle getMemoriesCatchEntityParticle() {

@@ -78,6 +78,10 @@ implements SuggestionProvider {
         return false;
     }
 
+    public boolean isGreedyString() {
+        return false;
+    }
+
     @Nonnull
     public String toString() {
         return "ArgumentType{name='" + String.valueOf(this.name) + "', argumentUsage=" + String.valueOf(this.argumentUsage) + ", examples=" + Arrays.toString(this.examples) + ", numberOfParameters=" + this.numberOfParameters + "}";

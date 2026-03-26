@@ -139,10 +139,17 @@ public class Holder<ECS_TYPE> {
         return this.getComponent(componentType);
     }
 
+    public <T extends Component<ECS_TYPE>> void addComponent(@Nonnull ComponentType<ECS_TYPE, T> componentType, @Nonnull T component) {
+        assert (this.archetype != null);
+        if (!this.addComponentInternal(componentType, component)) {
+            throw new IllegalArgumentException("Entity contains component type: " + String.valueOf(componentType));
+        }
+    }
+
     /*
      * WARNING - Removed try catching itself - possible behaviour change.
      */
-    public <T extends Component<ECS_TYPE>> void addComponent(@Nonnull ComponentType<ECS_TYPE, T> componentType, @Nonnull T component) {
+    <T extends Component<ECS_TYPE>> boolean addComponentInternal(@Nonnull ComponentType<ECS_TYPE, T> componentType, @Nonnull T component) {
         assert (this.archetype != null);
         long stamp = this.lock.writeLock();
         try {
@@ -150,9 +157,12 @@ public class Holder<ECS_TYPE> {
                 componentType.validate();
             }
             if (this.archetype.contains(componentType)) {
-                throw new IllegalArgumentException("Entity contains component type: " + String.valueOf(componentType));
+                boolean bl = false;
+                return bl;
             }
             this.addComponent0(componentType, component);
+            boolean bl = true;
+            return bl;
         }
         finally {
             this.lock.unlockWrite(stamp);

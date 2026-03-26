@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.builtin.buildertools.prefabeditor.commands;
 
+import com.hypixel.hytale.builtin.buildertools.prefabeditor.commands.PrefabEditBackCommand;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.commands.PrefabEditCreateNewCommand;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.commands.PrefabEditExitCommand;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.commands.PrefabEditInfoCommand;
@@ -34,6 +35,7 @@ extends AbstractCommandCollection {
         this.addSubCommand(new PrefabEditInfoCommand());
         this.addSubCommand(new PrefabEditTeleportCommand());
         this.addSubCommand(new PrefabEditModifiedCommand());
+        this.addSubCommand(new PrefabEditBackCommand());
     }
 }
 

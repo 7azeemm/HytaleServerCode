@@ -3,11 +3,12 @@
  */
 package com.hypixel.hytale.builtin.buildertools.prefabeditor.commands;
 
+import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.BuilderToolsUserData;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSession;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSessionManager;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditingMetadata;
-import com.hypixel.hytale.builtin.buildertools.prefabeditor.enums.PrefabRootDirectory;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.saving.PrefabSaver;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.saving.PrefabSaverSettings;
 import com.hypixel.hytale.common.util.PathUtil;
@@ -22,6 +23,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncPlayerCommand;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
+import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -33,13 +35,15 @@ import javax.annotation.Nonnull;
 
 public class PrefabEditSaveAsCommand
 extends AbstractAsyncPlayerCommand {
+    @Nonnull
+    private static final Message MESSAGE_NOT_IN_EDIT_WORLD = Message.translation("server.commands.editprefab.notInEditWorldWarning");
     private final RequiredArg<String> fileNameArg = this.withRequiredArg("fileNameArg", "server.commands.editprefab.save.saveAs.desc", ArgTypes.STRING);
-    private final DefaultArg<PrefabRootDirectory> prefabPathArg = this.withDefaultArg("prefabPath", "server.commands.editprefab.save.path.desc", ArgTypes.forEnum("PrefabPath", PrefabRootDirectory.class), PrefabRootDirectory.SERVER, "server.commands.editprefab.save.path.default.desc");
     private final FlagArg noEntitiesArg = this.withFlagArg("noEntities", "server.commands.editprefab.save.noEntities.desc");
     private final FlagArg overwriteArg = this.withFlagArg("overwrite", "server.commands.editprefab.save.overwrite.desc");
     private final FlagArg emptyArg = this.withFlagArg("empty", "server.commands.editprefab.save.empty.desc");
     private final FlagArg noUpdateArg = this.withFlagArg("noUpdate", "server.commands.editprefab.saveAs.noUpdate.desc");
     private final FlagArg clearSupportArg = this.withFlagArg("clearSupport", "server.commands.editprefab.save.clearSupport.desc");
+    private final DefaultArg<String> packArg = this.withDefaultArg("pack", "server.commands.editprefab.save.pack.desc", ArgTypes.STRING, "", "server.commands.editprefab.save.pack.desc");
 
     public PrefabEditSaveAsCommand() {
         super("saveas", "server.commands.editprefab.saveAs.desc");
@@ -48,7 +52,6 @@ extends AbstractAsyncPlayerCommand {
     @Override
     @Nonnull
     protected CompletableFuture<Void> executeAsync(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
-        PrefabEditingMetadata selectedPrefab;
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
         UUID uuid = playerRef.getUuid();
@@ -58,13 +61,25 @@ extends AbstractAsyncPlayerCommand {
             context.sendMessage(Message.translation("server.commands.editprefab.notInEditSession"));
             return CompletableFuture.completedFuture(null);
         }
+        if (!prefabEditSessionManager.isInEditWorld(playerRef, store)) {
+            context.sendMessage(MESSAGE_NOT_IN_EDIT_WORLD);
+            return CompletableFuture.completedFuture(null);
+        }
         PrefabSaverSettings prefabSaverSettings = new PrefabSaverSettings();
         prefabSaverSettings.setBlocks(true);
         prefabSaverSettings.setEntities(!this.noEntitiesArg.provided(context));
         prefabSaverSettings.setOverwriteExisting((Boolean)this.overwriteArg.get(context));
         prefabSaverSettings.setEmpty((Boolean)this.emptyArg.get(context));
         prefabSaverSettings.setClearSupportValues((Boolean)this.clearSupportArg.get(context));
-        Path prefabRootPath = ((PrefabRootDirectory)((Object)this.prefabPathArg.get(context))).getPrefabPath();
+        PrefabEditingMetadata selectedPrefab = prefabEditSession.getSelectedPrefab(uuid);
+        String packName = (String)this.packArg.get(context);
+        Path sourcePrefabPath = selectedPrefab != null ? selectedPrefab.getPrefabPath() : null;
+        AssetPack targetPack = BuilderToolsPlugin.resolveTargetPack(packName != null ? packName : "", sourcePrefabPath, playerComponent, context);
+        if (targetPack == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        BuilderToolsUserData.get(playerComponent).setLastSavePack(targetPack.getName());
+        Path prefabRootPath = PrefabStore.get().getAssetPrefabsPathForPack(targetPack);
         if (!PathUtil.isChildOf(prefabRootPath, prefabRootPath.resolve((String)this.fileNameArg.get(context))) && !SingleplayerModule.isOwner(playerRef)) {
             context.sendMessage(Message.translation("server.builderTools.attemptedToSaveOutsidePrefabsDir"));
             return CompletableFuture.completedFuture(null);
@@ -77,7 +92,7 @@ extends AbstractAsyncPlayerCommand {
         if (!prefabEditSession.toString().endsWith(".prefab.json")) {
             prefabSavePath = Path.of(String.valueOf(prefabSavePath) + ".prefab.json", new String[0]);
         }
-        if ((selectedPrefab = prefabEditSession.getSelectedPrefab(uuid)) == null) {
+        if (selectedPrefab == null) {
             context.sendMessage(Message.translation("server.commands.editprefab.noPrefabSelected"));
             return CompletableFuture.completedFuture(null);
         }
@@ -90,7 +105,7 @@ extends AbstractAsyncPlayerCommand {
             prefabEditSessionManager.updatePathOfLoadedPrefab(selectedPrefab.getPrefabPath(), prefabSavePath);
             selectedPrefab.setPrefabPath(prefabSavePath);
         }
-        return PrefabSaver.savePrefab(playerComponent, world, prefabSavePath, selectedPrefab.getAnchorPoint(), selectedPrefab.getMinPoint(), selectedPrefab.getMaxPoint(), selectedPrefab.getPastePosition(), selectedPrefab.getOriginalFileAnchor(), prefabSaverSettings).thenAccept(success -> context.sendMessage(Message.translation("server.commands.editprefab.save." + (success != false ? "success" : "failure")).param("name", selectedPrefab.getPrefabPath().toString())));
+        return PrefabSaver.savePrefab(playerComponent, world, prefabSavePath, selectedPrefab.getAnchorPoint(), selectedPrefab.getMinPoint(), selectedPrefab.getMaxPoint(), selectedPrefab.getPastePosition(), selectedPrefab.getOriginalFileAnchor(), prefabSaverSettings).thenAccept(success -> context.sendMessage(Message.translation("server.commands.editprefab.save." + (success != false ? "success.pack" : "failure.pack")).param("name", selectedPrefab.getPrefabPath().toString()).param("pack", targetPack.getName())));
     }
 }
 

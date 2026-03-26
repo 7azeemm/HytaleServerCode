@@ -71,6 +71,7 @@ extends AbstractPlayerCommand {
                     throw new IllegalStateException("No such valid role: " + name);
                 }
                 Pair<Ref<EntityStore>, NPCEntity> npcPair = npcModule.spawnEntity(store, roleIndex, pos, null, null, null);
+                if (npcPair == null) continue;
                 Ref<EntityStore> npcRef = npcPair.first();
                 assert (npcRef != null);
                 store.putComponent(npcRef, Nameplate.getComponentType(), new Nameplate(name));

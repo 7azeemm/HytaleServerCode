@@ -17,7 +17,7 @@ extends FileContext<FileLoadingContext> {
     private final FileContext.Registry<BiomeFileContext> tileBiomes = new FileContext.Registry("TileBiome");
     private final FileContext.Registry<BiomeFileContext> customBiomes = new FileContext.Registry("CustomBiome");
 
-    public ZoneFileContext(int id, String name, Path filepath, FileLoadingContext context) {
+    public ZoneFileContext(int id, @Nonnull String name, @Nonnull Path filepath, @Nonnull FileLoadingContext context) {
         super(id, name, filepath, context);
     }
 

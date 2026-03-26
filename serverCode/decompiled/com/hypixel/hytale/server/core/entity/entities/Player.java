@@ -26,7 +26,6 @@ import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MovementStates;
 import com.hypixel.hytale.protocol.SavedMovementStates;
 import com.hypixel.hytale.protocol.SoundCategory;
-import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.player.SetBlockPlacementOverride;
 import com.hypixel.hytale.protocol.packets.player.SetGameMode;
 import com.hypixel.hytale.protocol.packets.player.SetMovementStates;
@@ -52,7 +51,6 @@ import com.hypixel.hytale.server.core.entity.entities.player.windows.WindowManag
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent;
 import com.hypixel.hytale.server.core.event.events.ecs.ChangeGameModeEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerReadyEvent;
-import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackSlotTransaction;
@@ -178,18 +176,6 @@ MetricProvider {
     }
 
     @Override
-    @Nonnull
-    protected Inventory createDefaultInventory() {
-        return new Inventory();
-    }
-
-    @Override
-    @Nonnull
-    public Inventory setInventory(Inventory inventory) {
-        return super.setInventory(inventory, true);
-    }
-
-    @Override
     public boolean remove() {
         ScheduledFuture task;
         if (this.wasRemoved.getAndSet(true)) {
@@ -223,7 +209,7 @@ MetricProvider {
             }
         }
         if (this.playerRef.getPacketHandler().getChannel().isActive()) {
-            this.playerRef.getPacketHandler().disconnect("Player removed from world!");
+            this.playerRef.getPacketHandler().disconnect(Message.translation("server.general.disconnect.playerRemovedFromWorld"));
             ((HytaleLogger.Api)LOGGER.at(Level.WARNING).withCause(this.removedBy)).log("Player removed from world! %s", this);
         }
         if ((task = (ScheduledFuture)this.waitingForClientReady.getAndSet(null)) != null) {
@@ -265,7 +251,14 @@ MetricProvider {
     }
 
     public void startClientReadyTimeout() {
-        ScheduledFuture<?> task = HytaleServer.SCHEDULED_EXECUTOR.schedule(() -> this.handleClientReady(true), 10000L, TimeUnit.MILLISECONDS);
+        ScheduledFuture<?> task = HytaleServer.SCHEDULED_EXECUTOR.schedule(() -> {
+            World world = this.world;
+            if (world == null) {
+                this.waitingForClientReady.set(null);
+                return;
+            }
+            world.execute(() -> this.handleClientReady(true));
+        }, 10000L, TimeUnit.MILLISECONDS);
         ScheduledFuture<?> oldTask = this.waitingForClientReady.getAndSet(task);
         if (oldTask != null) {
             oldTask.cancel(false);
@@ -284,11 +277,6 @@ MetricProvider {
                 dispatcher.dispatch(new PlayerReadyEvent(this.reference, this, this.readyId.getAndIncrement()));
             }
         }
-    }
-
-    public void sendInventory() {
-        this.getInventory().consumeIsDirty();
-        this.playerRef.getPacketHandler().write((ToClientPacket)this.getInventory().toPacket());
     }
 
     @Nonnull
@@ -619,20 +607,6 @@ MetricProvider {
     }
 
     @Override
-    public boolean canDecreaseItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        Player playerComponent = componentAccessor.getComponent(ref, Player.getComponentType());
-        assert (playerComponent != null);
-        return playerComponent.gameMode != GameMode.Creative;
-    }
-
-    @Override
-    public boolean canApplyItemStackPenalties(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        Player playerComponent = componentAccessor.getComponent(ref, Player.getComponentType());
-        assert (playerComponent != null);
-        return playerComponent.gameMode != GameMode.Creative;
-    }
-
-    @Override
     @Nullable
     public ItemStackSlotTransaction updateItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nonnull ItemStack itemStack, ItemContainer container, int slotId, double durabilityChange, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         ItemStackSlotTransaction transaction = super.updateItemStackDurability(ref, itemStack, container, slotId, durabilityChange, componentAccessor);
@@ -642,7 +616,7 @@ MetricProvider {
             PlayerRef playerRefComponent = componentAccessor.getComponent(ref, PlayerRef.getComponentType());
             assert (playerRefComponent != null);
             int soundEventIndex = TempAssetIdUtil.getSoundEventIndex("SFX_Item_Break");
-            SoundUtil.playSoundEvent2dToPlayer(playerRefComponent, soundEventIndex, SoundCategory.SFX);
+            SoundUtil.playSoundEvent2dToPlayer(playerRefComponent, soundEventIndex, SoundCategory.UI);
         }
         return transaction;
     }

@@ -270,8 +270,8 @@ implements Component<ChunkStore> {
                     }
                     this.maxYsReversed.add(y);
                     this.valuesReversed.add(environmentId);
+                    this.count(previousEnvironment, runCounter);
                     previousEnvironment = environmentId;
-                    this.count(environmentId, runCounter);
                     runCounter = 1;
                 }
                 this.count(environmentId, runCounter);

@@ -18,10 +18,12 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.BlockPosition;
+import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.protocol.packets.interface_.CustomPageLifetime;
 import com.hypixel.hytale.protocol.packets.interface_.CustomUIEventBindingType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
+import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.InteractiveCustomUIPage;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
@@ -33,12 +35,13 @@ import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
+import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -219,10 +222,15 @@ extends InteractiveCustomUIPage<PageEventData> {
                 }
                 MemoriesGameplayConfig memoriesGameplayConfig = MemoriesGameplayConfig.get(store.getExternalData().getWorld().getGameplayConfig());
                 if (memoriesGameplayConfig != null) {
+                    int soundEventId;
                     SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = store.getResource(EntityModule.get().getPlayerSpatialResourceType());
-                    ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                    List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                     playerSpatialResource.getSpatialStructure().collect(this.recordMemoriesParticlesPosition, 75.0, results);
                     ParticleUtil.spawnParticleEffect(memoriesGameplayConfig.getMemoriesRecordParticles(), this.recordMemoriesParticlesPosition, results, store);
+                    String restoreSoundEvent = memoriesGameplayConfig.getMemoriesRestoreSoundEventId();
+                    if (restoreSoundEvent != null && (soundEventId = SoundEvent.getAssetMap().getIndex(restoreSoundEvent)) != 0) {
+                        SoundUtil.playSoundEvent3d(soundEventId, SoundCategory.SFX, this.recordMemoriesParticlesPosition, store);
+                    }
                 }
                 this.close();
                 break;

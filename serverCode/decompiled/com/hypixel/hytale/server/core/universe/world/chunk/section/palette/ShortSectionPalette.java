@@ -31,8 +31,8 @@ extends AbstractShortSectionPalette {
         super(externalToInternal, internalToExternal, internalIdSet, internalIdCount, blocks);
     }
 
-    public ShortSectionPalette(@Nonnull int[] data, int[] unique, int count) {
-        super(new short[32768], data, unique, count);
+    public ShortSectionPalette(@Nonnull int[] data, @Nonnull Int2ShortMap externalIdCounts) {
+        super(new short[32768], data, externalIdCounts);
     }
 
     @Override

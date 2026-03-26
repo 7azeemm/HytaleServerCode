@@ -10,11 +10,12 @@ import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.Cleanable;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.PropDistributionAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.material.MaterialCache;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
 import com.hypixel.hytale.builtin.hytalegenerator.referencebundle.ReferenceBundle;
-import com.hypixel.hytale.builtin.hytalegenerator.seed.SeedBox;
-import com.hypixel.hytale.builtin.hytalegenerator.threadindexer.WorkerIndexer;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.workerindexer.WorkerIndexer;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
@@ -93,6 +94,13 @@ JsonAssetWithMap<String, DefaultAssetMap<String, PropAsset>> {
         }
 
         public Argument(@Nonnull Argument argument) {
+            this.parentSeed = argument.parentSeed;
+            this.materialCache = argument.materialCache;
+            this.referenceBundle = argument.referenceBundle;
+            this.workerId = argument.workerId;
+        }
+
+        public Argument(@Nonnull PropDistributionAsset.Argument argument) {
             this.parentSeed = argument.parentSeed;
             this.materialCache = argument.materialCache;
             this.referenceBundle = argument.referenceBundle;

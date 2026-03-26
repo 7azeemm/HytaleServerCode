@@ -15,6 +15,7 @@ import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEvent2D;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEvent3D;
 import com.hypixel.hytale.protocol.packets.world.PlaySoundEventEntity;
+import com.hypixel.hytale.protocol.packets.world.PlaySoundEventLocalPlayer;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.itemsound.config.ItemSoundSet;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
@@ -25,7 +26,7 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.PlayerUtil;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,6 +70,17 @@ public class SoundUtil {
         playerRefComponent.getPacketHandler().write((ToClientPacket)new PlaySoundEvent2D(soundEventIndex, soundCategory, volumeModifier, pitchModifier));
     }
 
+    public static void playLocalPlayerSoundEvent(@Nonnull PlayerRef playerRefComponent, int localSoundEventIndex, int worldSoundEventIndex, @Nonnull SoundCategory soundCategory) {
+        SoundUtil.playLocalPlayerSoundEvent(playerRefComponent, localSoundEventIndex, worldSoundEventIndex, soundCategory, 1.0f, 1.0f);
+    }
+
+    public static void playLocalPlayerSoundEvent(@Nonnull PlayerRef playerRefComponent, int localSoundEventIndex, int worldSoundEventIndex, @Nonnull SoundCategory soundCategory, float volumeModifier, float pitchModifier) {
+        if (localSoundEventIndex == 0 && worldSoundEventIndex == 0) {
+            return;
+        }
+        playerRefComponent.getPacketHandler().write((ToClientPacket)new PlaySoundEventLocalPlayer(localSoundEventIndex, worldSoundEventIndex, soundCategory, volumeModifier, pitchModifier));
+    }
+
     public static void playSoundEvent2d(int soundEventIndex, @Nonnull SoundCategory soundCategory, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         SoundUtil.playSoundEvent2d(soundEventIndex, soundCategory, 1.0f, 1.0f, componentAccessor);
     }
@@ -110,11 +122,11 @@ public class SoundUtil {
         PlaySoundEvent3D packet = new PlaySoundEvent3D(soundEventIndex, soundCategory, new Position(x, y, z), volumeModifier, pitchModifier);
         Vector3d position = new Vector3d(x, y, z);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = componentAccessor.getResource(EntityModule.get().getPlayerSpatialResourceType());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         playerSpatialResource.getSpatialStructure().collect(position, soundEvent.getMaxDistance(), results);
-        for (Ref ref : results) {
-            if (ref == null || !ref.isValid()) continue;
-            PlayerRef playerRefComponent = componentAccessor.getComponent(ref, PlayerRef.getComponentType());
+        for (Ref playerRef : results) {
+            if (playerRef == null || !playerRef.isValid()) continue;
+            PlayerRef playerRefComponent = componentAccessor.getComponent(playerRef, PlayerRef.getComponentType());
             assert (playerRefComponent != null);
             playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
         }
@@ -138,11 +150,11 @@ public class SoundUtil {
         }
         PlaySoundEvent3D packet = new PlaySoundEvent3D(soundEventIndex, soundCategory, new Position(x, y, z), volumeModifier, pitchModifier);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = componentAccessor.getResource(EntityModule.get().getPlayerSpatialResourceType());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         playerSpatialResource.getSpatialStructure().collect(new Vector3d(x, y, z), soundEvent.getMaxDistance(), results);
-        for (Ref ref : results) {
-            if (ref == null || !ref.isValid() || !shouldHear.test(ref)) continue;
-            PlayerRef playerRefComponent = componentAccessor.getComponent(ref, PlayerRef.getComponentType());
+        for (Ref playerRef : results) {
+            if (playerRef == null || !playerRef.isValid() || !shouldHear.test(playerRef)) continue;
+            PlayerRef playerRefComponent = componentAccessor.getComponent(playerRef, PlayerRef.getComponentType());
             assert (playerRefComponent != null);
             playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
         }

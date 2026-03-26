@@ -86,7 +86,7 @@ extends Interaction {
             slot = (byte)this.targetSlot;
             metaStore.putMetaObject(TARGET_SLOT, Integer.valueOf(slot));
         }
-        livingEntity.getInventory().setActiveHotbarSlot(slot);
+        livingEntity.getInventory().setActiveHotbarSlot(ref, slot, commandBuffer);
         Runnable action = metaStore.removeMetaObject(PLACE_MOVED_ITEM);
         if (action != null) {
             action.run();

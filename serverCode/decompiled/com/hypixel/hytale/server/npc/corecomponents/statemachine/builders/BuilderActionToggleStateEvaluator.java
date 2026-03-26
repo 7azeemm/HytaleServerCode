@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
 
 public class BuilderActionToggleStateEvaluator
 extends BuilderActionBase {
-    protected boolean enable;
+    protected boolean on;
 
     @Override
     @Nonnull
@@ -40,8 +40,8 @@ extends BuilderActionBase {
 
     @Nonnull
     public BuilderActionToggleStateEvaluator readConfig(@Nonnull JsonElement data) {
-        this.requireBoolean(data, "Enabled", (boolean b) -> {
-            this.enable = b;
+        this.requireBoolean(data, "On", (boolean b) -> {
+            this.on = b;
         }, BuilderDescriptorState.Stable, "Whether or not to enable the state evaluator", null);
         if (!this.isCreatingDescriptor()) {
             this.stateHelper.setRequiresStateEvaluator();
@@ -49,8 +49,8 @@ extends BuilderActionBase {
         return this;
     }
 
-    public boolean isEnable() {
-        return this.enable;
+    public boolean isOn() {
+        return this.on;
     }
 }
 

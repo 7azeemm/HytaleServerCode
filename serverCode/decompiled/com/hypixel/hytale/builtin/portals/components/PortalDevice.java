@@ -15,6 +15,7 @@ import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -31,6 +32,8 @@ implements Component<ChunkStore> {
     private PortalDeviceConfig config;
     private String baseBlockTypeKey;
     private UUID destinationWorldUuid;
+    @Nullable
+    private CompletableFuture<Void> pendingWorld;
 
     public static ComponentType<ChunkStore, PortalDevice> getComponentType() {
         return PortalsPlugin.getInstance().getPortalDeviceComponentType();
@@ -78,12 +81,24 @@ implements Component<ChunkStore> {
         this.destinationWorldUuid = world.getWorldConfig().getUuid();
     }
 
+    public boolean isLoadingWorld() {
+        if (this.pendingWorld == null) {
+            return false;
+        }
+        return !this.pendingWorld.isDone();
+    }
+
+    public void setPendingWorld(@Nullable CompletableFuture<Void> pendingWorld) {
+        this.pendingWorld = pendingWorld;
+    }
+
     @Override
     public Component<ChunkStore> clone() {
         PortalDevice portal = new PortalDevice();
         portal.config = this.config;
         portal.baseBlockTypeKey = this.baseBlockTypeKey;
         portal.destinationWorldUuid = this.destinationWorldUuid;
+        portal.pendingWorld = this.pendingWorld;
         return portal;
     }
 }

@@ -3,10 +3,10 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.materialproviders.spaceanddepth.layers;
 
-import com.hypixel.hytale.builtin.hytalegenerator.framework.math.SeedGenerator;
 import com.hypixel.hytale.builtin.hytalegenerator.materialproviders.MaterialProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.materialproviders.spaceanddepth.SpaceAndDepthMaterialProvider;
-import com.hypixel.hytale.builtin.hytalegenerator.seed.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.RngField;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.SeedBox;
 import com.hypixel.hytale.math.util.FastRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -17,7 +17,7 @@ extends SpaceAndDepthMaterialProvider.Layer<V> {
     private final int max;
     private final int delta;
     @Nonnull
-    private final SeedGenerator seedGenerator;
+    private final RngField rngField;
     @Nullable
     private final MaterialProvider<V> materialProvider;
 
@@ -28,7 +28,7 @@ extends SpaceAndDepthMaterialProvider.Layer<V> {
         if (this.delta < 0) {
             throw new IllegalArgumentException("min greater than max");
         }
-        this.seedGenerator = new SeedGenerator(seedBox.createSupplier().get().intValue());
+        this.rngField = new RngField(seedBox.createSupplier().get());
         this.materialProvider = materialProvider;
     }
 
@@ -37,7 +37,7 @@ extends SpaceAndDepthMaterialProvider.Layer<V> {
         if (this.delta <= 0) {
             return this.min;
         }
-        FastRandom random = new FastRandom(this.seedGenerator.seedAt(x, z));
+        FastRandom random = new FastRandom(this.rngField.get(x, z));
         return random.nextInt(this.delta + 1) + this.min;
     }
 

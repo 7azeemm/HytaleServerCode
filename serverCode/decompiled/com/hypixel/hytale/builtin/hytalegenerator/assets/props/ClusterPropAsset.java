@@ -8,19 +8,20 @@ import com.hypixel.hytale.assetstore.codec.AssetBuilderCodec;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
+import com.hypixel.hytale.builtin.hytalegenerator.WeightedMap;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.Cleanable;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.ConstantCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.CurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ConstantPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.OriginScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.DirectScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.datastructures.WeightedMap;
-import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
-import com.hypixel.hytale.builtin.hytalegenerator.props.ClusterProp;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
-import com.hypixel.hytale.builtin.hytalegenerator.scanners.OriginScanner;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.ClusterProp;
+import com.hypixel.hytale.builtin.hytalegenerator.scanners.DirectScanner;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
@@ -39,9 +40,9 @@ extends PropAsset {
         asset.distanceCurve = v;
     }, asset -> asset.distanceCurve).add()).append(new KeyedCodec<String>("Seed", Codec.STRING, false), (asset, v) -> {
         asset.seed = v;
-    }, asset -> asset.seed).add()).append(new KeyedCodec<T[]>("WeightedProps", new ArrayCodec(WeightedPropAsset.CODEC, WeightedPropAsset[]::new), true), (asset, v) -> {
-        asset.weightedPropAssets = v;
-    }, asset -> asset.weightedPropAssets).add()).append(new KeyedCodec("Pattern", PatternAsset.CODEC, false), (asset, v) -> {
+    }, asset -> asset.seed).add()).append(new KeyedCodec<T[]>("WeightedProps", new ArrayCodec(WeightedEntryAsset.CODEC, WeightedEntryAsset[]::new), true), (asset, v) -> {
+        asset.weightedEntryAssets = v;
+    }, asset -> asset.weightedEntryAssets).add()).append(new KeyedCodec("Pattern", PatternAsset.CODEC, false), (asset, v) -> {
         asset.patternAsset = v;
     }, asset -> asset.patternAsset).add()).append(new KeyedCodec("Scanner", ScannerAsset.CODEC, false), (asset, v) -> {
         asset.scannerAsset = v;
@@ -49,18 +50,18 @@ extends PropAsset {
     private int range = 0;
     private CurveAsset distanceCurve = new ConstantCurveAsset();
     private String seed = "A";
-    private WeightedPropAsset[] weightedPropAssets = new WeightedPropAsset[0];
+    private WeightedEntryAsset[] weightedEntryAssets = new WeightedEntryAsset[0];
     private PatternAsset patternAsset = new ConstantPatternAsset();
-    private ScannerAsset scannerAsset = new OriginScannerAsset();
+    private ScannerAsset scannerAsset = new DirectScannerAsset();
 
     @Override
     @Nonnull
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip()) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         WeightedMap<Prop> weightedMap = new WeightedMap<Prop>();
-        for (WeightedPropAsset entry : this.weightedPropAssets) {
+        for (WeightedEntryAsset entry : this.weightedEntryAssets) {
             Prop columnProp = entry.propAsset.build(argument);
             Vector3i readSize = columnProp.getReadBounds_voxelGrid().getSize();
             Vector3i writeSize = columnProp.getWriteBounds_voxelGrid().getSize();
@@ -74,8 +75,8 @@ extends PropAsset {
             }
             weightedMap.add(entry.propAsset.build(argument), entry.weight);
         }
-        Pattern pattern = this.patternAsset == null ? Pattern.yesPattern() : this.patternAsset.build(PatternAsset.argumentFrom(argument));
-        OriginScanner scanner = this.scannerAsset == null ? OriginScanner.getInstance() : this.scannerAsset.build(ScannerAsset.argumentFrom(argument));
+        ConstantPattern pattern = this.patternAsset == null ? ConstantPattern.INSTANCE_TRUE : this.patternAsset.build(PatternAsset.argumentFrom(argument));
+        DirectScanner scanner = this.scannerAsset == null ? new DirectScanner() : this.scannerAsset.build(ScannerAsset.argumentFrom(argument));
         int intSeed = argument.parentSeed.child(this.seed).createSupplier().get();
         return new ClusterProp(this.range, this.distanceCurve.build(), intSeed, weightedMap, pattern, scanner);
     }
@@ -83,18 +84,18 @@ extends PropAsset {
     @Override
     public void cleanUp() {
         this.distanceCurve.cleanUp();
-        for (WeightedPropAsset weightedPropAsset : this.weightedPropAssets) {
-            weightedPropAsset.cleanUp();
+        for (WeightedEntryAsset weightedEntryAsset : this.weightedEntryAssets) {
+            weightedEntryAsset.cleanUp();
         }
         this.patternAsset.cleanUp();
         this.scannerAsset.cleanUp();
     }
 
-    public static class WeightedPropAsset
+    public static class WeightedEntryAsset
     implements Cleanable,
-    JsonAssetWithMap<String, DefaultAssetMap<String, WeightedPropAsset>> {
+    JsonAssetWithMap<String, DefaultAssetMap<String, WeightedEntryAsset>> {
         @Nonnull
-        public static final AssetBuilderCodec<String, WeightedPropAsset> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(WeightedPropAsset.class, WeightedPropAsset::new, Codec.STRING, (asset, id) -> {
+        public static final AssetBuilderCodec<String, WeightedEntryAsset> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(WeightedEntryAsset.class, WeightedEntryAsset::new, Codec.STRING, (asset, id) -> {
             asset.id = id;
         }, config -> config.id, (config, data) -> {
             config.data = data;

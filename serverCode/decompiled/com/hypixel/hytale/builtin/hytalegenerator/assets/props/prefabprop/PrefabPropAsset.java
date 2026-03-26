@@ -10,23 +10,23 @@ import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.builtin.hytalegenerator.BlockMask;
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
+import com.hypixel.hytale.builtin.hytalegenerator.WeightedMap;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.blockmask.BlockMaskAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ConstantPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.PrefabLoader;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality.DirectionalityAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality.StaticDirectionalityAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.OriginScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.DirectScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.datastructures.WeightedMap;
-import com.hypixel.hytale.builtin.hytalegenerator.material.MaterialCache;
-import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
-import com.hypixel.hytale.builtin.hytalegenerator.props.directionality.Directionality;
-import com.hypixel.hytale.builtin.hytalegenerator.props.prefab.MoldingDirection;
-import com.hypixel.hytale.builtin.hytalegenerator.props.prefab.PrefabMoldingConfiguration;
-import com.hypixel.hytale.builtin.hytalegenerator.props.prefab.PrefabProp;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.directionality.Directionality;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.prefab.MoldingDirection;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.prefab.PrefabMoldingConfiguration;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.prefab.PrefabProp;
+import com.hypixel.hytale.builtin.hytalegenerator.scanners.EmptyScanner;
 import com.hypixel.hytale.builtin.hytalegenerator.scanners.Scanner;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -35,11 +35,11 @@ import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
 import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.common.util.ExceptionUtil;
 import com.hypixel.hytale.common.util.PathUtil;
-import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.asset.AssetModule;
-import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.PrefabBuffer;
+import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.IPrefabBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,69 +69,70 @@ extends PropAsset {
         asset.loadEntities = v;
     }, asset -> asset.loadEntities).add()).build();
     private WeightedPathAsset[] weightedPrefabPathAssets = new WeightedPathAsset[0];
+    private DirectionalityAsset directionalityAsset = null;
+    private ScannerAsset scannerAsset = null;
     private boolean legacyPath = false;
     private boolean loadEntities = true;
-    private DirectionalityAsset directionalityAsset = new StaticDirectionalityAsset();
-    private ScannerAsset scannerAsset = new OriginScannerAsset();
     private BlockMaskAsset blockMaskAsset = new BlockMaskAsset();
     private MoldingDirection moldingDirectionName = MoldingDirection.NONE;
-    private ScannerAsset moldingScannerAsset = new OriginScannerAsset();
+    private ScannerAsset moldingScannerAsset = new DirectScannerAsset();
     private PatternAsset moldingPatternAsset = new ConstantPatternAsset();
     private boolean moldChildren = false;
-
-    @Override
-    public void cleanUp() {
-        this.directionalityAsset.cleanUp();
-        this.scannerAsset.cleanUp();
-        this.blockMaskAsset.cleanUp();
-        this.moldingScannerAsset.cleanUp();
-        this.moldingPatternAsset.cleanUp();
-    }
 
     @Override
     @Nonnull
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip() || this.weightedPrefabPathAssets.length == 0) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
-        WeightedMap<List<PrefabBuffer>> prefabWeightedMap = new WeightedMap<List<PrefabBuffer>>();
+        WeightedMap<List<IPrefabBuffer>> prefabWeightedMap = new WeightedMap<List<IPrefabBuffer>>();
         for (WeightedPathAsset pathAsset : this.weightedPrefabPathAssets) {
-            List<PrefabBuffer> pathPrefabs = this.loadPrefabBuffersFrom(pathAsset.path);
-            if (pathPrefabs == null) continue;
+            List<IPrefabBuffer> pathPrefabs = this.loadPrefabBuffersFrom(pathAsset.path);
+            if (pathPrefabs == null || pathPrefabs.isEmpty()) continue;
             prefabWeightedMap.add(pathPrefabs, pathAsset.weight);
         }
         if (prefabWeightedMap.size() == 0) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
-        MaterialCache voxelCache = argument.materialCache;
-        BlockMask blockMask = this.blockMaskAsset == null ? new BlockMask() : this.blockMaskAsset.build(voxelCache);
+        if (this.scannerAsset == null || this.directionalityAsset == null) {
+            return new com.hypixel.hytale.builtin.hytalegenerator.props.PrefabProp(prefabWeightedMap, argument.materialCache, argument.parentSeed);
+        }
+        BlockMask blockMask = this.blockMaskAsset.build(argument.materialCache);
         Scanner scanner = this.scannerAsset.build(ScannerAsset.argumentFrom(argument));
         Directionality directionality = this.directionalityAsset.build(DirectionalityAsset.argumentFrom(argument));
         MoldingDirection moldingDirection = this.moldingDirectionName;
         PrefabMoldingConfiguration moldingConfiguration = null;
         if (moldingDirection == MoldingDirection.DOWN || moldingDirection == MoldingDirection.UP) {
-            Scanner moldingScanner = this.moldingScannerAsset == null ? Scanner.noScanner() : this.moldingScannerAsset.build(ScannerAsset.argumentFrom(argument));
-            Pattern moldingPattern = this.moldingPatternAsset == null ? Pattern.noPattern() : this.moldingPatternAsset.build(PatternAsset.argumentFrom(argument));
+            EmptyScanner moldingScanner = this.moldingScannerAsset == null ? EmptyScanner.INSTANCE : this.moldingScannerAsset.build(ScannerAsset.argumentFrom(argument));
+            ConstantPattern moldingPattern = this.moldingPatternAsset == null ? ConstantPattern.INSTANCE_FALSE : this.moldingPatternAsset.build(PatternAsset.argumentFrom(argument));
             moldingConfiguration = new PrefabMoldingConfiguration(moldingScanner, moldingPattern, moldingDirection, this.moldChildren);
         } else {
             moldingConfiguration = PrefabMoldingConfiguration.none();
         }
-        return new PrefabProp(prefabWeightedMap, scanner, directionality, voxelCache, blockMask, moldingConfiguration, this::loadPrefabBuffersFrom, argument.parentSeed, this.loadEntities);
+        return new PrefabProp(prefabWeightedMap, scanner, directionality, argument.materialCache, blockMask, moldingConfiguration, this::loadPrefabBuffersFrom, argument.parentSeed, this.loadEntities);
     }
 
     @Nullable
-    private List<PrefabBuffer> loadPrefabBuffersFrom(@Nonnull String path) {
-        ArrayList<PrefabBuffer> pathPrefabs = new ArrayList<PrefabBuffer>();
-        for (AssetPack pack : AssetModule.get().getAssetPacks()) {
-            Path prefabsDir = pack.getRoot().resolve("Server");
+    private List<IPrefabBuffer> loadPrefabBuffersFrom(@Nonnull String path) {
+        ArrayList<IPrefabBuffer> loadedPrefabs = new ArrayList<IPrefabBuffer>();
+        HashSet traversedPaths = new HashSet();
+        List<AssetPack> packs = AssetModule.get().getAssetPacks();
+        for (int i = packs.size() - 1; i >= 0; --i) {
+            Path packRootPath = packs.get(i).getRoot();
+            Path prefabsDir = packRootPath.resolve("Server");
             prefabsDir = this.legacyPath ? prefabsDir.resolve("World").resolve("Default").resolve("Prefabs") : prefabsDir.resolve("Prefabs");
             Path fullPath = PathUtil.resolvePathWithinDir(prefabsDir, path);
-            if (fullPath == null) {
-                LoggerUtil.getLogger().severe("Invalid prefab path: " + path);
-                return null;
-            }
+            if (fullPath == null) continue;
             try {
-                PrefabLoader.loadAllPrefabBuffersUnder(fullPath, pathPrefabs);
+                PrefabLoader.traverseAllPrefabBuffersUnder(fullPath, (fullPrefabPath, prefab) -> {
+                    Path relativePrefabPath = fullPrefabPath.subpath(packRootPath.getNameCount(), fullPrefabPath.getNameCount());
+                    if (traversedPaths.contains(relativePrefabPath)) {
+                        return;
+                    }
+                    traversedPaths.add(relativePrefabPath);
+                    loadedPrefabs.add((IPrefabBuffer)prefab);
+                });
+                continue;
             }
             catch (Exception e) {
                 String msg = "Couldn't load prefab with path: " + path;
@@ -141,11 +142,20 @@ extends PropAsset {
                 return null;
             }
         }
-        if (pathPrefabs.isEmpty()) {
-            ((HytaleLogger.Api)HytaleLogger.getLogger().atWarning()).log("This prefab path contains no prefabs: " + path);
-            return null;
+        return loadedPrefabs;
+    }
+
+    @Override
+    public void cleanUp() {
+        if (this.directionalityAsset != null) {
+            this.directionalityAsset.cleanUp();
         }
-        return pathPrefabs;
+        if (this.scannerAsset != null) {
+            this.scannerAsset.cleanUp();
+        }
+        this.blockMaskAsset.cleanUp();
+        this.moldingScannerAsset.cleanUp();
+        this.moldingPatternAsset.cleanUp();
     }
 
     public static class WeightedPathAsset
@@ -163,7 +173,7 @@ extends PropAsset {
         private String id;
         private AssetExtraInfo.Data data;
         private double weight = 1.0;
-        private String path;
+        private String path = "";
 
         @Override
         public String getId() {

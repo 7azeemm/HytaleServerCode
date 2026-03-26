@@ -9,7 +9,8 @@ public enum SoundCategory {
     Music(0),
     Ambient(1),
     SFX(2),
-    UI(3);
+    UI(3),
+    Voice(4);
 
     public static final SoundCategory[] VALUES;
     private final int value;

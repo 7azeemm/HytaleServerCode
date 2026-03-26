@@ -13,13 +13,12 @@ import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
+import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockChunk;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.state.ItemContainerState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
@@ -45,7 +44,7 @@ extends AbstractPlayerCommand {
 
     @Override
     protected void execute(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
-        ItemContainerState itemContainerState = this.getItemContainerState(ref, world, context, store);
+        ItemContainerBlock itemContainerState = this.getItemContainerState(ref, world, context, store);
         if (itemContainerState == null) {
             return;
         }
@@ -64,8 +63,8 @@ extends AbstractPlayerCommand {
     }
 
     @Nullable
-    private ItemContainerState getItemContainerState(@Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull CommandContext context, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        BlockState state;
+    private ItemContainerBlock getItemContainerState(@Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull CommandContext context, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
+        Ref<ChunkStore> state;
         long chunkIndex;
         Vector3i block = TargetUtil.getTargetBlock(ref, 10.0, componentAccessor);
         if (block == null) {
@@ -83,7 +82,7 @@ extends AbstractPlayerCommand {
         Store<ChunkStore> chunkStoreStore = chunkStore.getStore();
         BlockChunk blockChunkComponent = chunkStoreStore.getComponent(chunkRef, BlockChunk.getComponentType());
         assert (blockChunkComponent != null);
-        WorldChunk worldChunkComponent = chunkStoreStore.getComponent(chunkRef, WorldChunk.getComponentType());
+        BlockComponentChunk worldChunkComponent = chunkStoreStore.getComponent(chunkRef, BlockComponentChunk.getComponentType());
         assert (worldChunkComponent != null);
         BlockSection section = blockChunkComponent.getSectionAtBlockY(block.y);
         int filler = section.getFiller(block.x, block.y, block.z);
@@ -92,11 +91,16 @@ extends AbstractPlayerCommand {
             block.y -= FillerBlockUtil.unpackY(filler);
             block.z -= FillerBlockUtil.unpackZ(filler);
         }
-        if (!((state = worldChunkComponent.getState(block.x, block.y, block.z)) instanceof ItemContainerState)) {
+        if ((state = worldChunkComponent.getEntityReference(ChunkUtil.indexBlockInColumn(block.x, block.y, block.z))) == null) {
             context.sendMessage(Message.translation("server.general.containerNotFound").param("block", block.toString()));
             return null;
         }
-        return (ItemContainerState)state;
+        ItemContainerBlock blockItemComponent = state.getStore().getComponent(state, ItemContainerBlock.getComponentType());
+        if (blockItemComponent == null) {
+            context.sendMessage(Message.translation("server.general.containerNotFound").param("block", block.toString()));
+            return null;
+        }
+        return blockItemComponent;
     }
 }
 

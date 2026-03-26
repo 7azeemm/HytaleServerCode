@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.hypixel.hytale.server.npc.asset.builder.Builder;
 import com.hypixel.hytale.server.npc.asset.builder.BuilderBase;
 import com.hypixel.hytale.server.npc.asset.builder.BuilderDescriptorState;
+import com.hypixel.hytale.server.npc.asset.builder.holder.BooleanHolder;
 import com.hypixel.hytale.server.npc.instructions.Action;
 import com.hypixel.hytale.server.npc.util.expression.ExecutionContext;
 import javax.annotation.Nonnull;
@@ -14,6 +15,7 @@ import javax.annotation.Nonnull;
 public abstract class BuilderActionBase
 extends BuilderBase<Action> {
     protected boolean once;
+    protected final BooleanHolder enabled = new BooleanHolder();
 
     @Override
     public boolean canRequireFeature() {
@@ -27,6 +29,7 @@ extends BuilderBase<Action> {
         this.getBoolean(data, "Once", (boolean v) -> {
             this.once = v;
         }, false, BuilderDescriptorState.Stable, "Execute only once", null);
+        this.getBoolean(data, "Enabled", this.enabled, true, BuilderDescriptorState.Stable, "Whether this action should be enabled on the NPC", null);
         return this;
     }
 
@@ -38,7 +41,7 @@ extends BuilderBase<Action> {
 
     @Override
     public final boolean isEnabled(ExecutionContext context) {
-        return true;
+        return this.enabled.get(context);
     }
 
     public boolean isOnce() {

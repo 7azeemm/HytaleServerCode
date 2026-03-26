@@ -18,11 +18,8 @@ import com.hypixel.hytale.protocol.InteractionSyncData;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.WaitForDataFrom;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
@@ -92,13 +89,7 @@ extends SimpleInteraction {
             super.tick0(firstRun, time, type, context, cooldownHandler);
             return;
         }
-        Entity entity = EntityUtils.getEntity(ref, commandBuffer);
-        if (!(entity instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        Inventory inventory = livingEntity.getInventory();
-        ItemStack itemInHand = inventory.getItemInHand();
+        ItemStack itemInHand = InventoryComponent.getItemInHand(commandBuffer, ref);
         Vector3i targetBlock = new Vector3i(targetBlockPos.x, targetBlockPos.y, targetBlockPos.z);
         WorldChunk chunk = world.getChunkIfInMemory(ChunkUtil.indexChunkFromBlock(targetBlock.x, targetBlock.z));
         if (chunk == null) {
@@ -128,13 +119,7 @@ extends SimpleInteraction {
         CommandBuffer<EntityStore> commandBuffer = context.getCommandBuffer();
         assert (commandBuffer != null);
         World world = commandBuffer.getExternalData().getWorld();
-        Entity entity = EntityUtils.getEntity(ref, commandBuffer);
-        if (!(entity instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        Inventory inventory = livingEntity.getInventory();
-        ItemStack itemInHand = inventory.getItemInHand();
+        ItemStack itemInHand = InventoryComponent.getItemInHand(commandBuffer, ref);
         context.getState().blockFace = BlockFace.Up;
         BlockPosition contextTargetBlock = context.getTargetBlock();
         if (contextTargetBlock == null) {

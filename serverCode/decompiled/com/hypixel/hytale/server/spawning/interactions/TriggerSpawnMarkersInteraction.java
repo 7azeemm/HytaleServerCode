@@ -22,7 +22,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.spawning.SpawningPlugin;
 import com.hypixel.hytale.server.spawning.assets.spawnmarker.config.SpawnMarker;
 import com.hypixel.hytale.server.spawning.spawnmarkers.SpawnMarkerEntity;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import javax.annotation.Nonnull;
 
 public class TriggerSpawnMarkersInteraction
@@ -53,7 +53,7 @@ extends SimpleInstantInteraction {
         Ref<EntityStore> self = context.getEntity();
         Vector3d position = commandBuffer.getComponent(self, TransformComponent.getComponentType()).getPosition();
         SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = commandBuffer.getResource(SpawningPlugin.get().getSpawnMarkerSpatialResource());
-        ObjectArrayList spawners = new ObjectArrayList();
+        ReferenceArrayList spawners = new ReferenceArrayList();
         spatialResource.getSpatialStructure().collect(position, (int)this.range + 1, spawners);
         if (this.count == 0) {
             for (int i = 0; i < spawners.size(); ++i) {
@@ -65,7 +65,7 @@ extends SimpleInstantInteraction {
             }
             return;
         }
-        ObjectArrayList triggerList = new ObjectArrayList();
+        ReferenceArrayList triggerList = new ReferenceArrayList();
         RandomExtra.reservoirSample(spawners, (reference, _this, _commandBuffer) -> _this.filterMarker((Ref<EntityStore>)reference, position, (CommandBuffer<EntityStore>)_commandBuffer), this.count, triggerList, this, commandBuffer);
         for (int i = 0; i < triggerList.size(); ++i) {
             Ref spawnMarkerRef = (Ref)triggerList.get(i);

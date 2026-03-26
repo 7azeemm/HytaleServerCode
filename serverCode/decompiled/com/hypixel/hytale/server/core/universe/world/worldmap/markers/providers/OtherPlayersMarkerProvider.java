@@ -35,9 +35,10 @@ implements WorldMapManager.MarkerProvider {
         PlayersMapMarkerConfig playersMapConfig = worldMapConfig.getPlayersConfig();
         Predicate<PlayerRef> playerMapFilter = collector.getPlayerMapFilter();
         for (PlayerRef otherPlayer : world.getPlayerRefs()) {
-            Transform otherPlayerTransform;
-            Vector3d otherPos;
-            if (otherPlayer.getUuid().equals(player.getUuid()) || !collector.isInViewDistance(otherPos = (otherPlayerTransform = otherPlayer.getTransform()).getPosition()) || playerMapFilter != null && playerMapFilter.test(otherPlayer)) continue;
+            if (otherPlayer.getUuid().equals(player.getUuid())) continue;
+            Transform otherPlayerTransform = otherPlayer.getTransform();
+            Vector3d otherPos = otherPlayerTransform.getPosition();
+            if (playerMapFilter != null && playerMapFilter.test(otherPlayer)) continue;
             PlayerMarkerComponent playerMarker = new PlayerMarkerComponent(otherPlayer.getUuid());
             HeightDeltaIconComponent heightDeltaComponent = new HeightDeltaIconComponent(playersMapConfig.getIconSwapHeightDelta(), playersMapConfig.getAboveIcon(), playersMapConfig.getIconSwapHeightDelta(), playersMapConfig.getBelowIcon());
             String markerId = "Player-" + String.valueOf(otherPlayer.getUuid());

@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.server.core.universe.world.chunk.section.palette;
 
+import com.hypixel.hytale.function.consumer.BiIntConsumer;
 import com.hypixel.hytale.protocol.packets.world.PaletteType;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.HalfByteSectionPalette;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.ISectionPalette;
@@ -104,10 +105,19 @@ implements ISectionPalette {
     }
 
     @Override
-    public void find(@Nonnull IntList ids, IntSet internalIdHolder, @Nonnull IntConsumer indexConsumer) {
+    public void find(@Nonnull IntList ids, @Nonnull IntConsumer indexConsumer) {
         if (ids.contains(0)) {
             for (int i = 0; i < 32768; ++i) {
                 indexConsumer.accept(i);
+            }
+        }
+    }
+
+    @Override
+    public void find(@Nonnull IntList ids, @Nonnull BiIntConsumer indexBlockConsumer) {
+        if (ids.contains(0)) {
+            for (int i = 0; i < 32768; ++i) {
+                indexBlockConsumer.accept(i, 0);
             }
         }
     }

@@ -48,7 +48,7 @@ extends BuilderEntityFilterBase {
     @Override
     @Nonnull
     public Builder<IEntityFilter> readConfig(@Nonnull JsonElement data) {
-        this.getFloat(data, "ViewSector", this.viewSector, 0.0, (DoubleValidator)DoubleRangeValidator.between(0.0, 360.0), BuilderDescriptorState.Stable, "View sector to test entities in", null);
+        this.getFloat(data, "ViewSector", this.viewSector, 0.0, (DoubleValidator)DoubleRangeValidator.between(0.0, 360.0), BuilderDescriptorState.Stable, "View sector to test entities in (0 is treated as 360)", null);
         this.requireContext(InstructionType.Any, ComponentContext.NotSelfEntitySensor);
         return this;
     }

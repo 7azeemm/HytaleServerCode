@@ -6,8 +6,9 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators.NoPointGeneratorAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators.PointGeneratorAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.PositionProviderAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.Mesh3DPositionProvider;
+import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.EmptyPositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
+import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.deprecated.Mesh3DPositionProvider;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import javax.annotation.Nonnull;
@@ -24,7 +25,7 @@ extends PositionProviderAsset {
     @Nonnull
     public PositionProvider build(@Nonnull PositionProviderAsset.Argument argument) {
         if (super.skip()) {
-            return PositionProvider.noPositionProvider();
+            return EmptyPositionProvider.INSTANCE;
         }
         return new Mesh3DPositionProvider(this.pointGeneratorAsset.build(argument.parentSeed));
     }

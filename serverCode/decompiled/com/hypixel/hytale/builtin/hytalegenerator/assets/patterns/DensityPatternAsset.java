@@ -11,6 +11,7 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.density.ConstantDensity
 import com.hypixel.hytale.builtin.hytalegenerator.assets.density.DensityAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.FieldFunctionPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.Codec;
@@ -34,7 +35,7 @@ extends PatternAsset {
     @Nonnull
     public Pattern build(@Nonnull PatternAsset.Argument argument) {
         if (super.isSkipped()) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         Density field = this.densityAsset.build(DensityAsset.from(argument));
         FieldFunctionPattern out = new FieldFunctionPattern(field);

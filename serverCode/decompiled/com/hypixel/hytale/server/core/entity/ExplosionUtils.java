@@ -32,8 +32,9 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.TargetUtil;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -56,7 +57,7 @@ public class ExplosionUtils {
         if (!config.damageBlocks && !config.damageEntities) {
             return;
         }
-        ObjectOpenHashSet<Ref<EntityStore>> targetRefs = new ObjectOpenHashSet<Ref<EntityStore>>();
+        ReferenceOpenHashSet<Ref<EntityStore>> targetRefs = new ReferenceOpenHashSet<Ref<EntityStore>>();
         Vector3d blockPosition = new Vector3d(Math.floor(position.x) + 0.5, Math.floor(position.y) + 0.5, Math.floor(position.z) + 0.5);
         ExplosionUtils.processTargetBlocks(blockPosition, config, ignoreRef, targetRefs, commandBuffer, chunkStore);
         if (config.damageEntities) {
@@ -71,7 +72,7 @@ public class ExplosionUtils {
         if (config.damageEntities && config.entityDamageRadius > (float)config.blockDamageRadius) {
             explosionBlockRadius = (int)config.entityDamageRadius;
         }
-        ObjectArrayList<Ref<EntityStore>> potentialTargets = new ObjectArrayList<Ref<EntityStore>>();
+        ReferenceArrayList<Ref<EntityStore>> potentialTargets = new ReferenceArrayList<Ref<EntityStore>>();
         if (config.damageEntities) {
             Selector.selectNearbyEntities(commandBuffer, position, (double)config.entityDamageRadius, potentialTargets::add, e -> ignoreRef == null || !e.equals(ignoreRef));
         }

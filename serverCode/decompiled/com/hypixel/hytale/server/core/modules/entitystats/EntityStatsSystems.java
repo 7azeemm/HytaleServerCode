@@ -27,11 +27,11 @@ import com.hypixel.hytale.protocol.EntityStatUpdate;
 import com.hypixel.hytale.protocol.EntityStatsUpdate;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionChain;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.InteractionManager;
 import com.hypixel.hytale.server.core.entity.LivingEntity;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.entity.AllLegacyLivingEntityTypesQuery;
@@ -234,12 +234,10 @@ public class EntityStatsSystems {
 
         @Override
         public void tick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-            LivingEntity livingEntity = (LivingEntity)EntityUtils.getEntity(index, archetypeChunk);
-            assert (livingEntity != null);
             EntityStatMap entityStatMapComponent = archetypeChunk.getComponent(index, this.entityStatMapComponentType);
             assert (entityStatMapComponent != null);
             Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
-            livingEntity.getStatModifiersManager().recalculateEntityStatModifiers(ref, entityStatMapComponent, commandBuffer);
+            entityStatMapComponent.getStatModifiersManager().recalculateEntityStatModifiers(ref, entityStatMapComponent, commandBuffer);
         }
     }
 
@@ -386,9 +384,11 @@ public class EntityStatsSystems {
                     map.tempRegenerationValues[n] = map.tempRegenerationValues[n] + regeneratingValue.regenerate(commandBuffer, ref, now, dt, value, map.tempRegenerationValues[statIndex]);
                 }
             }
-            LivingEntity entity = (LivingEntity)archetypeChunk.getComponent(index, this.entityTypeComponent);
-            assert (entity != null);
-            ItemContainer armorContainer = entity.getInventory().getArmor();
+            InventoryComponent.Armor armorComponent = commandBuffer.getComponent(ref, InventoryComponent.Armor.getComponentType());
+            if (armorComponent == null) {
+                return;
+            }
+            ItemContainer armorContainer = armorComponent.getInventory();
             short armorContainerCapacity = armorContainer.getCapacity();
             for (short i = 0; i < armorContainerCapacity; i = (short)(i + 1)) {
                 Item item;

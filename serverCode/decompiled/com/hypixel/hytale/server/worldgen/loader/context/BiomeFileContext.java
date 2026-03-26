@@ -13,7 +13,7 @@ public class BiomeFileContext
 extends FileContext<ZoneFileContext> {
     private final Type type;
 
-    public BiomeFileContext(int id, String name, Path filepath, Type type, ZoneFileContext parent) {
+    public BiomeFileContext(int id, @Nonnull String name, @Nonnull Path filepath, @Nonnull Type type, @Nonnull ZoneFileContext parent) {
         super(id, name, filepath, parent);
         this.type = type;
     }

@@ -35,7 +35,7 @@ extends Window {
         super(WindowType.PocketCrafting);
         this.windowData.addProperty("type", BenchType.Crafting.ordinal());
         this.windowData.addProperty("id", "Fieldcraft");
-        this.windowData.addProperty("name", "server.ui.inventory.fieldcraft.title");
+        this.windowData.addProperty("name", "client.inventory.fieldcraft.title");
         JsonArray categories = new JsonArray();
         for (FieldcraftCategory fieldcraftCategory : FieldcraftCategory.getAssetMap().getAssetMap().values()) {
             JsonObject category = new JsonObject();

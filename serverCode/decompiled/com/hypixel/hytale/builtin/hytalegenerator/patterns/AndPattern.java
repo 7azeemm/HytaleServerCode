@@ -3,31 +3,32 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.patterns;
 
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
 
 public class AndPattern
 extends Pattern {
     @Nonnull
     private final Pattern[] patterns;
-    private final SpaceSize readSpaceSize;
+    @Nonnull
+    private final Bounds3i bounds_voxelGrid;
 
     public AndPattern(@Nonnull List<Pattern> patterns) {
         if (patterns.isEmpty()) {
             this.patterns = new Pattern[0];
-            this.readSpaceSize = SpaceSize.empty();
+            this.bounds_voxelGrid = Bounds3i.ZERO;
             return;
         }
         this.patterns = new Pattern[patterns.size()];
-        SpaceSize spaceAcc = patterns.getFirst().readSpace();
+        this.bounds_voxelGrid = patterns.getFirst().getBounds_voxelGrid().clone();
         for (int i = 0; i < patterns.size(); ++i) {
             Pattern pattern;
             this.patterns[i] = pattern = patterns.get(i);
-            spaceAcc = SpaceSize.merge(spaceAcc, pattern.readSpace());
+            this.bounds_voxelGrid.encompass(pattern.getBounds_voxelGrid());
         }
-        this.readSpaceSize = spaceAcc;
     }
 
     @Override
@@ -40,9 +41,9 @@ extends Pattern {
     }
 
     @Override
-    @Nonnull
-    public SpaceSize readSpace() {
-        return this.readSpaceSize.clone();
+    @NonNullDecl
+    public Bounds3i getBounds_voxelGrid() {
+        return this.bounds_voxelGrid;
     }
 }
 

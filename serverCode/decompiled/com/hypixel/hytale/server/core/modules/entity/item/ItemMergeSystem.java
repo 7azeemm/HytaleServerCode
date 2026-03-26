@@ -25,7 +25,7 @@ import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.modules.entity.item.PreventItemMerging;
 import com.hypixel.hytale.server.core.modules.time.TimeResource;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class ItemMergeSystem
@@ -79,10 +79,10 @@ extends EntityTickingSystem<EntityStore> {
         TransformComponent transformComponent = archetypeChunk.getComponent(index, TransformComponent.getComponentType());
         assert (transformComponent != null);
         Vector3d position = transformComponent.getPosition();
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         spatialResource.getSpatialStructure().ordered(position, 2.0, results);
         Ref<EntityStore> reference = archetypeChunk.getReferenceTo(index);
-        for (Ref ref : results) {
+        for (Ref<EntityStore> ref : results) {
             float newLifetime;
             int otherQuantity;
             if (!ref.isValid() || ref.equals(reference)) continue;

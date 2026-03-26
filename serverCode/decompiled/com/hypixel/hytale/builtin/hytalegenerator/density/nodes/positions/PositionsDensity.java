@@ -6,10 +6,10 @@ package com.hypixel.hytale.builtin.hytalegenerator.density.nodes.positions;
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
 import com.hypixel.hytale.builtin.hytalegenerator.density.nodes.positions.distancefunctions.DistanceFunction;
 import com.hypixel.hytale.builtin.hytalegenerator.density.nodes.positions.returntypes.ReturnType;
+import com.hypixel.hytale.builtin.hytalegenerator.pipe.Pipe;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.math.vector.Vector3d;
 import it.unimi.dsi.fastutil.doubles.Double2DoubleFunction;
-import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 
 public class PositionsDensity
@@ -71,7 +71,7 @@ extends Density {
         this.rClosestPoint.assign(0.0, 0.0, 0.0);
         this.rPreviousClosestPoint.assign(0.0, 0.0, 0.0);
         this.rLocalPoint.assign(0.0, 0.0, 0.0);
-        Consumer<Vector3d> positionsConsumer = providedPoint -> {
+        Pipe.One<Vector3d> positionsPipe = (providedPoint, control) -> {
             this.rLocalPoint.x = providedPoint.x - context.position.x;
             this.rLocalPoint.y = providedPoint.y - context.position.y;
             this.rLocalPoint.z = providedPoint.z - context.position.z;
@@ -89,10 +89,10 @@ extends Density {
             }
         };
         PositionProvider.Context positionsContext = new PositionProvider.Context();
-        positionsContext.minInclusive = this.rMin;
-        positionsContext.maxExclusive = this.rMax;
-        positionsContext.consumer = positionsConsumer;
-        this.positionProvider.positionsIn(positionsContext);
+        positionsContext.bounds.min.assign(this.rMin);
+        positionsContext.bounds.max.assign(this.rMax);
+        positionsContext.pipe = positionsPipe;
+        this.positionProvider.generate(positionsContext);
         this.rDistance[0] = Math.sqrt(this.rDistance[0]);
         this.rDistance[1] = Math.sqrt(this.rDistance[1]);
         return this.returnType.get(this.rDistance[0], this.rDistance[1], context.position.clone(), this.rHasClosestPoint[0] ? this.rClosestPoint : null, this.rHasClosestPoint[1] ? this.rPreviousClosestPoint : null, context);

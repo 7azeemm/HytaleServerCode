@@ -216,6 +216,7 @@ public class CaveGenerator {
     }
 
     protected void generatePrefab(int seed, @Nonnull ChunkGenerator chunkGenerator, @Nullable CaveNode parent, @Nonnull CaveNode caveNode, @Nonnull CavePrefabContainer.CavePrefabEntry entry, @Nonnull Random random) {
+        assert (caveNode.getShape().hasGeometry()) : "Cannot generate cave-prefab inside an invalid shape";
         CavePrefabContainer.CavePrefabEntry.CavePrefabConfig config = entry.getConfig();
         int iterations = config.getIterations(random.nextDouble());
         for (int i = 0; i < iterations; ++i) {

@@ -16,7 +16,6 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.message.MessageFormat;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 import javax.annotation.Nonnull;
 
@@ -27,7 +26,7 @@ extends AbstractTargetEntityCommand {
     }
 
     @Override
-    protected void execute(@Nonnull CommandContext context, @Nonnull ObjectList<Ref<EntityStore>> entities, @Nonnull World world, @Nonnull Store<EntityStore> store) {
+    protected void execute(@Nonnull CommandContext context, @Nonnull List<Ref<EntityStore>> entities, @Nonnull World world, @Nonnull Store<EntityStore> store) {
         EntityStatsDumpCommand.dumpEntityStatsData(context, entities, store);
     }
 

@@ -6,9 +6,10 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.scanners;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.ValidatorUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.framework.DecimalConstantsFrameworkAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.scanners.ColumnRandomScanner;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.scanners.EmptyScanner;
 import com.hypixel.hytale.builtin.hytalegenerator.scanners.Scanner;
-import com.hypixel.hytale.builtin.hytalegenerator.seed.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.scanners.deprecated.ColumnRandomScanner;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
@@ -45,7 +46,7 @@ extends ScannerAsset {
     @Nonnull
     public Scanner build(@Nonnull ScannerAsset.Argument argument) {
         if (super.skip()) {
-            return Scanner.noScanner();
+            return EmptyScanner.INSTANCE;
         }
         SeedBox childSeed = argument.parentSeed.child(this.seed);
         ColumnRandomScanner.Strategy strategy = ColumnRandomScanner.Strategy.valueOf(this.strategyName);

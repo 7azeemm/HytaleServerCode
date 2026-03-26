@@ -13,12 +13,6 @@ import com.hypixel.hytale.protocol.packets.world.SpawnBlockParticleSystem;
 import com.hypixel.hytale.protocol.packets.world.UpdateBlockDamage;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.state.SendableBlockState;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import java.lang.invoke.LambdaMetafactory;
-import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,57 +23,6 @@ public class WorldNotificationHandler {
 
     public WorldNotificationHandler(@Nonnull World world) {
         this.world = world;
-    }
-
-    public void updateState(int x, int y, int z, BlockState state, BlockState oldState) {
-        this.updateState(x, y, z, state, oldState, null);
-    }
-
-    /*
-     * Unable to fully structure code
-     */
-    public void updateState(int x, int y, int z, BlockState state, BlockState oldState, @Nullable Predicate<PlayerRef> skip) {
-        if (y < 0 || y >= 320) {
-            throw new IllegalArgumentException("Y value is outside the world! " + x + ", " + y + ", " + z);
-        }
-        if (!(oldState instanceof SendableBlockState)) ** GOTO lbl-1000
-        sendableBlockState = (SendableBlockState)oldState;
-        if (state != oldState) {
-            removeOldState = (Consumer<List>)LambdaMetafactory.metafactory(null, null, null, (Ljava/lang/Object;)V, unloadFrom(java.util.List<com.hypixel.hytale.protocol.ToClientPacket> ), (Ljava/util/List;)V)((SendableBlockState)sendableBlockState);
-            canPlayerSeeOld = (Predicate<PlayerRef>)LambdaMetafactory.metafactory(null, null, null, (Ljava/lang/Object;)Z, canPlayerSee(com.hypixel.hytale.server.core.universe.PlayerRef ), (Lcom/hypixel/hytale/server/core/universe/PlayerRef;)Z)((SendableBlockState)sendableBlockState);
-        } else lbl-1000:
-        // 2 sources
-
-        {
-            removeOldState = null;
-            canPlayerSeeOld = null;
-        }
-        if (state instanceof SendableBlockState) {
-            sendableBlockState = (SendableBlockState)state;
-            updateBlockState = (Consumer<List>)LambdaMetafactory.metafactory(null, null, null, (Ljava/lang/Object;)V, sendTo(java.util.List<com.hypixel.hytale.protocol.ToClientPacket> ), (Ljava/util/List;)V)((SendableBlockState)sendableBlockState);
-            canPlayerSee = (Predicate<PlayerRef>)LambdaMetafactory.metafactory(null, null, null, (Ljava/lang/Object;)Z, canPlayerSee(com.hypixel.hytale.server.core.universe.PlayerRef ), (Lcom/hypixel/hytale/server/core/universe/PlayerRef;)Z)((SendableBlockState)sendableBlockState);
-        } else {
-            updateBlockState = null;
-            canPlayerSee = null;
-        }
-        if (removeOldState != null || updateBlockState != null) {
-            indexChunk = ChunkUtil.indexChunkFromBlock(x, z);
-            packets = new ObjectArrayList<K>();
-            for (PlayerRef playerRef : this.world.getPlayerRefs()) {
-                chunkTracker = playerRef.getChunkTracker();
-                if (!chunkTracker.isLoaded(indexChunk) || skip != null && skip.test(playerRef)) continue;
-                if (removeOldState != null && canPlayerSeeOld.test(playerRef)) {
-                    removeOldState.accept(packets);
-                }
-                if (updateBlockState != null && canPlayerSee.test(playerRef)) {
-                    updateBlockState.accept(packets);
-                }
-                for (ToClientPacket packet : packets) {
-                    playerRef.getPacketHandler().write(packet);
-                }
-                packets.clear();
-            }
-        }
     }
 
     public void updateChunk(long indexChunk) {

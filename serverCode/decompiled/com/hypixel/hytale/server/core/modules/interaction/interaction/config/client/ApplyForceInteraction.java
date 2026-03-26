@@ -42,8 +42,8 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.operation.
 import com.hypixel.hytale.server.core.modules.interaction.interaction.operation.OperationsBuilder;
 import com.hypixel.hytale.server.core.modules.physics.component.Velocity;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -225,7 +225,7 @@ extends SimpleInteraction {
         MovementStates entityMovementStates = movementStatesComponent.getMovementStates();
         SpatialResource<Ref<EntityStore>, EntityStore> networkSendableSpatialComponent = entityStore.getResource(EntityModule.get().getNetworkSendableSpatialResourceType());
         SpatialStructure<Ref<EntityStore>> spatialStructure = networkSendableSpatialComponent.getSpatialStructure();
-        ObjectList entities = SpatialResource.getThreadLocalReferenceList();
+        List entities = SpatialResource.getThreadLocalReferenceList();
         spatialStructure.collect(transformComponent.getPosition(), 1.5, entities);
         boolean checkGround = time >= this.groundCheckDelay;
         boolean onGround = checkGround && this.waitForGround && (entityMovementStates.onGround || entityMovementStates.inFluid || entityMovementStates.climbing);

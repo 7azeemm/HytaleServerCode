@@ -32,6 +32,7 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.VariantRotation;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
+import com.hypixel.hytale.server.core.asset.type.item.config.ItemDropList;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
@@ -62,7 +63,7 @@ extends JavaPlugin {
     @Override
     protected void setup() {
         this.getCommandRegistry().registerCommand(new BlockSpawnerCommand());
-        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockSpawnerTable.class, new DefaultAssetMap()).setPath("Item/Block/Spawners")).setCodec((AssetCodec)BlockSpawnerTable.CODEC)).setKeyFunction(BlockSpawnerTable::getId)).loadsAfter(Item.class, BlockType.class)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockSpawnerTable.class, new DefaultAssetMap()).setPath("Item/Block/Spawners")).setCodec((AssetCodec)BlockSpawnerTable.CODEC)).setKeyFunction(BlockSpawnerTable::getId)).loadsAfter(Item.class, BlockType.class, ItemDropList.class)).build());
         this.blockSpawnerComponentType = this.getChunkStoreRegistry().registerComponent(BlockSpawner.class, "BlockSpawner", BlockSpawner.CODEC);
         this.getChunkStoreRegistry().registerSystem(new BlockSpawnerSystem());
         this.getChunkStoreRegistry().registerSystem(new MigrateBlockSpawner());
@@ -182,7 +183,7 @@ extends JavaPlugin {
                 BlockType blockType = BlockType.getAssetMap().getAsset(blockId);
                 worldChunkComponent.setBlock(x, y, z, blockId, blockType, rotation.index(), 0, flags);
                 if (holder != null) {
-                    worldChunkComponent.setState(x, y, z, (Holder<ChunkStore>)holder.clone());
+                    worldChunkComponent.setState(x, y, z, blockType, rotation.index(), (Holder<ChunkStore>)holder.clone());
                 }
             });
         }

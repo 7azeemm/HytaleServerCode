@@ -14,6 +14,7 @@ import com.hypixel.hytale.server.core.update.command.UpdateCancelCommand;
 import com.hypixel.hytale.server.core.update.command.UpdateCheckCommand;
 import com.hypixel.hytale.server.core.update.command.UpdateDownloadCommand;
 import com.hypixel.hytale.server.core.update.command.UpdatePatchlineCommand;
+import com.hypixel.hytale.server.core.update.command.UpdateSetupCommand;
 import com.hypixel.hytale.server.core.update.command.UpdateStatusCommand;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -31,6 +32,7 @@ extends AbstractCommandCollection {
         this.addSubCommand(new UpdateCancelCommand());
         this.addSubCommand(new UpdateStatusCommand());
         this.addSubCommand(new UpdatePatchlineCommand());
+        this.addSubCommand(new UpdateSetupCommand());
     }
 
     @Override

@@ -13,6 +13,7 @@ import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Resource;
 import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.component.event.EntityEventType;
+import com.hypixel.hytale.component.event.EntityHolderEventType;
 import com.hypixel.hytale.component.event.WorldEventType;
 import com.hypixel.hytale.component.system.EcsEvent;
 import javax.annotation.Nonnull;
@@ -55,6 +56,10 @@ public interface ComponentAccessor<ECS_TYPE> {
     public <Event extends EcsEvent> void invoke(@Nonnull Ref<ECS_TYPE> var1, @Nonnull Event var2);
 
     public <Event extends EcsEvent> void invoke(@Nonnull EntityEventType<ECS_TYPE, Event> var1, @Nonnull Ref<ECS_TYPE> var2, @Nonnull Event var3);
+
+    public <Event extends EcsEvent> void invoke(@Nonnull Holder<ECS_TYPE> var1, @Nonnull Event var2);
+
+    public <Event extends EcsEvent> void invoke(@Nonnull EntityHolderEventType<ECS_TYPE, Event> var1, @Nonnull Holder<ECS_TYPE> var2, @Nonnull Event var3);
 
     public <Event extends EcsEvent> void invoke(@Nonnull Event var1);
 

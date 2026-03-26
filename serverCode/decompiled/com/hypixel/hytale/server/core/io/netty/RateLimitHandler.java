@@ -5,6 +5,7 @@ package com.hypixel.hytale.server.core.io.netty;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
+import com.hypixel.hytale.protocol.packets.connection.QuicApplicationErrorCode;
 import com.hypixel.hytale.server.core.io.netty.NettyUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -43,7 +44,7 @@ extends ChannelInboundHandlerAdapter {
             ctx.fireChannelRead(msg);
         } else {
             LOGGER.at(Level.WARNING).log("Rate limit exceeded for %s, disconnecting", NettyUtil.formatRemoteAddress(ctx.channel()));
-            ProtocolUtil.closeApplicationConnection(ctx.channel(), 1);
+            ProtocolUtil.closeApplicationConnection(ctx.channel(), QuicApplicationErrorCode.RateLimited);
         }
     }
 }

@@ -3,12 +3,15 @@
  */
 package com.hypixel.hytale.builtin.buildertools.utils;
 
+import com.hypixel.hytale.component.ComponentAccessor;
+import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.protocol.packets.inventory.SetActiveSlot;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import javax.annotation.Nonnull;
 
 public final class PasteToolUtil {
@@ -17,7 +20,7 @@ public final class PasteToolUtil {
     private PasteToolUtil() {
     }
 
-    public static void switchToPasteTool(@Nonnull Player player, @Nonnull PlayerRef playerRef) {
+    public static void switchToPasteTool(@Nonnull Ref<EntityStore> ref, @Nonnull Player player, @Nonnull PlayerRef playerRef, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         ItemStack itemStack;
         short slot;
         Inventory inventory = player.getInventory();
@@ -28,7 +31,7 @@ public final class PasteToolUtil {
         for (short slot2 = 0; slot2 < hotbarSize; slot2 = (short)(slot2 + 1)) {
             ItemStack itemStack2 = hotbar.getItemStack(slot2);
             if (itemStack2 == null || itemStack2.isEmpty() || !PASTE_TOOL_ID.equals(itemStack2.getItemId())) continue;
-            inventory.setActiveHotbarSlot((byte)slot2);
+            inventory.setActiveHotbarSlot(ref, (byte)slot2, componentAccessor);
             playerRef.getPacketHandler().writeNoCache(new SetActiveSlot(-1, (byte)slot2));
             return;
         }
@@ -46,7 +49,7 @@ public final class PasteToolUtil {
             itemStack = storage.getItemStack(slot);
             if (itemStack == null || itemStack.isEmpty() || !PASTE_TOOL_ID.equals(itemStack.getItemId())) continue;
             storage.moveItemStackFromSlotToSlot(slot, 1, hotbar, emptySlot);
-            inventory.setActiveHotbarSlot((byte)emptySlot);
+            inventory.setActiveHotbarSlot(ref, (byte)emptySlot, componentAccessor);
             playerRef.getPacketHandler().writeNoCache(new SetActiveSlot(-1, (byte)emptySlot));
             return;
         }
@@ -61,7 +64,7 @@ public final class PasteToolUtil {
             return;
         }
         hotbar.setItemStackForSlot(emptySlot, new ItemStack(pasteToolStack.getItemId()));
-        inventory.setActiveHotbarSlot((byte)emptySlot);
+        inventory.setActiveHotbarSlot(ref, (byte)emptySlot, componentAccessor);
         playerRef.getPacketHandler().writeNoCache(new SetActiveSlot(-1, (byte)emptySlot));
     }
 }

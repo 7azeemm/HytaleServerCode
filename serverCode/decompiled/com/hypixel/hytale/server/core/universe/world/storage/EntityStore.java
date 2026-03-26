@@ -22,8 +22,8 @@ import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.modules.entity.tracker.NetworkId;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.WorldProvider;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,7 +50,7 @@ implements WorldProvider {
     @Nonnull
     private final Map<UUID, Ref<EntityStore>> entitiesByUuid = new ConcurrentHashMap<UUID, Ref<EntityStore>>();
     @Nonnull
-    private final Int2ObjectMap<Ref<EntityStore>> networkIdToRef = new Int2ObjectOpenHashMap<Ref<EntityStore>>();
+    private final Int2ReferenceMap<Ref<EntityStore>> networkIdToRef = new Int2ReferenceOpenHashMap<Ref<EntityStore>>();
 
     public EntityStore(@Nonnull World world) {
         this.world = world;

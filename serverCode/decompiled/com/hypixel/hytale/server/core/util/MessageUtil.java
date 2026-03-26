@@ -62,6 +62,47 @@ public class MessageUtil {
         return AttributedStyle.DEFAULT.foreground(colorId);
     }
 
+    public static boolean containsControlCharacters(@Nonnull String message) {
+        for (int i = 0; i < message.length(); ++i) {
+            char c = message.charAt(i);
+            if (c < ' ') {
+                return true;
+            }
+            if (c == '\u007f') {
+                return true;
+            }
+            if (c < '\u0080' || c > '\u009f') continue;
+            return true;
+        }
+        return false;
+    }
+
+    @Nullable
+    public static String formatMessageToPlainString(@Nullable FormattedMessage msg) {
+        if (msg == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (msg.rawText != null) {
+            sb.append(msg.rawText);
+        } else if (msg.messageId != null) {
+            try {
+                I18nModule i18n = I18nModule.get();
+                String message = i18n != null ? i18n.getMessage("en-US", msg.messageId) : null;
+                sb.append(message != null ? MessageUtil.formatText(message, msg.params, msg.messageParams) : msg.messageId);
+            }
+            catch (Exception e) {
+                sb.append(msg.messageId);
+            }
+        }
+        if (msg.children != null) {
+            for (FormattedMessage child : msg.children) {
+                sb.append(MessageUtil.formatMessageToPlainString(child));
+            }
+        }
+        return sb.toString();
+    }
+
     @Deprecated
     public static void sendSuccessReply(@Nonnull PlayerRef playerRef, int token) {
         MessageUtil.sendSuccessReply(playerRef, token, null);
@@ -235,11 +276,33 @@ public class MessageUtil {
                             break;
                         }
                         case 3: {
-                            int value;
-                            String category;
+                            DoubleParamValue d;
+                            ParamValue paramValue2;
                             if (options == null) break;
                             Map<String, String> pluralTexts = MessageUtil.parsePluralOptions(options);
-                            String selected = pluralTexts.containsKey(category = MessageUtil.getPluralCategory(value = Integer.parseInt(replacement.toString()), "en-US")) ? pluralTexts.get(category) : (pluralTexts.containsKey("other") ? pluralTexts.get("other") : (pluralTexts.isEmpty() ? "" : pluralTexts.values().iterator().next()));
+                            Objects.requireNonNull(replacement);
+                            int n4 = 0;
+                            int value = switch (SwitchBootstraps.typeSwitch("typeSwitch", new Object[]{IntParamValue.class, LongParamValue.class, DoubleParamValue.class, StringParamValue.class}, (Object)paramValue2, n4)) {
+                                case 0 -> {
+                                    IntParamValue iv = (IntParamValue)paramValue2;
+                                    yield iv.value;
+                                }
+                                case 1 -> {
+                                    LongParamValue l = (LongParamValue)paramValue2;
+                                    yield (int)l.value;
+                                }
+                                case 2 -> {
+                                    d = (DoubleParamValue)paramValue2;
+                                    yield (int)d.value;
+                                }
+                                case 3 -> {
+                                    StringParamValue s = (StringParamValue)paramValue2;
+                                    yield Integer.parseInt(s.value);
+                                }
+                                default -> 0;
+                            };
+                            String category = MessageUtil.getPluralCategory(value, "en-US");
+                            String selected = pluralTexts.containsKey(category) ? pluralTexts.get(category) : (pluralTexts.containsKey("other") ? pluralTexts.get("other") : (pluralTexts.isEmpty() ? "" : pluralTexts.values().iterator().next()));
                             formattedReplacement = MessageUtil.formatText(selected, params, messageParams);
                             break;
                         }

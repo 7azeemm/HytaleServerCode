@@ -13,16 +13,21 @@ import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3f;
 import com.hypixel.hytale.math.vector.Vector3i;
+import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockRotation;
+import com.hypixel.hytale.protocol.FormattedMessage;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.protocol.HostAddress;
 import com.hypixel.hytale.protocol.NetworkChannel;
+import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
 import com.hypixel.hytale.protocol.packets.camera.RequestFlyCameraMode;
 import com.hypixel.hytale.protocol.packets.camera.SetFlyCameraMode;
-import com.hypixel.hytale.protocol.packets.connection.Disconnect;
+import com.hypixel.hytale.protocol.packets.connection.ClientDisconnect;
 import com.hypixel.hytale.protocol.packets.connection.Pong;
 import com.hypixel.hytale.protocol.packets.entities.MountMovement;
+import com.hypixel.hytale.protocol.packets.entities.PlayEmote;
+import com.hypixel.hytale.protocol.packets.interaction.CancelInteractionChain;
 import com.hypixel.hytale.protocol.packets.interaction.SyncInteractionChain;
 import com.hypixel.hytale.protocol.packets.interaction.SyncInteractionChains;
 import com.hypixel.hytale.protocol.packets.interface_.ChatMessage;
@@ -64,6 +69,10 @@ import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
 import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.command.system.CommandManager;
 import com.hypixel.hytale.server.core.console.ConsoleModule;
+import com.hypixel.hytale.server.core.cosmetics.CosmeticsModule;
+import com.hypixel.hytale.server.core.cosmetics.Emote;
+import com.hypixel.hytale.server.core.cosmetics.EmoteAsset;
+import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.PageManager;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ValidatedWindow;
@@ -110,8 +119,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.net.InetSocketAddress;
-import java.util.Collections;
 import java.util.Deque;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -125,6 +134,7 @@ public class GamePacketHandler
 extends GenericPacketHandler
 implements IPacketHandler {
     private static final double RELATIVE_POSITION_DELTA_SCALE = 10000.0;
+    private static final int MAX_INTERACTION_QUEUE_SIZE = 1000;
     private PlayerRef playerRef;
     @Deprecated
     private Player playerComponent;
@@ -167,8 +177,8 @@ implements IPacketHandler {
     }
 
     protected void registerHandlers() {
-        this.registerHandler(1, p -> this.handle((Disconnect)p));
-        this.registerHandler(3, p -> this.handlePong((Pong)p));
+        this.registerHandler(1, p -> this.handle((ClientDisconnect)p));
+        this.registerHandler(4, p -> this.handlePong((Pong)p));
         this.registerHandler(108, p -> this.handle((ClientMovement)p));
         this.registerHandler(211, p -> this.handle((ChatMessage)p));
         this.registerHandler(23, p -> this.handle((RequestAssets)p));
@@ -185,6 +195,7 @@ implements IPacketHandler {
         IWorldPacketHandler.registerHandler(this, 262, this::handleUpdateMachinimaScene);
         this.registerHandler(105, p -> this.handle((ClientReady)p));
         IWorldPacketHandler.registerHandler(this, 166, this::handleMountMovement);
+        IWorldPacketHandler.registerHandler(this, 167, this::handlePlayEmote);
         IWorldPacketHandler.registerHandler(this, 116, this::handleSyncPlayerPreferences);
         IWorldPacketHandler.registerHandler(this, 117, this::handleClientPlaceBlock);
         IWorldPacketHandler.registerHandler(this, 119, this::handleRemoveMapMarker);
@@ -209,10 +220,10 @@ implements IPacketHandler {
     }
 
     @Override
-    public void disconnect(@Nonnull String message) {
+    public void disconnect(@Nonnull FormattedMessage message) {
         this.disconnectReason.setServerDisconnectReason(message);
         if (this.playerRef != null) {
-            HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s at %s (SNI: %s) with the message: %s", this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.getChannel()), this.getSniHostname(), message);
+            HytaleLogger.getLogger().at(Level.INFO).log("Disconnecting %s at %s (SNI: %s) with the message: %s", this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.getChannel()), this.getSniHostname(), MessageUtil.formatMessageToPlainString(message));
             this.disconnect0(message);
             Universe.get().removePlayer(this.playerRef);
         } else {
@@ -220,9 +231,9 @@ implements IPacketHandler {
         }
     }
 
-    public void handle(@Nonnull Disconnect packet) {
+    public void handle(@Nonnull ClientDisconnect packet) {
         this.disconnectReason.setClientDisconnectType(packet.type);
-        HytaleLogger.getLogger().at(Level.INFO).log("%s - %s at %s left with reason: %s - %s", this.playerRef.getUuid(), this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.getChannel()), packet.type.name(), packet.reason);
+        HytaleLogger.getLogger().at(Level.INFO).log("%s - %s at %s left with reason: %s - %s", this.playerRef.getUuid(), this.playerRef.getUsername(), NettyUtil.formatRemoteAddress(this.getChannel()), packet.type.name(), packet.reason.name());
         ProtocolUtil.closeApplicationConnection(this.getChannel());
     }
 
@@ -234,11 +245,11 @@ implements IPacketHandler {
 
     public void handle(@Nonnull ClientMovement packet) {
         if (packet.absolutePosition != null && !ValidateUtil.isSafePosition(packet.absolutePosition)) {
-            this.disconnect("Sent impossible position data!");
+            this.disconnect(Message.translation("server.general.disconnect.impossiblePosition"));
             return;
         }
         if (packet.bodyOrientation != null && !ValidateUtil.isSafeDirection(packet.bodyOrientation) || packet.lookOrientation != null && !ValidateUtil.isSafeDirection(packet.lookOrientation)) {
-            this.disconnect("Sent impossible orientation data!");
+            this.disconnect(Message.translation("server.general.disconnect.impossibleOrientation"));
             return;
         }
         Ref<EntityStore> ref = this.playerRef.getReference();
@@ -276,11 +287,11 @@ implements IPacketHandler {
                         break;
                     }
                     case INVALID_ID: {
-                        this.disconnect("Incorrect teleportId");
+                        this.disconnect(Message.translation("server.general.disconnect.incorrectTeleportId"));
                         return;
                     }
                     case INVALID_POSITION: {
-                        this.disconnect("Invalid teleport");
+                        this.disconnect(Message.translation("server.general.disconnect.invalidTeleport"));
                         return;
                     }
                 }
@@ -289,13 +300,11 @@ implements IPacketHandler {
                 }
                 store.removeComponent(ref, PendingTeleport.getComponentType());
             }
-            if (packet.mountedTo != 0) {
-                if (packet.mountedTo != playerInputComponent.getMountId()) {
-                    return;
-                }
-                if (packet.riderMovementStates != null) {
-                    playerInputComponent.queue(new PlayerInput.SetRiderMovementStates(packet.riderMovementStates));
-                }
+            if (packet.mountedTo != playerInputComponent.getMountId()) {
+                return;
+            }
+            if (packet.mountedTo != 0 && packet.riderMovementStates != null) {
+                playerInputComponent.queue(new PlayerInput.SetRiderMovementStates(packet.riderMovementStates));
             }
             if (packet.bodyOrientation != null) {
                 playerInputComponent.queue(new PlayerInput.SetBody(packet.bodyOrientation));
@@ -316,7 +325,11 @@ implements IPacketHandler {
 
     public void handle(@Nonnull ChatMessage packet) {
         if (packet.message == null || packet.message.isEmpty()) {
-            this.disconnect("Invalid chat message packet! Message was empty.");
+            this.disconnect(Message.translation("server.general.disconnect.invalidChatMessage"));
+            return;
+        }
+        if (MessageUtil.containsControlCharacters(packet.message)) {
+            this.playerRef.sendMessage(Message.translation("server.io.gamepackethandler.invalidMessageContent").param("msg", packet.message));
             return;
         }
         String message = packet.message;
@@ -466,7 +479,7 @@ implements IPacketHandler {
                 heldBlockKey = clientPlacedBlockTypeKey;
             }
         }
-        BlockPlaceUtils.placeBlock(ref, itemInHand, heldBlockKey, inventory.getHotbar(), Vector3i.ZERO, targetBlock, blockRotation, inventory, inventory.getActiveHotbarSlot(), playerComponent.getGameMode() != GameMode.Creative, chunkReference, chunkStore, store);
+        BlockPlaceUtils.placeBlock(ref, itemInHand, heldBlockKey, inventory.getHotbar(), Vector3i.ZERO, targetBlock, blockRotation, inventory, inventory.getActiveHotbarSlot(), playerComponent.getGameMode() != GameMode.Creative, chunkReference, chunkStore, store, packet.quickReplace);
     }
 
     public void handleRemoveMapMarker(@Nonnull RemoveMapMarker packet, @Nonnull PlayerRef playerRef, @Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull Store<EntityStore> store) {
@@ -555,7 +568,7 @@ implements IPacketHandler {
         assert (playerComponent != null);
         WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
         if (!worldMapTracker.isAllowTeleportToMarkers()) {
-            this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
+            this.disconnect(Message.translation("server.general.disconnect.teleportToMarkersNotAllowed"));
             return;
         }
         MapMarker marker = worldMapTracker.getSentMarkers().get(packet.id);
@@ -578,7 +591,7 @@ implements IPacketHandler {
         assert (playerComponent != null);
         WorldMapTracker worldMapTracker = playerComponent.getWorldMapTracker();
         if (!worldMapTracker.isAllowTeleportToCoordinates()) {
-            this.disconnect("You are not allowed to use TeleportToWorldMapMarker!");
+            this.disconnect(Message.translation("server.general.disconnect.teleportToCoordinatesNotAllowed"));
             return;
         }
         world.getChunkStore().getChunkReferenceAsync(ChunkUtil.indexChunkFromBlock(packet.x, packet.y)).thenAcceptAsync(chunkRef -> {
@@ -596,23 +609,60 @@ implements IPacketHandler {
     }
 
     public void handle(@Nonnull SyncInteractionChains packet) {
-        Collections.addAll(this.interactionPacketQueue, packet.updates);
+        int capacity = 1000 - this.interactionPacketQueue.size();
+        int accepted = Math.clamp((long)capacity, 0, packet.updates.length);
+        for (int i = 0; i < accepted; ++i) {
+            this.interactionPacketQueue.add(packet.updates[i]);
+        }
+        if (accepted < packet.updates.length) {
+            int dropped = packet.updates.length - accepted;
+            HytaleLogger.getLogger().at(Level.WARNING).log("Dropped %d interaction updates from %s (queue full at %d)", dropped, this.playerRef != null ? this.playerRef.getUuid() : "unknown", this.interactionPacketQueue.size());
+            for (int i = accepted; i < packet.updates.length; ++i) {
+                SyncInteractionChain update = packet.updates[i];
+                if (!update.initial) continue;
+                this.write((ToClientPacket)new CancelInteractionChain(update.chainId, update.forkedId));
+            }
+        }
     }
 
     public void handleMountMovement(@Nonnull MountMovement packet, @Nonnull PlayerRef playerRef, @Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull Store<EntityStore> store) {
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
+        if (playerComponent == null) {
+            return;
+        }
         Ref<EntityStore> entityReference = world.getEntityStore().getRefFromNetworkId(playerComponent.getMountEntityId());
         if (entityReference == null || !entityReference.isValid()) {
             return;
         }
+        if (packet.absolutePosition == null || packet.bodyOrientation == null || packet.movementStates == null) {
+            return;
+        }
         TransformComponent transformComponent = store.getComponent(entityReference, TransformComponent.getComponentType());
         assert (transformComponent != null);
+        if (transformComponent == null) {
+            return;
+        }
         transformComponent.setPosition(PositionUtil.toVector3d(packet.absolutePosition));
         transformComponent.setRotation(PositionUtil.toRotation(packet.bodyOrientation));
         MovementStatesComponent movementStatesComponent = store.getComponent(entityReference, MovementStatesComponent.getComponentType());
         assert (movementStatesComponent != null);
+        if (movementStatesComponent == null) {
+            return;
+        }
         movementStatesComponent.setMovementStates(packet.movementStates);
+    }
+
+    public void handlePlayEmote(@Nonnull PlayEmote packet, @Nonnull PlayerRef playerRef, @Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull Store<EntityStore> store) {
+        if (packet.emoteId == null || packet.emoteId.isEmpty()) {
+            AnimationUtils.stopAnimation(ref, AnimationSlot.Emote, true, store);
+            return;
+        }
+        Map<String, Emote> builtinEmotes = CosmeticsModule.get().getRegistry().getEmotesInGame();
+        if (builtinEmotes.get(packet.emoteId) == null && EmoteAsset.getAssetMap().getAsset(packet.emoteId) == null) {
+            return;
+        }
+        AnimationUtils.playAnimation(ref, AnimationSlot.Emote, null, packet.emoteId, true, store);
     }
 
     public void handleSetPaused(@Nonnull SetPaused packet, @Nonnull PlayerRef playerRef, @Nonnull Ref<EntityStore> ref, @Nonnull World world, @Nonnull Store<EntityStore> store) {

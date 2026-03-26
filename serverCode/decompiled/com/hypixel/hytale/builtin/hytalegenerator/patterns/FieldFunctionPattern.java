@@ -3,28 +3,27 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.patterns;
 
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
+import com.hypixel.hytale.builtin.hytalegenerator.delimiters.RangeDouble;
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
 
 public class FieldFunctionPattern
 extends Pattern {
     @Nonnull
     private final Density field;
     @Nonnull
-    private final SpaceSize readSpaceSize;
-    @Nonnull
-    private final List<Delimiter> delimiters;
+    private final List<RangeDouble> delimiters;
     @Nonnull
     private final Density.Context rDensityContext;
 
     public FieldFunctionPattern(@Nonnull Density field) {
         this.field = field;
-        this.readSpaceSize = SpaceSize.empty();
-        this.delimiters = new ArrayList<Delimiter>(1);
+        this.delimiters = new ArrayList<RangeDouble>(1);
         this.rDensityContext = new Density.Context();
     }
 
@@ -32,36 +31,21 @@ extends Pattern {
     public boolean matches(@Nonnull Pattern.Context context) {
         this.rDensityContext.assign(context);
         double density = this.field.process(this.rDensityContext);
-        for (Delimiter d : this.delimiters) {
-            if (!d.isInside(density)) continue;
+        for (RangeDouble delimiter : this.delimiters) {
+            if (!delimiter.contains(density)) continue;
             return true;
         }
         return false;
     }
 
     @Override
-    @Nonnull
-    public SpaceSize readSpace() {
-        return this.readSpaceSize.clone();
+    @NonNullDecl
+    public Bounds3i getBounds_voxelGrid() {
+        return Bounds3i.ZERO;
     }
 
     public void addDelimiter(double min, double max) {
-        Delimiter d = new Delimiter();
-        d.min = min;
-        d.max = max;
-        this.delimiters.add(d);
-    }
-
-    private static class Delimiter {
-        double min;
-        double max;
-
-        private Delimiter() {
-        }
-
-        boolean isInside(double v) {
-            return v >= this.min && v < this.max;
-        }
+        this.delimiters.add(new RangeDouble(min, max));
     }
 }
 

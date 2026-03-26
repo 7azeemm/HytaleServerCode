@@ -4,6 +4,7 @@
 package com.hypixel.hytale.builtin.buildertools.prefabeditor.commands;
 
 import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabAnchor;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSession;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSessionManager;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditingMetadata;
@@ -52,10 +53,13 @@ extends AbstractPlayerCommand {
         Vector3d min = new Vector3d(selectionMin.x, selectionMin.y, selectionMin.z);
         Vector3d max = new Vector3d(selectionMax.x + 1, selectionMax.y + 1, selectionMax.z + 1);
         List<Ref<EntityStore>> entitiesInBox = TargetUtil.getAllEntitiesInBox(min, max, store);
+        int removed = 0;
         for (Ref<EntityStore> entityRef : entitiesInBox) {
+            if (store.getComponent(entityRef, PrefabAnchor.getComponentType()) != null) continue;
             store.removeEntity(entityRef, RemoveReason.REMOVE);
+            ++removed;
         }
-        context.sendMessage(Message.translation("server.commands.editprefab.kill.done").param("amount", entitiesInBox.size()));
+        context.sendMessage(Message.translation("server.commands.editprefab.kill.done").param("amount", removed));
     }
 }
 

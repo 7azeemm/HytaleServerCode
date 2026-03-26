@@ -6,6 +6,7 @@ package com.hypixel.hytale.server.core.io.handlers.login;
 import com.hypixel.hytale.protocol.HostAddress;
 import com.hypixel.hytale.protocol.packets.connection.ClientType;
 import com.hypixel.hytale.server.core.HytaleServer;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.auth.PlayerAuthentication;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.io.ProtocolVersion;
@@ -38,7 +39,7 @@ extends HandshakeHandler {
     public void registered0(PacketHandler oldHandler) {
         int maxPlayers = HytaleServer.get().getConfig().getMaxPlayers();
         if (maxPlayers > 0 && Universe.get().getPlayerCount() >= maxPlayers) {
-            this.disconnect("Too many players!");
+            this.disconnect(Message.translation("client.general.disconnect.serverFull"));
             return;
         }
         super.registered0(oldHandler);

@@ -18,14 +18,12 @@ import com.hypixel.hytale.server.core.asset.type.entityeffect.config.OverlapBeha
 import com.hypixel.hytale.server.core.asset.type.entityeffect.config.RemovalBehavior;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.effect.ActiveEntityEffect;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.livingentity.LivingEntityEffectSystem;
 import com.hypixel.hytale.server.core.modules.entity.player.PlayerSkinComponent;
+import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -116,23 +114,18 @@ implements Component<EntityStore> {
             if (currentActiveEntityEffectEntry.isInfinite()) {
                 return true;
             }
-            switch (overlapBehavior) {
-                case EXTEND: {
-                    currentActiveEntityEffectEntry.remainingDuration += duration;
-                    this.addChange(new EntityEffectUpdate(EffectOp.Add, entityEffectIndex, currentActiveEntityEffectEntry.remainingDuration, false, currentActiveEntityEffectEntry.debuff, currentActiveEntityEffectEntry.statusEffectIcon));
-                    return true;
-                }
-                case IGNORE: {
-                    return true;
-                }
+            if (overlapBehavior != OverlapBehavior.IGNORE) {
+                currentActiveEntityEffectEntry.remainingDuration = overlapBehavior == OverlapBehavior.EXTEND ? currentActiveEntityEffectEntry.remainingDuration + duration : duration;
+                this.addChange(new EntityEffectUpdate(EffectOp.Add, entityEffectIndex, currentActiveEntityEffectEntry.remainingDuration, false, currentActiveEntityEffectEntry.debuff, currentActiveEntityEffectEntry.statusEffectIcon));
+                return true;
             }
+            return true;
         }
         ActiveEntityEffect activeEntityEffectEntry = new ActiveEntityEffect(entityEffect.getId(), entityEffectIndex, duration, entityEffect.isDebuff(), entityEffect.getStatusEffectIcon(), entityEffect.isInvulnerable());
         this.activeEffects.put(entityEffectIndex, activeEntityEffectEntry);
-        Entity ownerEntity = EntityUtils.getEntity(ownerRef, componentAccessor);
-        if (ownerEntity instanceof LivingEntity) {
-            LivingEntity ownerLivingEntity = (LivingEntity)ownerEntity;
-            ownerLivingEntity.getStatModifiersManager().setRecalculate(true);
+        EntityStatMap entityStatMapComponent = componentAccessor.getComponent(ownerRef, EntityStatMap.getComponentType());
+        if (entityStatMapComponent != null) {
+            entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
         }
         this.setModelChange(ownerRef, entityEffect, entityEffectIndex, componentAccessor);
         this.addChange(new EntityEffectUpdate(EffectOp.Add, entityEffectIndex, activeEntityEffectEntry.remainingDuration, false, activeEntityEffectEntry.debuff, activeEntityEffectEntry.statusEffectIcon));
@@ -148,10 +141,9 @@ implements Component<EntityStore> {
         if (currentActiveEntityEffectEntry == null) {
             currentActiveEntityEffectEntry = new ActiveEntityEffect(entityEffect.getId(), entityEffectIndex, true, entityEffect.isInvulnerable());
             this.activeEffects.put(entityEffectIndex, currentActiveEntityEffectEntry);
-            Entity ownerEntity = EntityUtils.getEntity(ownerRef, componentAccessor);
-            if (ownerEntity instanceof LivingEntity) {
-                LivingEntity ownerLivingEntity = (LivingEntity)ownerEntity;
-                ownerLivingEntity.getStatModifiersManager().setRecalculate(true);
+            EntityStatMap entityStatMapComponent = componentAccessor.getComponent(ownerRef, EntityStatMap.getComponentType());
+            if (entityStatMapComponent != null) {
+                entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
             }
             this.invalidateCache();
         } else if (!currentActiveEntityEffectEntry.isInfinite()) {
@@ -220,10 +212,9 @@ implements Component<EntityStore> {
         switch (removalBehavior) {
             case COMPLETE: {
                 this.activeEffects.remove(entityEffectIndex);
-                Entity ownerEntity = EntityUtils.getEntity(ownerRef, componentAccessor);
-                if (ownerEntity instanceof LivingEntity) {
-                    LivingEntity ownerLivingEntity = (LivingEntity)ownerEntity;
-                    ownerLivingEntity.getStatModifiersManager().setRecalculate(true);
+                EntityStatMap entityStatMapComponent = componentAccessor.getComponent(ownerRef, EntityStatMap.getComponentType());
+                if (entityStatMapComponent != null) {
+                    entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
                 }
                 this.addChange(new EntityEffectUpdate(EffectOp.Remove, entityEffectIndex, 0.0f, false, false, ""));
                 this.invalidateCache();
@@ -237,10 +228,9 @@ implements Component<EntityStore> {
                 activeEffectEntry.remainingDuration = 0.0f;
             }
         }
-        Entity ownerEntity = EntityUtils.getEntity(ownerRef, componentAccessor);
-        if (ownerEntity instanceof LivingEntity) {
-            LivingEntity ownerLivingEntity = (LivingEntity)ownerEntity;
-            ownerLivingEntity.getStatModifiersManager().setRecalculate(true);
+        EntityStatMap entityStatMapComponent = componentAccessor.getComponent(ownerRef, EntityStatMap.getComponentType());
+        if (entityStatMapComponent != null) {
+            entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
         }
         this.addChange(new EntityEffectUpdate(EffectOp.Remove, entityEffectIndex, activeEffectEntry.remainingDuration, activeEffectEntry.infinite, activeEffectEntry.debuff, activeEffectEntry.statusEffectIcon));
     }
@@ -322,6 +312,21 @@ implements Component<EntityStore> {
             ++index;
         }
         return activeEntityEffects;
+    }
+
+    public boolean hasEffect(@Nullable EntityEffect entityEffect) {
+        if (entityEffect == null) {
+            return false;
+        }
+        int entityEffectIndex = EntityEffect.getAssetMap().getIndex(entityEffect.getId());
+        if (entityEffectIndex == Integer.MIN_VALUE) {
+            return false;
+        }
+        return this.activeEffects.containsKey(entityEffectIndex);
+    }
+
+    public boolean hasEffect(int effectIndex) {
+        return this.activeEffects.containsKey(effectIndex);
     }
 
     @Nonnull

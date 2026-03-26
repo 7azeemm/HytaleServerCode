@@ -5,7 +5,8 @@ package com.hypixel.hytale.server.core.console.command;
 
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
-import com.hypixel.hytale.server.core.command.system.CommandUtil;
+import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
+import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
 import com.hypixel.hytale.server.core.console.ConsoleSender;
 import com.hypixel.hytale.server.core.universe.Universe;
@@ -16,31 +17,28 @@ public class SayCommand
 extends CommandBase {
     @Nonnull
     private static final Color SAY_COMMAND_COLOR = Color.CYAN;
+    @Nonnull
+    private final RequiredArg<String> messageArg = this.withRequiredArg("message", "server.commands.say.message.desc", ArgTypes.GREEDY_STRING);
 
     public SayCommand() {
         super("say", "server.commands.say.desc");
         this.addAliases("broadcast");
-        this.setAllowsExtraArguments(true);
     }
 
     @Override
     protected void executeSync(@Nonnull CommandContext context) {
         Message result;
-        String rawArgs = CommandUtil.stripCommandName(context.getInputString()).trim();
-        if (rawArgs.isEmpty()) {
-            context.sendMessage(Message.translation("server.commands.parsing.error.wrongNumberRequiredParameters").param("expected", 1).param("actual", 0));
-            return;
-        }
-        if (rawArgs.charAt(0) == '{') {
+        String rawMessage = (String)this.messageArg.get(context);
+        if (rawMessage.charAt(0) == '{') {
             try {
-                result = Message.parse(rawArgs).color(SAY_COMMAND_COLOR);
+                result = Message.parse(rawMessage).color(SAY_COMMAND_COLOR);
             }
             catch (IllegalArgumentException e) {
                 context.sendMessage(Message.raw("Failed to parse formatted message: " + e.getMessage()));
                 return;
             }
         } else {
-            result = Message.translation("server.chat.broadcastMessage").param("username", context.sender().getDisplayName()).param("message", rawArgs).color(SAY_COMMAND_COLOR);
+            result = Message.translation("server.chat.broadcastMessage").param("username", context.sender().getDisplayName()).param("message", rawMessage).color(SAY_COMMAND_COLOR);
         }
         Universe.get().getWorlds().values().forEach(world -> world.getPlayerRefs().forEach(playerRef -> playerRef.sendMessage(result)));
         ConsoleSender.INSTANCE.sendMessage(result);

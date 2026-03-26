@@ -38,15 +38,13 @@ import com.hypixel.hytale.server.core.receiver.IPacketReceiver;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +104,7 @@ public class EntityTrackerSystems {
         @Nonnull
         public Map<Ref<EntityStore>, EntityUpdate> updates;
         @Nonnull
-        public Object2IntMap<Ref<EntityStore>> sent;
+        public Reference2IntMap<Ref<EntityStore>> sent;
         public int lodExcludedCount;
         public int hiddenCount;
 
@@ -117,21 +115,21 @@ public class EntityTrackerSystems {
         public EntityViewer(int viewRadiusBlocks, @Nonnull IPacketReceiver packetReceiver) {
             this.viewRadiusBlocks = viewRadiusBlocks;
             this.packetReceiver = packetReceiver;
-            this.visible = new ObjectOpenHashSet<Ref<EntityStore>>();
+            this.visible = new ReferenceOpenHashSet<Ref<EntityStore>>();
             this.updates = new ConcurrentHashMap<Ref<EntityStore>, EntityUpdate>();
-            this.sent = new Object2IntOpenHashMap<Ref<EntityStore>>();
+            this.sent = new Reference2IntOpenHashMap<Ref<EntityStore>>();
             this.sent.defaultReturnValue(-1);
         }
 
         public EntityViewer(@Nonnull EntityViewer other) {
             this.viewRadiusBlocks = other.viewRadiusBlocks;
             this.packetReceiver = other.packetReceiver;
-            this.visible = new HashSet<Ref<EntityStore>>(other.visible);
+            this.visible = new ReferenceOpenHashSet<Ref<EntityStore>>(other.visible);
             this.updates = new ConcurrentHashMap<Ref<EntityStore>, EntityUpdate>(other.updates.size());
             for (Map.Entry<Ref<EntityStore>, EntityUpdate> entry : other.updates.entrySet()) {
                 this.updates.put(entry.getKey(), entry.getValue().clone());
             }
-            this.sent = new Object2IntOpenHashMap<Ref<EntityStore>>(other.sent);
+            this.sent = new Reference2IntOpenHashMap<Ref<EntityStore>>(other.sent);
             this.sent.defaultReturnValue(-1);
         }
 
@@ -161,11 +159,11 @@ public class EntityTrackerSystems {
         @Nonnull
         private final StampedLock lock = new StampedLock();
         @Nonnull
-        public Map<Ref<EntityStore>, EntityViewer> previousVisibleTo = new Object2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
+        public Map<Ref<EntityStore>, EntityViewer> previousVisibleTo = new Reference2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
         @Nonnull
-        public Map<Ref<EntityStore>, EntityViewer> visibleTo = new Object2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
+        public Map<Ref<EntityStore>, EntityViewer> visibleTo = new Reference2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
         @Nonnull
-        public Map<Ref<EntityStore>, EntityViewer> newlyVisibleTo = new Object2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
+        public Map<Ref<EntityStore>, EntityViewer> newlyVisibleTo = new Reference2ObjectOpenHashMap<Ref<EntityStore>, EntityViewer>();
 
         @Nonnull
         public static ComponentType<EntityStore, Visible> getComponentType() {
@@ -243,9 +241,9 @@ public class EntityTrackerSystems {
             if (before != entityViewerComponent.updates.size()) {
                 ((HytaleLogger.Api)LOGGER.atWarning()).log("Removed %d invalid updates for removed entities.", before - entityViewerComponent.updates.size());
             }
-            Iterator<Ref<EntityStore>> iterator = entityViewerComponent.sent.object2IntEntrySet().iterator();
+            Iterator<Ref<EntityStore>> iterator = entityViewerComponent.sent.reference2IntEntrySet().iterator();
             while (iterator.hasNext()) {
-                Object2IntMap.Entry entry = (Object2IntMap.Entry)iterator.next();
+                Reference2IntMap.Entry entry = (Reference2IntMap.Entry)iterator.next();
                 Ref ref = (Ref)entry.getKey();
                 if (ref != null && ref.isValid() && entityViewerComponent.visible.contains(ref)) continue;
                 removedEntities.add(entry.getIntValue());
@@ -590,7 +588,7 @@ public class EntityTrackerSystems {
             EntityViewer entityViewerComponent = archetypeChunk.getComponent(index, this.entityViewerComponentType);
             assert (entityViewerComponent != null);
             SpatialStructure<Ref<EntityStore>> spatialStructure = store.getResource(EntityModule.get().getNetworkSendableSpatialResourceType()).getSpatialStructure();
-            ObjectList results = SpatialResource.getThreadLocalReferenceList();
+            List results = SpatialResource.getThreadLocalReferenceList();
             spatialStructure.collect(position, entityViewerComponent.viewRadiusBlocks, results);
             entityViewerComponent.visible.addAll(results);
         }

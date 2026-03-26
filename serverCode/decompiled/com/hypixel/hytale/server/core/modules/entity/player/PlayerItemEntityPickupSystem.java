@@ -42,7 +42,7 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Int
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
 import com.hypixel.hytale.server.core.modules.time.TimeResource;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
@@ -133,9 +133,9 @@ extends EntityTickingSystem<EntityStore> {
             });
             return;
         }
-        ObjectList targetPlayerRefs = SpatialResource.getThreadLocalReferenceList();
+        List targetPlayerRefs = SpatialResource.getThreadLocalReferenceList();
         spatialStructure.ordered(itemEntityPosition, pickupRadius, targetPlayerRefs);
-        for (Ref ref : targetPlayerRefs) {
+        for (Ref<EntityStore> ref : targetPlayerRefs) {
             if (store.getArchetype(ref).contains(DeathComponent.getComponentType())) continue;
             Player playerComponent = store.getComponent(ref, this.playerComponentType);
             assert (playerComponent != null);

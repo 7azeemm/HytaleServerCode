@@ -11,11 +11,8 @@ import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.WaitForDataFrom;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.item.config.ItemArmor;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
@@ -41,12 +38,6 @@ extends SimpleInstantInteraction {
         CommandBuffer<EntityStore> commandBuffer = context.getCommandBuffer();
         assert (commandBuffer != null);
         Ref<EntityStore> ref = context.getEntity();
-        Entity entity = EntityUtils.getEntity(ref, commandBuffer);
-        if (!(entity instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        Inventory inventory = livingEntity.getInventory();
         byte activeSlot = context.getHeldItemSlot();
         ItemStack itemInHand = context.getHeldItem();
         if (itemInHand == null) {
@@ -60,8 +51,12 @@ extends SimpleInstantInteraction {
         if (armor == null) {
             return;
         }
+        InventoryComponent.Armor armorComponent = commandBuffer.getComponent(ref, InventoryComponent.Armor.getComponentType());
+        if (armorComponent == null) {
+            return;
+        }
         short slotId = (short)armor.getArmorSlot().ordinal();
-        if (slotId > (armorContainer = inventory.getArmor()).getCapacity()) {
+        if (slotId > (armorContainer = armorComponent.getInventory()).getCapacity()) {
             return;
         }
         MoveTransaction<ItemStackTransaction> stackTransaction = context.getHeldItemContainer().moveItemStackFromSlot((short)activeSlot, itemInHand.getQuantity(), armorContainer);

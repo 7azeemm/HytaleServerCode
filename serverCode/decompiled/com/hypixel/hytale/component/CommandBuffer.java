@@ -15,6 +15,7 @@ import com.hypixel.hytale.component.Resource;
 import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.event.EntityEventType;
+import com.hypixel.hytale.component.event.EntityHolderEventType;
 import com.hypixel.hytale.component.event.WorldEventType;
 import com.hypixel.hytale.component.system.EcsEvent;
 import java.util.ArrayDeque;
@@ -277,6 +278,18 @@ implements ComponentAccessor<ECS_TYPE> {
     public <Event extends EcsEvent> void invoke(@Nonnull EntityEventType<ECS_TYPE, Event> systemType, @Nonnull Ref<ECS_TYPE> ref, @Nonnull Event param) {
         assert (Thread.currentThread() == this.thread);
         this.store.internal_invoke(this, systemType, ref, param);
+    }
+
+    @Override
+    public <Event extends EcsEvent> void invoke(@Nonnull Holder<ECS_TYPE> holder, @Nonnull Event param) {
+        assert (Thread.currentThread() == this.thread);
+        this.store.internal_invoke(this, holder, param);
+    }
+
+    @Override
+    public <Event extends EcsEvent> void invoke(@Nonnull EntityHolderEventType<ECS_TYPE, Event> systemType, @Nonnull Holder<ECS_TYPE> holder, @Nonnull Event param) {
+        assert (Thread.currentThread() == this.thread);
+        this.store.internal_invoke(this, systemType, holder, param);
     }
 
     @Override

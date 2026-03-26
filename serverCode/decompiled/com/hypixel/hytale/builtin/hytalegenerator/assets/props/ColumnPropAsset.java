@@ -13,12 +13,13 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.material.MaterialAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality.DirectionalityAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.directionality.StaticDirectionalityAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.OriginScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.DirectScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.material.Material;
-import com.hypixel.hytale.builtin.hytalegenerator.props.ColumnProp;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
-import com.hypixel.hytale.builtin.hytalegenerator.props.directionality.Directionality;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.ColumnProp;
+import com.hypixel.hytale.builtin.hytalegenerator.props.deprecated.directionality.Directionality;
 import com.hypixel.hytale.builtin.hytalegenerator.scanners.Scanner;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -42,16 +43,16 @@ extends PropAsset {
     private ColumnBlock[] columnBlocks = new ColumnBlock[0];
     private BlockMaskAsset blockMaskAsset = new BlockMaskAsset();
     private DirectionalityAsset directionalityAsset = new StaticDirectionalityAsset();
-    private ScannerAsset scannerAsset = new OriginScannerAsset();
+    private ScannerAsset scannerAsset = new DirectScannerAsset();
 
     @Override
     @Nonnull
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip()) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         if (this.directionalityAsset == null) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         ArrayList<Integer> blockPositions = new ArrayList<Integer>();
         ArrayList<Material> blockTypes = new ArrayList<Material>();

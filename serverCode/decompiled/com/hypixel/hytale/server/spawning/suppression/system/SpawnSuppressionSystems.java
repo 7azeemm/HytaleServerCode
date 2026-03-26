@@ -53,7 +53,6 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -114,11 +113,11 @@ public class SpawnSuppressionSystems {
         if (!suppression.isSuppressSpawnMarkers()) {
             return;
         }
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(SpawningPlugin.get().getSpawnMarkerSpatialResource());
         spatialResource.getSpatialStructure().collect(position, radius, results);
         for (int i = 0; i < results.size(); ++i) {
-            Ref markerRef = (Ref)results.get(i);
+            Ref markerRef = results.get(i);
             SpawnMarkerEntity marker = store.getComponent(markerRef, spawnMarkerEntityComponentType);
             marker.suppress(uuid);
             HytaleLogger.Api context = SpawningPlugin.get().getLogger().at(Level.FINEST);
@@ -232,6 +231,7 @@ public class SpawnSuppressionSystems {
                     long chunkIndex = ChunkUtil.indexChunk(chunkX, chunkZ);
                     ChunkSuppressionEntry chunkEntry = null;
                     ChunkSuppressionEntry oldEntry = chunkSuppressionMap.get(chunkIndex);
+                    if (oldEntry == null) continue;
                     if (oldEntry.containsOnly(uuid)) {
                         chunkSuppressionMap.remove(chunkIndex);
                     } else {
@@ -258,11 +258,11 @@ public class SpawnSuppressionSystems {
             if (!suppression.isSuppressSpawnMarkers()) {
                 return;
             }
-            ObjectList results = SpatialResource.getThreadLocalReferenceList();
+            List results = SpatialResource.getThreadLocalReferenceList();
             SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(this.spawnMarkerSpatialResourceType);
             spatialResource.getSpatialStructure().collect(position, radius, results);
             for (int i = 0; i < results.size(); ++i) {
-                Ref markerRef = (Ref)results.get(i);
+                Ref markerRef = results.get(i);
                 SpawnMarkerEntity marker = commandBuffer.getComponent(markerRef, this.spawnMarkerEntityComponentType);
                 marker.releaseSuppression(uuid);
                 HytaleLogger.Api context = SpawningPlugin.get().getLogger().at(Level.FINEST);

@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.server.core.universe.world.chunk.section.palette;
 
+import com.hypixel.hytale.function.consumer.BiIntConsumer;
 import com.hypixel.hytale.protocol.packets.world.PaletteType;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.ByteSectionPalette;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.EmptySectionPalette;
@@ -41,7 +42,14 @@ public interface ISectionPalette {
 
     public Int2ShortMap valueCounts();
 
-    public void find(IntList var1, IntSet var2, IntConsumer var3);
+    public void find(@Nonnull IntList var1, @Nonnull IntConsumer var2);
+
+    public void find(@Nonnull IntList var1, @Nonnull BiIntConsumer var2);
+
+    @Deprecated(since="2026-02-26", forRemoval=true)
+    default public void find(@Nonnull IntList ids, @Nonnull IntSet ignoredInternalIdHolder, @Nonnull IntConsumer indexConsumer) {
+        this.find(ids, indexConsumer);
+    }
 
     public boolean shouldDemote();
 
@@ -56,18 +64,18 @@ public interface ISectionPalette {
     public void deserialize(ToIntFunction<ByteBuf> var1, ByteBuf var2, int var3);
 
     @Nonnull
-    public static ISectionPalette from(@Nonnull int[] data, int[] unique, int count) {
-        if (count == 1 && unique[0] == 0) {
+    public static ISectionPalette from(@Nonnull int[] data, @Nonnull Int2ShortMap idCounts) {
+        if (idCounts.size() == 1 && idCounts.containsKey(0)) {
             return EmptySectionPalette.INSTANCE;
         }
-        if (count < 16) {
-            return new HalfByteSectionPalette(data, unique, count);
+        if (idCounts.size() < 16) {
+            return new HalfByteSectionPalette(data, idCounts);
         }
-        if (count < 256) {
-            return new ByteSectionPalette(data, unique, count);
+        if (idCounts.size() < 256) {
+            return new ByteSectionPalette(data, idCounts);
         }
-        if (count < 65536) {
-            return new ShortSectionPalette(data, unique, count);
+        if (idCounts.size() < 65536) {
+            return new ShortSectionPalette(data, idCounts);
         }
         throw new UnsupportedOperationException("Too many block types for palette.");
     }

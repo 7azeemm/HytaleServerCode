@@ -5,16 +5,19 @@ package com.hypixel.hytale.server.core.io.handlers;
 
 import com.hypixel.hytale.common.util.java.ManifestUtil;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.protocol.FormattedMessage;
 import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.ToServerPacket;
 import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
 import com.hypixel.hytale.protocol.packets.auth.ConnectAccept;
+import com.hypixel.hytale.protocol.packets.connection.ClientDisconnect;
 import com.hypixel.hytale.protocol.packets.connection.ClientType;
 import com.hypixel.hytale.protocol.packets.connection.Connect;
-import com.hypixel.hytale.protocol.packets.connection.Disconnect;
+import com.hypixel.hytale.protocol.packets.connection.QuicApplicationErrorCode;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.HytaleServerConfig;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.io.PacketHandler;
 import com.hypixel.hytale.server.core.io.ProtocolVersion;
@@ -23,7 +26,6 @@ import com.hypixel.hytale.server.core.io.handlers.login.AuthenticationPacketHand
 import com.hypixel.hytale.server.core.io.handlers.login.PasswordPacketHandler;
 import com.hypixel.hytale.server.core.io.netty.NettyUtil;
 import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
-import com.hypixel.hytale.server.core.plugin.PluginManager;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.quic.QuicStreamChannel;
 import java.security.SecureRandom;
@@ -61,14 +63,14 @@ extends PacketHandler {
         if (packet.getId() == 0) {
             this.handle((Connect)packet);
         } else if (packet.getId() == 1) {
-            this.handle((Disconnect)packet);
+            this.handle((ClientDisconnect)packet);
         } else {
-            this.disconnect("Protocol error: unexpected packet " + packet.getId());
+            this.disconnect(Message.translation("client.general.disconnect.protocol.unexpectedPacket").param("packetId", packet.getId()));
         }
     }
 
     @Override
-    public void disconnect(@Nonnull String message) {
+    public void disconnect(@Nonnull FormattedMessage message) {
         if (this.receivedConnect) {
             super.disconnect(message);
         } else {
@@ -82,20 +84,20 @@ extends PacketHandler {
         this.receivedConnect = true;
         this.clearTimeout();
         PacketHandler.logConnectionTimings(this.getChannel(), "Connect", Level.FINE);
-        if (packet.protocolCrc != -1356075132) {
+        if (packet.protocolCrc != 1080406952) {
             int clientBuild = packet.protocolBuildNumber;
-            int serverBuild = 20;
-            int errorCode = clientBuild < serverBuild ? 5 : 6;
+            int serverBuild = 51;
+            QuicApplicationErrorCode errorCode = clientBuild < serverBuild ? QuicApplicationErrorCode.ClientOutdated : QuicApplicationErrorCode.ServerOutdated;
             String serverVersion = ManifestUtil.getImplementationVersion();
             ProtocolUtil.closeApplicationConnection(this.getChannel(), errorCode, serverVersion != null ? serverVersion : "unknown");
             return;
         }
         if (HytaleServer.get().isShuttingDown()) {
-            this.disconnect("Server is shutting down!");
+            this.disconnect(Message.translation("client.general.disconnect.serverShuttingDown"));
             return;
         }
         if (!HytaleServer.get().isBooted()) {
-            this.disconnect("Server is booting up! Please try again in a moment. [" + String.valueOf((Object)PluginManager.get().getState()) + "]");
+            this.disconnect(Message.translation("client.general.disconnect.serverBooting"));
             return;
         }
         ProtocolVersion protocolVersion = new ProtocolVersion(packet.protocolCrc);
@@ -108,27 +110,27 @@ extends PacketHandler {
             HytaleLogger.getLogger().at(Level.INFO).log("TCP connection from %s - only insecure auth supported", NettyUtil.formatRemoteAddress(this.getChannel()));
         }
         if (packet.uuid == null) {
-            this.disconnect("Missing UUID");
+            this.disconnect(Message.translation("client.general.disconnect.missingUuid"));
             return;
         }
         if (packet.username == null || packet.username.isEmpty()) {
-            this.disconnect("Missing username");
+            this.disconnect(Message.translation("client.general.disconnect.missingUsername"));
             return;
         }
         if (packet.referralData != null && packet.referralData.length > 4096) {
             HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting connection from %s - referral data too large: %d bytes (max: %d)", packet.username, packet.referralData.length, 4096);
-            this.disconnect("Referral data exceeds maximum size of 4096 bytes");
+            this.disconnect(Message.translation("client.general.disconnect.referralDataTooLarge").param("maxSize", 4096));
             return;
         }
         if (packet.referralData != null) {
             if (packet.referralSource == null) {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting connection from %s - referral data provided without source address", packet.username);
-                this.disconnect("Referral connections must include source server address");
+                this.disconnect(Message.translation("client.general.disconnect.referralMissingSource"));
                 return;
             }
             if (packet.referralSource.host == null || packet.referralSource.host.isEmpty()) {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting connection from %s - referral source has empty host", packet.username);
-                this.disconnect("Referral source address is invalid");
+                this.disconnect(Message.translation("client.general.disconnect.referralInvalidSource"));
                 return;
             }
         }
@@ -139,12 +141,12 @@ extends PacketHandler {
             AuthenticationPacketHandler.AuthHandlerSupplier supplier;
             if (isTcpConnection) {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting authenticated connection from %s - TCP only supports insecure auth", NettyUtil.formatRemoteAddress(this.getChannel()));
-                this.disconnect("TCP connections only support insecure authentication. Use QUIC for authenticated connections.");
+                this.disconnect(Message.translation("client.general.disconnect.tcpAuthenticationNotSupported"));
                 return;
             }
             AuthenticationPacketHandler.AuthHandlerSupplier authHandlerSupplier = supplier = isEditorClient ? EDITOR_PACKET_HANDLER_SUPPLIER : SetupPacketHandler::new;
             if (isEditorClient && supplier == null) {
-                this.disconnect("Editor isn't supported on this server!");
+                this.disconnect(Message.translation("client.general.disconnect.editorNotSupported"));
                 return;
             }
             HytaleLogger.getLogger().at(Level.INFO).log("Starting authenticated flow for %s (%s) from %s", packet.username, packet.uuid, NettyUtil.formatRemoteAddress(this.getChannel()));
@@ -152,18 +154,18 @@ extends PacketHandler {
         } else {
             if (authMode == Options.AuthMode.AUTHENTICATED) {
                 HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting development connection from %s - server requires authentication (auth-mode=%s)", (Object)NettyUtil.formatRemoteAddress(this.getChannel()), (Object)authMode);
-                this.disconnect("This server requires authentication!");
+                this.disconnect(Message.translation("client.general.disconnect.serverRequiresAuthentication"));
                 return;
             }
             if (authMode == Options.AuthMode.OFFLINE) {
                 if (!Constants.SINGLEPLAYER) {
                     HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting connection from %s - offline mode is only valid in singleplayer", NettyUtil.formatRemoteAddress(this.getChannel()));
-                    this.disconnect("Offline mode is only available in singleplayer.");
+                    this.disconnect(Message.translation("client.general.disconnect.offlineModeSingleplayerOnly"));
                     return;
                 }
                 if (!SingleplayerModule.isOwner(null, packet.uuid)) {
                     HytaleLogger.getLogger().at(Level.WARNING).log("Rejecting connection from %s (%s) - offline mode only allows the world owner (%s)", packet.username, packet.uuid, SingleplayerModule.getUuid());
-                    this.disconnect("This world is in offline mode and only the owner can connect.");
+                    this.disconnect(Message.translation("client.general.disconnect.offlineModeOwnerOnly"));
                     return;
                 }
             }
@@ -189,7 +191,7 @@ extends PacketHandler {
         return challenge;
     }
 
-    public void handle(@Nonnull Disconnect packet) {
+    public void handle(@Nonnull ClientDisconnect packet) {
         this.disconnectReason.setClientDisconnectType(packet.type);
         HytaleLogger.getLogger().at(Level.WARNING).log("Disconnecting %s - Sent disconnect packet???", NettyUtil.formatRemoteAddress(this.getChannel()));
         ProtocolUtil.closeApplicationConnection(this.getChannel());

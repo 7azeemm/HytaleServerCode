@@ -19,13 +19,15 @@ import com.hypixel.hytale.protocol.TeleportAck;
 import com.hypixel.hytale.protocol.TransformUpdate;
 import com.hypixel.hytale.protocol.io.netty.PacketDecoder;
 import com.hypixel.hytale.protocol.io.netty.PacketEncoder;
+import com.hypixel.hytale.protocol.packets.connection.ClientDisconnect;
+import com.hypixel.hytale.protocol.packets.connection.ClientDisconnectReason;
 import com.hypixel.hytale.protocol.packets.connection.ClientType;
 import com.hypixel.hytale.protocol.packets.connection.Connect;
-import com.hypixel.hytale.protocol.packets.connection.Disconnect;
 import com.hypixel.hytale.protocol.packets.connection.DisconnectType;
 import com.hypixel.hytale.protocol.packets.connection.Ping;
 import com.hypixel.hytale.protocol.packets.connection.Pong;
 import com.hypixel.hytale.protocol.packets.connection.PongType;
+import com.hypixel.hytale.protocol.packets.connection.ServerDisconnect;
 import com.hypixel.hytale.protocol.packets.entities.EntityUpdates;
 import com.hypixel.hytale.protocol.packets.player.ClientMovement;
 import com.hypixel.hytale.protocol.packets.player.ClientReady;
@@ -40,6 +42,7 @@ import com.hypixel.hytale.server.core.cosmetics.CosmeticsModule;
 import com.hypixel.hytale.server.core.io.ServerManager;
 import com.hypixel.hytale.server.core.io.netty.NettyUtil;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
+import com.hypixel.hytale.server.core.util.MessageUtil;
 import com.hypixel.hytale.server.core.util.PositionUtil;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFutureListener;
@@ -174,7 +177,7 @@ extends SimpleChannelInboundHandler<Packet> {
     @Override
     public void channelActive(@Nonnull ChannelHandlerContext ctx) {
         UUID uuid = UUID.nameUUIDFromBytes(("BOT|" + this.name).getBytes(StandardCharsets.UTF_8));
-        ctx.writeAndFlush(new Connect(-1356075132, 20, "bot", ClientType.Game, uuid, this.name, null, "en", null, null));
+        ctx.writeAndFlush(new Connect(1080406952, 51, "bot", ClientType.Game, uuid, this.name, null, "en", null, null));
         this.logger.at(Level.INFO).log("Connected!");
     }
 
@@ -189,7 +192,7 @@ extends SimpleChannelInboundHandler<Packet> {
     public void exceptionCaught(@Nonnull ChannelHandlerContext ctx, @Nonnull Throwable cause) {
         ((HytaleLogger.Api)this.logger.at(Level.WARNING).withCause(cause)).log("Got exception from netty pipeline");
         if (ctx.channel().isWritable()) {
-            ctx.channel().writeAndFlush(new Disconnect(cause.getMessage(), DisconnectType.Crash)).addListener((GenericFutureListener)ChannelFutureListener.CLOSE);
+            ctx.channel().writeAndFlush(new ClientDisconnect(ClientDisconnectReason.Crash, DisconnectType.Crash)).addListener((GenericFutureListener)ChannelFutureListener.CLOSE);
         } else {
             ctx.channel().close();
         }
@@ -241,12 +244,13 @@ extends SimpleChannelInboundHandler<Packet> {
                 ctx.writeAndFlush(new ClientReady(true, this.id != -1));
                 break;
             }
-            case 1: {
-                this.logger.at(Level.INFO).log("Disconnected for: %s %s", (Object)((Disconnect)packet).reason, (Object)((Disconnect)packet).type);
+            case 2: {
+                ServerDisconnect disconnect = (ServerDisconnect)packet;
+                this.logger.at(Level.INFO).log("Disconnected for: %s %s", (Object)(disconnect.reason != null ? MessageUtil.formatMessageToPlainString(disconnect.reason) : null), (Object)disconnect.type);
                 ctx.close();
                 break;
             }
-            case 2: {
+            case 3: {
                 Ping ping = (Ping)packet;
                 InstantData instantData = WorldTimeResource.instantToInstantData(Instant.now());
                 ctx.write(new Pong(ping.id, instantData, PongType.Raw, 0));

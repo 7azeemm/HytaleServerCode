@@ -318,6 +318,7 @@ public class SpawnReferenceSystems {
         public void onEntityRemove(@Nonnull Ref<EntityStore> ref, @Nonnull RemoveReason reason, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
             switch (reason) {
                 case REMOVE: {
+                    SpawnMarker cachedMarker;
                     SpawnMarkerReference spawnReferenceComponent = store.getComponent(ref, this.spawnReferenceComponentType);
                     if (spawnReferenceComponent == null) {
                         return;
@@ -332,16 +333,33 @@ public class SpawnReferenceSystems {
                     assert (uuidComponent != null);
                     UUID uuid = uuidComponent.getUuid();
                     int spawnCount = spawnMarkerComponent.decrementAndGetSpawnCount();
-                    SpawnMarker cachedMarker = spawnMarkerComponent.getCachedMarker();
-                    if (spawnCount > 0 && cachedMarker.getDeactivationDistance() > 0.0) {
-                        InvalidatablePersistentRef[] npcReferences;
-                        InvalidatablePersistentRef[] newReferences = new InvalidatablePersistentRef[spawnCount];
+                    if (spawnCount < 0) {
+                        SpawningPlugin.get().getLogger().at(Level.WARNING).log("Marker %s spawn count went negative (%d) while removing NPC %s", spawnMarkerRef, spawnCount, uuid);
+                        spawnCount = 0;
+                        spawnMarkerComponent.setSpawnCount(0);
+                    }
+                    if ((cachedMarker = spawnMarkerComponent.getCachedMarker()).getDeactivationDistance() > 0.0) {
+                        InvalidatablePersistentRef[] npcReferences = spawnMarkerComponent.getNpcReferences();
+                        int remaining = 0;
+                        for (InvalidatablePersistentRef npcRef : npcReferences) {
+                            if (uuid.equals(npcRef.getUuid())) continue;
+                            ++remaining;
+                        }
+                        InvalidatablePersistentRef[] newReferences = new InvalidatablePersistentRef[remaining];
                         int pos = 0;
-                        for (InvalidatablePersistentRef npcRef : npcReferences = spawnMarkerComponent.getNpcReferences()) {
-                            if (npcRef.getUuid().equals(uuid)) continue;
+                        for (InvalidatablePersistentRef npcRef : npcReferences) {
+                            if (uuid.equals(npcRef.getUuid())) continue;
                             newReferences[pos++] = npcRef;
                         }
                         spawnMarkerComponent.setNpcReferences(newReferences);
+                        if (remaining == npcReferences.length) {
+                            SpawningPlugin.get().getLogger().at(Level.WARNING).log("Marker %s removed NPC %s that was not present in marker references (spawnCount=%d, refs=%d)", spawnMarkerRef, uuid, spawnCount, npcReferences.length);
+                        }
+                        if (spawnCount != remaining) {
+                            SpawningPlugin.get().getLogger().at(Level.WARNING).log("Marker %s spawn count/reference mismatch while removing NPC %s (spawnCount=%d, refsAfter=%d)", spawnMarkerRef, uuid, spawnCount, remaining);
+                            spawnCount = remaining;
+                            spawnMarkerComponent.setSpawnCount(remaining);
+                        }
                     }
                     if (spawnCount > 0 || cachedMarker.isRealtimeRespawn()) break;
                     Instant instant = store.getResource(this.worldTimeResourceResourceType).getGameTime();

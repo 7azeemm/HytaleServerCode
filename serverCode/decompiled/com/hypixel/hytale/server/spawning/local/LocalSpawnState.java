@@ -10,12 +10,13 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.spawning.SpawningPlugin;
 import com.hypixel.hytale.server.spawning.beacons.LegacySpawnBeaconEntity;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 
 public class LocalSpawnState
 implements Resource<EntityStore> {
-    private final List<Ref<EntityStore>> localControllerList = new ObjectArrayList<Ref<EntityStore>>();
+    private final List<Ref<EntityStore>> localControllerList = new ReferenceArrayList<Ref<EntityStore>>();
     private final List<LegacySpawnBeaconEntity> localPendingSpawns = new ObjectArrayList<LegacySpawnBeaconEntity>();
     private boolean forceTriggerControllers;
 

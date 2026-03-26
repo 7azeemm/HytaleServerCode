@@ -3,12 +3,17 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.bounds;
 
-import com.hypixel.hytale.builtin.hytalegenerator.newsystem.performanceinstruments.MemInstrument;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
+import com.hypixel.hytale.builtin.hytalegenerator.engine.performanceinstruments.MemInstrument;
 import com.hypixel.hytale.math.vector.Vector3d;
+import com.hypixel.hytale.math.vector.Vector3i;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import javax.annotation.Nonnull;
 
 public class Bounds3d
 implements MemInstrument {
+    @Nonnull
+    public static final Bounds3d ZERO = new Bounds3d();
     @Nonnull
     public final Vector3d min;
     @Nonnull
@@ -22,6 +27,18 @@ implements MemInstrument {
         this.min = min.clone();
         this.max = max.clone();
         this.correct();
+    }
+
+    public boolean contains(int x, int y, int z) {
+        return (double)x >= this.min.x && (double)y >= this.min.y && (double)z >= this.min.z && (double)x < this.max.x && (double)y < this.max.y && (double)z < this.max.z;
+    }
+
+    public boolean contains(double x, double y, double z) {
+        return x >= this.min.x && y >= this.min.y && z >= this.min.z && x < this.max.x && y < this.max.y && z < this.max.z;
+    }
+
+    public boolean contains(@Nonnull Vector3i position) {
+        return (double)position.x >= this.min.x && (double)position.y >= this.min.y && (double)position.z >= this.min.z && (double)position.x < this.max.x && (double)position.y < this.max.y && (double)position.z < this.max.z;
     }
 
     public boolean contains(@Nonnull Vector3d position) {
@@ -54,6 +71,14 @@ implements MemInstrument {
     }
 
     @Nonnull
+    public Bounds3d assign(@Nonnull Bounds3i other) {
+        this.min.assign(other.min);
+        this.max.assign(other.max);
+        this.correct();
+        return this;
+    }
+
+    @Nonnull
     public Bounds3d assign(@Nonnull Vector3d min, @Nonnull Vector3d max) {
         this.min.assign(min);
         this.max.assign(max);
@@ -65,6 +90,13 @@ implements MemInstrument {
     public Bounds3d offset(@Nonnull Vector3d vector) {
         this.min.add(vector);
         this.max.add(vector);
+        return this;
+    }
+
+    @Nonnull
+    public Bounds3d offsetOpposite(@Nonnull Vector3d vector) {
+        this.min.subtract(vector);
+        this.max.subtract(vector);
         return this;
     }
 
@@ -118,6 +150,9 @@ implements MemInstrument {
 
     @Nonnull
     public Bounds3d flipOnOriginPoint() {
+        if (this.isZeroVolume()) {
+            return this;
+        }
         Vector3d swap = this.min.clone();
         this.min.assign(this.max);
         this.min.scale(-1.0);
@@ -128,11 +163,42 @@ implements MemInstrument {
 
     @Nonnull
     public Bounds3d flipOnOriginVoxel() {
+        if (this.isZeroVolume()) {
+            return this;
+        }
         Vector3d swap = this.min.clone();
         this.min.assign(Vector3d.ALL_ONES);
         this.min.subtract(this.max);
         this.max.assign(Vector3d.ALL_ONES);
         this.max.subtract(swap);
+        return this;
+    }
+
+    public Bounds3d applyRotation(@Nonnull RotationTuple rotationTuple, @Nonnull Vector3d anchor) {
+        if (this.isZeroVolume()) {
+            return this;
+        }
+        this.min.subtract(anchor);
+        rotationTuple.applyRotationTo(this.min);
+        this.min.add(anchor);
+        this.max.subtract(anchor);
+        rotationTuple.applyRotationTo(this.max);
+        this.max.add(anchor);
+        this.correct();
+        return this;
+    }
+
+    public Bounds3d undoRotation(@Nonnull RotationTuple rotationTuple, @Nonnull Vector3d anchor) {
+        if (this.isZeroVolume()) {
+            return this;
+        }
+        this.min.subtract(anchor);
+        rotationTuple.undoRotationTo(this.min);
+        this.min.add(anchor);
+        this.max.subtract(anchor);
+        rotationTuple.undoRotationTo(this.max);
+        this.max.add(anchor);
+        this.correct();
         return this;
     }
 

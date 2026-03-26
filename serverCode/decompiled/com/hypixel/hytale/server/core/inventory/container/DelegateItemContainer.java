@@ -58,6 +58,26 @@ extends ItemContainer {
     }
 
     @Override
+    protected void lockForRead() {
+        ((ItemContainer)this.delegate).lockForRead();
+    }
+
+    @Override
+    protected void unlockForRead() {
+        ((ItemContainer)this.delegate).unlockForRead();
+    }
+
+    @Override
+    protected void lockForWrite() {
+        ((ItemContainer)this.delegate).lockForWrite();
+    }
+
+    @Override
+    protected void unlockForWrite() {
+        ((ItemContainer)this.delegate).unlockForWrite();
+    }
+
+    @Override
     protected ClearTransaction internal_clear() {
         return ((ItemContainer)this.delegate).internal_clear();
     }
@@ -165,8 +185,8 @@ extends ItemContainer {
 
     @Override
     @Nonnull
-    public EventRegistration registerChangeEvent(short priority, @Nonnull Consumer<ItemContainer.ItemContainerChangeEvent> consumer) {
-        EventRegistration thisRegistration = super.registerChangeEvent(priority, consumer);
+    public EventRegistration<Void, ItemContainer.ItemContainerChangeEvent> registerChangeEvent(short priority, @Nonnull Consumer<ItemContainer.ItemContainerChangeEvent> consumer) {
+        EventRegistration<Void, ItemContainer.ItemContainerChangeEvent> thisRegistration = super.registerChangeEvent(priority, consumer);
         EventRegistration[] delegateRegistration = new EventRegistration[]{((ItemContainer)this.delegate).internalChangeEventRegistry.register(priority, null, event -> consumer.accept(new ItemContainer.ItemContainerChangeEvent(this, event.transaction().toParent(this, (short)0, (ItemContainer)this.delegate))))};
         return EventRegistration.combine(thisRegistration, delegateRegistration);
     }

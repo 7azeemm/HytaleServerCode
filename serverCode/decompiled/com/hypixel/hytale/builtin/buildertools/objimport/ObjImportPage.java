@@ -22,11 +22,13 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.packets.interface_.CustomPageLifetime;
 import com.hypixel.hytale.protocol.packets.interface_.CustomUIEventBindingType;
 import com.hypixel.hytale.protocol.packets.interface_.Page;
+import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.InteractiveCustomUIPage;
+import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.ui.DropdownEntryInfo;
 import com.hypixel.hytale.server.core.ui.LocalizableString;
@@ -82,7 +84,7 @@ extends InteractiveCustomUIPage<PageData> {
     @Nonnull
     private MeshRotation rotation = MeshRotation.NONE;
     @Nullable
-    private String statusMessage = null;
+    private Message statusMessage = null;
     private boolean isError = false;
     private boolean isProcessing = false;
     private boolean showBrowser = false;
@@ -165,14 +167,14 @@ extends InteractiveCustomUIPage<PageData> {
         }
     }
 
-    private void setError(@Nonnull String message) {
+    private void setError(@Nonnull Message message) {
         this.statusMessage = message;
         this.isError = true;
         this.isProcessing = false;
         this.rebuild();
     }
 
-    private void setStatus(@Nonnull String message) {
+    private void setStatus(@Nonnull Message message) {
         this.statusMessage = message;
         this.isError = false;
         this.rebuild();
@@ -354,34 +356,36 @@ extends InteractiveCustomUIPage<PageData> {
     }
 
     private void performImport(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store) {
+        boolean isSingleplayerWorldOwner;
         if (this.objPath.isEmpty()) {
-            this.setError("Please enter a path to an OBJ file");
+            this.setError(Message.translation("server.builderTools.objImport.emptyPath"));
             return;
         }
         if (!this.objPath.toLowerCase().endsWith(".obj")) {
-            this.setError("File must be a .obj file");
+            this.setError(Message.translation("server.builderTools.objImport.invalidExtension"));
             return;
         }
         Path path = Paths.get(this.objPath, new String[0]);
-        if (!AssetModule.get().isWithinPackSubDir(path, ASSET_PACK_SUB_PATH)) {
-            this.setError("File must be within an asset pack's imports directory");
+        boolean bl = isSingleplayerWorldOwner = Constants.SINGLEPLAYER && SingleplayerModule.isOwner(this.playerRef);
+        if (!isSingleplayerWorldOwner && !AssetModule.get().isWithinPackSubDir(path, ASSET_PACK_SUB_PATH)) {
+            this.setError(Message.translation("server.builderTools.objImport.notInImportsDir"));
             return;
         }
         if (!Files.exists(path, new LinkOption[0])) {
-            this.setError("File not found: " + this.objPath);
+            this.setError(Message.translation("server.builderTools.objImport.fileNotFound").param("path", this.objPath));
             return;
         }
         List<WeightedBlock> blocks = this.parseBlockPattern(this.blockPattern);
         if (blocks == null) {
-            this.setError("Invalid block pattern: " + this.blockPattern);
+            this.setError(Message.translation("server.builderTools.objImport.invalidPattern").param("pattern", this.blockPattern));
             return;
         }
         this.isProcessing = true;
-        this.setStatus("Processing...");
+        this.setStatus(Message.translation("server.builderTools.objImport.processing"));
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         PlayerRef playerRefComponent = store.getComponent(ref, PlayerRef.getComponentType());
         if (playerComponent == null || playerRefComponent == null) {
-            this.setError("Player not found");
+            this.setError(Message.translation("server.builderTools.objImport.playerNotFound"));
             return;
         }
         int finalHeight = this.targetHeight;
@@ -417,7 +421,7 @@ extends InteractiveCustomUIPage<PageData> {
                     computedHeight = finalHeight;
                 }
                 if (finalBlocks.isEmpty()) {
-                    this.setError("No blocks available for import");
+                    this.setError(Message.translation("server.builderTools.objImport.noBlocks"));
                     return;
                 }
                 BlockColorIndex colorIndex = BuilderToolsPlugin.get().getBlockColorIndex();
@@ -483,24 +487,23 @@ extends InteractiveCustomUIPage<PageData> {
                 builderState.setSelection(selection);
                 builderState.sendSelectionToClient();
                 int blockCount = result.countSolid();
-                String textureInfo = hasUvTextures ? " (UV textured)" : "";
-                this.statusMessage = String.format("Success! %d blocks copied to clipboard (%dx%dx%d)%s", blockCount, result.sizeX(), result.sizeY(), result.sizeZ(), textureInfo);
+                this.statusMessage = Message.translation("server.builderTools.objImport.success").param("count", blockCount).param("width", result.sizeX()).param("height", result.sizeY()).param("depth", result.sizeZ());
                 this.isProcessing = false;
                 playerRefComponent.sendMessage(Message.translation("server.builderTools.objImport.success").param("count", blockCount).param("width", result.sizeX()).param("height", result.sizeY()).param("depth", result.sizeZ()));
                 playerComponent.getPageManager().setPage((Ref<EntityStore>)r, store, Page.None);
-                PasteToolUtil.switchToPasteTool(playerComponent, playerRefComponent);
+                PasteToolUtil.switchToPasteTool(r, playerComponent, playerRefComponent, componentAccessor);
             }
             catch (ObjParser.ObjParseException e) {
                 BuilderToolsPlugin.get().getLogger().at(Level.WARNING).log("OBJ parse error: %s", e.getMessage());
-                this.setError("Parse error: " + e.getMessage());
+                this.setError(Message.translation("server.builderTools.objImport.parseError").param("message", e.getMessage()));
             }
             catch (IOException e) {
                 ((HytaleLogger.Api)BuilderToolsPlugin.get().getLogger().at(Level.WARNING).withCause(e)).log("OBJ import IO error");
-                this.setError("IO error: " + e.getMessage());
+                this.setError(Message.translation("server.builderTools.objImport.ioError").param("message", e.getMessage()));
             }
             catch (Exception e) {
                 ((HytaleLogger.Api)BuilderToolsPlugin.get().getLogger().at(Level.WARNING).withCause(e)).log("OBJ import error");
-                this.setError("Error: " + e.getMessage());
+                this.setError(Message.translation("server.builderTools.objImport.error").param("message", e.getMessage()));
             }
         });
     }

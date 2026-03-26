@@ -4,6 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.props;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.props.EmptyProp;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -22,15 +23,15 @@ extends PropAsset {
     @Override
     public Prop build(@Nonnull PropAsset.Argument argument) {
         if (super.skip()) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         if (this.name == null || this.name.isEmpty()) {
             ((HytaleLogger.Api)HytaleLogger.getLogger().atWarning()).log("An exported Pattern with the name does not exist: " + this.name);
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         PropAsset exportedAsset = PropAsset.getExportedAsset(this.name);
         if (exportedAsset == null) {
-            return Prop.noProp();
+            return EmptyProp.INSTANCE;
         }
         return exportedAsset.build(argument);
     }

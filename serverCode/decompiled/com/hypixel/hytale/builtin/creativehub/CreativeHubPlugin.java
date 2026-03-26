@@ -74,7 +74,9 @@ extends JavaPlugin {
                 return existingInstance;
             }
             try {
-                return InstancesPlugin.get().spawnInstance(hubConfig.getStartupInstance(), parentWorld, returnPoint).join();
+                World hub = InstancesPlugin.get().spawnInstance(hubConfig.getStartupInstance(), parentWorld, returnPoint).join();
+                hub.getWorldConfig().setDeleteOnRemove(true);
+                return hub;
             }
             catch (Exception e) {
                 ((HytaleLogger.Api)this.getLogger().at(Level.SEVERE).withCause(e)).log("Failed to spawn hub instance");

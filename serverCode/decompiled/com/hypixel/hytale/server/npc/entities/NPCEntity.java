@@ -26,7 +26,6 @@ import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.component.ActiveAnimationComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
@@ -168,12 +167,6 @@ implements INonPlayerCharacter {
             this.alarmStore = new AlarmStore();
         }
         return this.alarmStore;
-    }
-
-    @Override
-    @Nonnull
-    protected Inventory createDefaultInventory() {
-        return new Inventory(0, Inventory.DEFAULT_ARMOR_CAPACITY, 3, 0, 0);
     }
 
     @Nullable
@@ -539,10 +532,6 @@ implements INonPlayerCharacter {
 
     public Instant getSpawnInstant() {
         return this.spawnInstant;
-    }
-
-    public void setInventorySize(int hotbarCapacity, int inventoryCapacity, int offHandCapacity) {
-        this.setInventory(new Inventory((short)inventoryCapacity, Inventory.DEFAULT_ARMOR_CAPACITY, (short)hotbarCapacity, (short)offHandCapacity, 0));
     }
 
     @Deprecated(forRemoval=true)

@@ -8,6 +8,7 @@ import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
 import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.BrushConfig;
 import com.hypixel.hytale.builtin.buildertools.scriptedbrushes.BrushConfigChunkAccessor;
 import com.hypixel.hytale.builtin.buildertools.utils.Material;
+import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.math.block.BlockUtil;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
@@ -16,11 +17,13 @@ import com.hypixel.hytale.server.core.prefab.selection.mask.BlockMask;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class BrushConfigEditStore {
     @Nonnull
@@ -53,6 +56,11 @@ public class BrushConfigEditStore {
     @Nonnull
     public BrushConfigChunkAccessor getAccessor() {
         return this.accessor;
+    }
+
+    @Nonnull
+    public BrushConfig getBrushConfig() {
+        return this.brushConfig;
     }
 
     public int getOriginalBlock(int x, int y, int z) {
@@ -105,7 +113,39 @@ public class BrushConfigEditStore {
         return true;
     }
 
-    private boolean setFluid(int x, int y, int z, int fluidId, byte fluidLevel) {
+    public boolean setFullBlock(int x, int y, int z, int blockId, int rotation, int filler, int support, @Nullable Holder<ChunkStore> holder) {
+        WorldChunk blocks;
+        boolean hasHistory = this.previous.hasBlockAtWorldPos(x, y, z) || this.previous.getFluidAtWorldPos(x, y, z) >= 0;
+        switch (this.brushConfig.getHistoryMask()) {
+            case Only: {
+                if (hasHistory) break;
+                return false;
+            }
+            case Not: {
+                if (!hasHistory) break;
+                return false;
+            }
+        }
+        if (this.brushConfig.getRandom().nextInt(100) >= this.brushConfig.getDensity()) {
+            return false;
+        }
+        if (this.getOriginalBlock(x, y, z) == 0) {
+            this.packedPlacedBlockPositions.add(BlockUtil.pack(x, y, z));
+        }
+        int currentBlock = this.getBlock(x, y, z);
+        int currentFluid = this.getFluid(x, y, z);
+        BlockMask blockMask = this.brushConfig.getBlockMask();
+        if (blockMask != null && blockMask.isExcluded(this.accessor, x, y, z, null, null, currentBlock, currentFluid)) {
+            return false;
+        }
+        if (!this.before.hasBlockAtWorldPos(x, y, z) && (blocks = this.accessor.getChunkIfInMemory(ChunkUtil.indexChunkFromBlock(x, z))) != null) {
+            this.before.addBlockAtWorldPos(x, y, z, currentBlock, blocks.getRotationIndex(x, y, z), blocks.getFiller(x, y, z), blocks.getSupportValue(x, y, z), blocks.getBlockComponentHolder(x, y, z));
+        }
+        this.current.addBlockAtWorldPos(x, y, z, blockId, rotation, filler, support, holder);
+        return true;
+    }
+
+    boolean setFluid(int x, int y, int z, int fluidId, byte fluidLevel) {
         WorldChunk chunk;
         boolean hasHistory = this.previous.hasBlockAtWorldPos(x, y, z) || this.previous.getFluidAtWorldPos(x, y, z) >= 0;
         switch (this.brushConfig.getHistoryMask()) {
@@ -154,12 +194,14 @@ public class BrushConfigEditStore {
     }
 
     public boolean setMaterial(int x, int y, int z, @Nonnull Material material) {
-        if (material.isFluid()) {
+        if (material.isFluid() && material.getBlockId() == 0) {
             return this.setFluid(x, y, z, material.getFluidId(), material.getFluidLevel());
         }
-        boolean result = this.setBlock(x, y, z, material.getBlockId());
+        boolean result = this.setFullBlock(x, y, z, material.getBlockId(), material.getRotation(), material.getFiller(), material.getSupport(), material.getHolder());
         if (result && material.isEmpty()) {
             this.setFluid(x, y, z, 0, (byte)0);
+        } else if (result && material.getFluidId() != 0) {
+            this.setFluid(x, y, z, material.getFluidId(), material.getFluidLevel());
         }
         return result;
     }

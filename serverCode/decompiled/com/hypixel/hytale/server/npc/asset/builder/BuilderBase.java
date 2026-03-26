@@ -40,6 +40,7 @@ import com.hypixel.hytale.server.npc.asset.builder.BuilderValidationHelper;
 import com.hypixel.hytale.server.npc.asset.builder.ComponentContext;
 import com.hypixel.hytale.server.npc.asset.builder.Feature;
 import com.hypixel.hytale.server.npc.asset.builder.FeatureEvaluatorHelper;
+import com.hypixel.hytale.server.npc.asset.builder.FeatureOverride;
 import com.hypixel.hytale.server.npc.asset.builder.InstructionContextHelper;
 import com.hypixel.hytale.server.npc.asset.builder.InstructionType;
 import com.hypixel.hytale.server.npc.asset.builder.InternalReferenceResolver;
@@ -2564,6 +2565,14 @@ implements Builder<T> {
             }
         }
         setter.accept(assetList);
+    }
+
+    public boolean getOverride(@Nonnull JsonElement data, String name, @Nonnull Consumer<FeatureOverride> setter, BuilderDescriptorState state, String shortDescription, @Nullable String longDescription) {
+        return this.getEnum(data, name, setter, FeatureOverride.class, FeatureOverride.Default, state, shortDescription, longDescription);
+    }
+
+    public boolean getOverride(@Nonnull JsonElement data, String name, @Nonnull EnumHolder<FeatureOverride> enumHolder, BuilderDescriptorState state, String shortDescription, @Nullable String longDescription) {
+        return this.getEnum(data, name, enumHolder, FeatureOverride.class, FeatureOverride.Default, state, shortDescription, longDescription);
     }
 
     /*

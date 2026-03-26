@@ -17,7 +17,7 @@ import com.hypixel.hytale.server.core.modules.entity.component.SnapshotBuffer;
 import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class EntitySnapshotHistoryCommand
@@ -41,7 +41,7 @@ extends AbstractWorldCommand {
                     assert (snapshot != null);
                     Vector3d pos = snapshot.getPosition();
                     SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = cmdBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-                    ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                    List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                     playerSpatialResource.getSpatialStructure().collect(pos, 75.0, results);
                     ParticleUtil.spawnParticleEffect("Example_Simple", pos.x, pos.y, pos.z, results, (ComponentAccessor<EntityStore>)cmdBuffer);
                 }

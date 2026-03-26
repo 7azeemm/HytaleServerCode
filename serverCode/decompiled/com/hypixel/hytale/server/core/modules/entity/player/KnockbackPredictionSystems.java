@@ -45,7 +45,6 @@ import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.PositionUtil;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -103,7 +102,7 @@ public class KnockbackPredictionSystems {
             if (DEBUG_KNOCKBACK_POSITION) {
                 Vector3d particlePosition = knockbackSimulationComponent.getClientPosition();
                 SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = store.getResource(EntityModule.get().getPlayerSpatialResourceType());
-                ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                 playerSpatialResource.getSpatialStructure().collect(particlePosition, 75.0, results);
                 Color color = knockbackSimulationComponent.hadWishMovement() ? new Color(-1, 0, 0) : new Color(0, 0, -1);
                 ParticleUtil.spawnParticleEffect("Example_Simple", particlePosition, 0.0f, 0.0f, 0.0f, 1.0f, color, results, commandBuffer);

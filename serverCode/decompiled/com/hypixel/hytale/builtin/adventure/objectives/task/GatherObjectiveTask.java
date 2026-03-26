@@ -7,17 +7,16 @@ import com.hypixel.hytale.builtin.adventure.objectives.Objective;
 import com.hypixel.hytale.builtin.adventure.objectives.config.task.BlockTagOrItemIdField;
 import com.hypixel.hytale.builtin.adventure.objectives.config.task.GatherObjectiveTaskAsset;
 import com.hypixel.hytale.builtin.adventure.objectives.task.CountObjectiveTask;
-import com.hypixel.hytale.builtin.adventure.objectives.transaction.RegistrationTransactionRecord;
+import com.hypixel.hytale.builtin.adventure.objectives.task.InventoryChangeAware;
 import com.hypixel.hytale.builtin.adventure.objectives.transaction.TransactionRecord;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.util.MathUtil;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.event.events.entity.LivingEntityInventoryChangeEvent;
+import com.hypixel.hytale.server.core.inventory.InventoryChangeEvent;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
@@ -29,7 +28,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class GatherObjectiveTask
-extends CountObjectiveTask {
+extends CountObjectiveTask
+implements InventoryChangeAware {
     @Nonnull
     public static final BuilderCodec<GatherObjectiveTask> CODEC = BuilderCodec.builder(GatherObjectiveTask.class, GatherObjectiveTask::new, CountObjectiveTask.CODEC).build();
 
@@ -59,33 +59,21 @@ extends CountObjectiveTask {
                 return null;
             }
         }
-        this.eventRegistry.register(LivingEntityInventoryChangeEvent.class, world.getName(), event -> {
-            LivingEntity livingEntity = (LivingEntity)event.getEntity();
-            if (!(livingEntity instanceof Player)) {
-                return;
-            }
-            Ref<EntityStore> ref = livingEntity.getReference();
-            if (ref == null || !ref.isValid()) {
-                return;
-            }
-            World refWorld = ((EntityStore)store.getExternalData()).getWorld();
-            refWorld.execute(() -> {
-                if (!ref.isValid()) {
-                    return;
-                }
-                UUIDComponent uuidComponent = store.getComponent(ref, UUIDComponent.getComponentType());
-                if (uuidComponent == null) {
-                    return;
-                }
-                Set<UUID> activePlayerUUIDs = objective.getActivePlayerUUIDs();
-                if (!activePlayerUUIDs.contains(uuidComponent.getUuid())) {
-                    return;
-                }
-                int count = this.countObjectiveItemInInventories(activePlayerUUIDs, store);
-                this.setTaskCompletion(store, ref, count, objective);
-            });
-        });
-        return RegistrationTransactionRecord.wrap(this.eventRegistry);
+        return null;
+    }
+
+    @Override
+    public void onInventoryChange(@Nonnull Objective objective, @Nonnull Ref<EntityStore> playerRef, @Nonnull Store<EntityStore> store, @Nonnull InventoryChangeEvent event) {
+        UUIDComponent uuidComponent = store.getComponent(playerRef, UUIDComponent.getComponentType());
+        if (uuidComponent == null) {
+            return;
+        }
+        Set<UUID> activePlayerUUIDs = objective.getActivePlayerUUIDs();
+        if (!activePlayerUUIDs.contains(uuidComponent.getUuid())) {
+            return;
+        }
+        int count = this.countObjectiveItemInInventories(activePlayerUUIDs, store);
+        this.setTaskCompletion(store, playerRef, count, objective);
     }
 
     private int countObjectiveItemInInventories(@Nonnull Set<UUID> participatingPlayers, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {

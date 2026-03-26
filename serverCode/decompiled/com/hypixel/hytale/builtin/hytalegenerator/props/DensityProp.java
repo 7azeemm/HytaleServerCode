@@ -3,202 +3,169 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.props;
 
-import com.hypixel.hytale.builtin.hytalegenerator.BlockMask;
 import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
-import com.hypixel.hytale.builtin.hytalegenerator.conveyor.stagedconveyor.ContextDependency;
-import com.hypixel.hytale.builtin.hytalegenerator.datastructures.voxelspace.ArrayVoxelSpace;
-import com.hypixel.hytale.builtin.hytalegenerator.datastructures.voxelspace.VoxelSpace;
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
 import com.hypixel.hytale.builtin.hytalegenerator.material.Material;
 import com.hypixel.hytale.builtin.hytalegenerator.materialproviders.MaterialProvider;
-import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
-import com.hypixel.hytale.builtin.hytalegenerator.props.PositionListScanResult;
 import com.hypixel.hytale.builtin.hytalegenerator.props.Prop;
-import com.hypixel.hytale.builtin.hytalegenerator.scanners.Scanner;
-import com.hypixel.hytale.builtin.hytalegenerator.threadindexer.WorkerIndexer;
+import com.hypixel.hytale.builtin.hytalegenerator.voxelspace.ArrayVoxelSpace;
+import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3i;
-import java.util.List;
 import javax.annotation.Nonnull;
 import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
 
 public class DensityProp
 extends Prop {
     @Nonnull
-    private final Vector3i range;
-    @Nonnull
     private final Density density;
     @Nonnull
     private final MaterialProvider<Material> materialProvider;
     @Nonnull
-    private final Scanner scanner;
+    private final Bounds3i writeBounds;
     @Nonnull
-    private final Pattern pattern;
+    private final Bounds3i solidityBufferBounds;
     @Nonnull
-    private final ContextDependency contextDependency;
+    private final Bounds3i rIntersectingWriteBounds;
     @Nonnull
-    private final BlockMask placementMask;
+    private final ArrayVoxelSpace<Boolean> rSolidityBuffer;
     @Nonnull
-    private final Material defaultMaterial;
+    private final Density.Context rDensityContext;
     @Nonnull
-    private final Bounds3i readBounds_voxelGrid;
+    private final MaterialProvider.Context rMaterialProviderContext;
     @Nonnull
-    private final Bounds3i writeBounds_voxelGrid;
+    private final Vector3i rPosition;
+    @Nonnull
+    private final int[] rDepthIntoCeiling;
+    @Nonnull
+    private final int[] rDepthIntoFloor;
+    @Nonnull
+    private final int[] rSpaceBelowCeiling;
+    @Nonnull
+    private final int[] rSpaceAboveFloor;
 
-    public DensityProp(@Nonnull Vector3i range, @Nonnull Density density, @Nonnull MaterialProvider<Material> materialProvider, @Nonnull Scanner scanner, @Nonnull Pattern pattern, @Nonnull BlockMask placementMask, @Nonnull Material defaultMaterial) {
-        this.range = range.clone();
+    public DensityProp(@Nonnull Density density, @Nonnull MaterialProvider<Material> materialProvider, @Nonnull Bounds3i bounds) {
         this.density = density;
         this.materialProvider = materialProvider;
-        this.scanner = scanner;
-        this.pattern = pattern;
-        this.placementMask = placementMask;
-        this.defaultMaterial = defaultMaterial;
-        SpaceSize writeSpace = new SpaceSize(new Vector3i(-range.x - 1, 0, -range.z - 1), new Vector3i(range.x + 2, 0, range.z + 2));
-        writeSpace = SpaceSize.stack(writeSpace, scanner.readSpaceWith(pattern));
-        Vector3i writeRange = writeSpace.getRange();
-        Vector3i readRange = scanner.readSpaceWith(pattern).getRange();
-        this.contextDependency = new ContextDependency(readRange, writeRange);
-        this.readBounds_voxelGrid = this.contextDependency.getReadBounds_voxelGrid();
-        this.writeBounds_voxelGrid = this.contextDependency.getWriteBounds_voxelGrid();
+        this.writeBounds = bounds.clone();
+        this.solidityBufferBounds = bounds.clone();
+        --this.solidityBufferBounds.min.y;
+        ++this.solidityBufferBounds.max.y;
+        this.rSolidityBuffer = new ArrayVoxelSpace(this.solidityBufferBounds);
+        this.rIntersectingWriteBounds = new Bounds3i();
+        this.rDensityContext = new Density.Context();
+        this.rDensityContext.densityAnchor = new Vector3d();
+        this.rMaterialProviderContext = new MaterialProvider.Context();
+        this.rPosition = new Vector3i();
+        int bufferHeight = this.writeBounds.max.y - this.writeBounds.min.y + 2;
+        this.rDepthIntoCeiling = new int[bufferHeight + 1];
+        this.rDepthIntoFloor = new int[bufferHeight + 1];
+        this.rSpaceBelowCeiling = new int[bufferHeight + 1];
+        this.rSpaceAboveFloor = new int[bufferHeight + 1];
     }
 
     @Override
-    @Nonnull
-    public PositionListScanResult scan(@Nonnull Vector3i position, @Nonnull VoxelSpace<Material> materialSpace, @Nonnull WorkerIndexer.Id id) {
-        Scanner.Context scannerContext = new Scanner.Context(position, this.pattern, materialSpace, id);
-        List<Vector3i> validPositions = this.scanner.scan(scannerContext);
-        return new PositionListScanResult(validPositions);
-    }
-
-    @Override
-    public void place(@Nonnull Prop.Context context) {
-        List<Vector3i> positions = PositionListScanResult.cast(context.scanResult).getPositions();
-        if (positions == null) {
-            return;
-        }
-        for (Vector3i position : positions) {
-            this.place(position, context.materialSpace, context.workerId);
-        }
-    }
-
-    private void place(@Nonnull Vector3i position, @Nonnull VoxelSpace<Material> materialSpace, @Nonnull WorkerIndexer.Id id) {
-        Vector3i min = position.clone().add(-this.range.x, -this.range.y, -this.range.z);
-        Vector3i max = position.clone().add(this.range.x, this.range.y, this.range.z);
-        Vector3i writeMin = Vector3i.max(min, new Vector3i(materialSpace.minX(), materialSpace.minY(), materialSpace.minZ()));
-        Vector3i writeMax = Vector3i.min(max, new Vector3i(materialSpace.maxX(), materialSpace.maxY(), materialSpace.maxZ()));
-        int bottom = min.y;
-        int top = max.y;
-        int height = top - bottom;
-        ArrayVoxelSpace<Boolean> densitySpace = new ArrayVoxelSpace<Boolean>(max.x - min.x + 1, max.y - min.y + 1, max.z - min.z + 1);
-        densitySpace.setOrigin(-min.x, -min.y, -min.z);
-        Density.Context childContext = new Density.Context();
-        childContext.densityAnchor = position.toVector3d();
-        Vector3i itPosition = new Vector3i(position);
-        itPosition.x = min.x;
-        while (itPosition.x <= max.x) {
-            itPosition.z = min.z;
-            while (itPosition.z <= max.z) {
-                itPosition.y = min.y;
-                while (itPosition.y <= max.y) {
-                    if (densitySpace.isInsideSpace(itPosition.x, itPosition.y, itPosition.z)) {
-                        childContext.position.x = itPosition.x;
-                        childContext.position.y = itPosition.y;
-                        childContext.position.z = itPosition.z;
-                        double densityValue = this.density.process(childContext);
-                        densitySpace.set(densityValue > 0.0, itPosition.x, itPosition.y, itPosition.z);
-                    }
-                    ++itPosition.y;
+    public boolean generate(@NonNullDecl Prop.Context context) {
+        Bounds3i writeSpaceBounds = context.materialWriteSpace.getBounds();
+        this.rIntersectingWriteBounds.assign(this.writeBounds);
+        this.rIntersectingWriteBounds.offset(context.position);
+        Bounds3i localSolidityBufferBounds = this.rSolidityBuffer.getBounds();
+        localSolidityBufferBounds.assign(this.solidityBufferBounds);
+        localSolidityBufferBounds.offset(context.position);
+        this.rIntersectingWriteBounds.min.x = Math.max(this.rIntersectingWriteBounds.min.x, writeSpaceBounds.min.x);
+        this.rIntersectingWriteBounds.min.z = Math.max(this.rIntersectingWriteBounds.min.z, writeSpaceBounds.min.z);
+        this.rIntersectingWriteBounds.max.x = Math.min(this.rIntersectingWriteBounds.max.x, writeSpaceBounds.max.x);
+        this.rIntersectingWriteBounds.max.z = Math.min(this.rIntersectingWriteBounds.max.z, writeSpaceBounds.max.z);
+        --this.rIntersectingWriteBounds.min.y;
+        ++this.rIntersectingWriteBounds.max.y;
+        assert (this.rDensityContext.densityAnchor != null);
+        this.rDensityContext.densityAnchor.assign(context.position);
+        this.rPosition.x = this.rIntersectingWriteBounds.min.x;
+        while (this.rPosition.x < this.rIntersectingWriteBounds.max.x) {
+            this.rPosition.y = this.rIntersectingWriteBounds.min.y;
+            while (this.rPosition.y < this.rIntersectingWriteBounds.max.y) {
+                this.rPosition.z = this.rIntersectingWriteBounds.min.z;
+                while (this.rPosition.z < this.rIntersectingWriteBounds.max.z) {
+                    this.rDensityContext.position.assign(this.rPosition);
+                    double densityValue = this.density.process(this.rDensityContext);
+                    this.rSolidityBuffer.set(densityValue > 0.0 ? Boolean.TRUE : Boolean.FALSE, this.rPosition);
+                    ++this.rPosition.z;
                 }
-                ++itPosition.z;
+                ++this.rPosition.y;
             }
-            ++itPosition.x;
+            ++this.rPosition.x;
         }
-        itPosition.x = min.x;
-        while (itPosition.x <= max.x) {
-            itPosition.z = min.z;
-            while (itPosition.z <= max.z) {
-                boolean density;
+        this.rPosition.x = this.rIntersectingWriteBounds.min.x;
+        while (this.rPosition.x < this.rIntersectingWriteBounds.max.x) {
+            this.rPosition.z = this.rIntersectingWriteBounds.min.z;
+            while (this.rPosition.z < this.rIntersectingWriteBounds.max.z) {
+                boolean solidity;
                 int i;
-                int[] depthIntoCeiling = new int[height + 1];
-                int[] depthIntoFloor = new int[height + 1];
-                int[] spaceBelowCeiling = new int[height + 1];
-                int[] spaceAboveFloor = new int[height + 1];
-                itPosition.y = top;
-                while (itPosition.y >= bottom) {
-                    i = itPosition.y - bottom;
-                    density = (Boolean)densitySpace.getContent(itPosition.x, itPosition.y, itPosition.z);
-                    if (itPosition.y == top) {
-                        depthIntoFloor[i] = density ? 1 : 0;
-                        spaceAboveFloor[i] = 0x3FFFFFFF;
-                    } else if (density) {
-                        depthIntoFloor[i] = depthIntoFloor[i + 1] + 1;
-                        spaceAboveFloor[i] = spaceAboveFloor[i + 1];
+                this.rPosition.y = this.rIntersectingWriteBounds.max.y - 2;
+                while (this.rPosition.y > this.rIntersectingWriteBounds.min.y) {
+                    i = this.rPosition.y - this.rIntersectingWriteBounds.min.y;
+                    solidity = this.rSolidityBuffer.get(this.rPosition.x, this.rPosition.y, this.rPosition.z);
+                    if (this.rPosition.y == this.rIntersectingWriteBounds.max.y - 1) {
+                        this.rDepthIntoFloor[i] = solidity ? 1 : 0;
+                        this.rSpaceAboveFloor[i] = 0x3FFFFFFF;
+                    } else if (solidity) {
+                        this.rDepthIntoFloor[i] = this.rDepthIntoFloor[i + 1] + 1;
+                        this.rSpaceAboveFloor[i] = this.rSpaceAboveFloor[i + 1];
                     } else {
-                        depthIntoFloor[i] = 0;
-                        spaceAboveFloor[i] = (Boolean)densitySpace.getContent(itPosition.x, itPosition.y + 1, itPosition.z) != false ? 0 : spaceAboveFloor[i + 1] + 1;
+                        this.rDepthIntoFloor[i] = 0;
+                        this.rSpaceAboveFloor[i] = this.rSolidityBuffer.get(this.rPosition.x, this.rPosition.y + 1, this.rPosition.z) != false ? 0 : this.rSpaceAboveFloor[i + 1] + 1;
                     }
-                    --itPosition.y;
+                    --this.rPosition.y;
                 }
-                itPosition.y = bottom;
-                while (itPosition.y < top) {
-                    i = itPosition.y - bottom;
-                    density = (Boolean)densitySpace.getContent(itPosition.x, itPosition.y, itPosition.z);
-                    if (itPosition.y == bottom) {
-                        depthIntoCeiling[i] = density ? 1 : 0;
-                        spaceBelowCeiling[i] = Integer.MAX_VALUE;
-                    } else if (density) {
-                        depthIntoCeiling[i] = depthIntoCeiling[i - 1] + 1;
-                        spaceBelowCeiling[i] = spaceBelowCeiling[i - 1];
+                this.rPosition.y = this.rIntersectingWriteBounds.min.y + 1;
+                while (this.rPosition.y < this.rIntersectingWriteBounds.max.y - 1) {
+                    i = this.rPosition.y - this.rIntersectingWriteBounds.min.y;
+                    solidity = this.rSolidityBuffer.get(this.rPosition.x, this.rPosition.y, this.rPosition.z);
+                    if (this.rPosition.y == this.rIntersectingWriteBounds.min.x) {
+                        this.rDepthIntoCeiling[i] = solidity ? 1 : 0;
+                        this.rSpaceBelowCeiling[i] = Integer.MAX_VALUE;
+                    } else if (solidity) {
+                        this.rDepthIntoCeiling[i] = this.rDepthIntoCeiling[i - 1] + 1;
+                        this.rSpaceBelowCeiling[i] = this.rSpaceBelowCeiling[i - 1];
                     } else {
-                        depthIntoCeiling[i] = 0;
-                        spaceBelowCeiling[i] = (Boolean)densitySpace.getContent(itPosition.x, itPosition.y - 1, itPosition.z) != false ? 0 : spaceBelowCeiling[i - 1] + 1;
+                        this.rDepthIntoCeiling[i] = 0;
+                        this.rSpaceBelowCeiling[i] = this.rSolidityBuffer.get(this.rPosition.x, this.rPosition.y - 1, this.rPosition.z) != false ? 0 : this.rSpaceBelowCeiling[i - 1] + 1;
                     }
-                    ++itPosition.y;
+                    ++this.rPosition.y;
                 }
-                itPosition.y = top;
-                while (itPosition.y >= bottom) {
-                    if (itPosition.x >= writeMin.x && itPosition.y >= writeMin.y && itPosition.z >= writeMin.z && itPosition.x < writeMax.x && itPosition.y < writeMax.y && itPosition.z < writeMax.z) {
-                        i = itPosition.y - bottom;
-                        MaterialProvider.Context materialContext = new MaterialProvider.Context(position, 0.0, depthIntoFloor[i], depthIntoCeiling[i], spaceAboveFloor[i], spaceBelowCeiling[i], functionPosition -> {
-                            childContext.position = functionPosition.toVector3d();
-                            return this.density.process(childContext);
-                        }, childContext.distanceToBiomeEdge);
-                        Material material = this.materialProvider.getVoxelTypeAt(materialContext);
-                        if (material == null) {
-                            material = this.defaultMaterial;
-                        }
-                        if (this.placementMask.canPlace(material)) {
-                            Material worldMaterial = materialSpace.getContent(itPosition.x, itPosition.y, itPosition.z);
-                            int worldMaterialHash = worldMaterial.hashMaterialIds();
-                            if (this.placementMask.canReplace(material.hashCode(), worldMaterialHash)) {
-                                materialSpace.set(material, itPosition.x, itPosition.y, itPosition.z);
-                            }
+                this.rPosition.y = this.rIntersectingWriteBounds.max.y - 2;
+                while (this.rPosition.y > this.rIntersectingWriteBounds.min.x) {
+                    if (this.rIntersectingWriteBounds.contains(this.rPosition)) {
+                        i = this.rPosition.y - this.rIntersectingWriteBounds.min.y;
+                        this.rMaterialProviderContext.position.assign(this.rPosition);
+                        this.rMaterialProviderContext.depthIntoFloor = this.rDepthIntoFloor[i];
+                        this.rMaterialProviderContext.depthIntoCeiling = this.rDepthIntoCeiling[i];
+                        this.rMaterialProviderContext.spaceAboveFloor = this.rSpaceAboveFloor[i];
+                        this.rMaterialProviderContext.spaceBelowCeiling = this.rSpaceBelowCeiling[i];
+                        this.rMaterialProviderContext.distanceToBiomeEdge = context.distanceToBiomeEdge;
+                        Material material = this.materialProvider.getVoxelTypeAt(this.rMaterialProviderContext);
+                        if (material != null && context.materialWriteSpace.getBounds().contains(this.rPosition)) {
+                            context.materialWriteSpace.set(material, this.rPosition);
                         }
                     }
-                    --itPosition.y;
+                    --this.rPosition.y;
                 }
-                ++itPosition.z;
+                ++this.rPosition.z;
             }
-            ++itPosition.x;
+            ++this.rPosition.x;
         }
-    }
-
-    @Override
-    @Nonnull
-    public ContextDependency getContextDependency() {
-        return this.contextDependency.clone();
+        return true;
     }
 
     @Override
     @NonNullDecl
     public Bounds3i getReadBounds_voxelGrid() {
-        return this.readBounds_voxelGrid;
+        return Bounds3i.ZERO;
     }
 
     @Override
-    @Nonnull
+    @NonNullDecl
     public Bounds3i getWriteBounds_voxelGrid() {
-        return this.writeBounds_voxelGrid;
+        return this.writeBounds;
     }
 }
 

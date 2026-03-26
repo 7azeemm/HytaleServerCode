@@ -3,8 +3,10 @@
  */
 package com.hypixel.hytale.server.core.universe.world.chunk.section.palette;
 
+import com.hypixel.hytale.function.consumer.BiIntConsumer;
 import com.hypixel.hytale.math.util.NumberUtil;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.ISectionPalette;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.PaletteSetProvider;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.bytes.Byte2ByteMap;
 import it.unimi.dsi.fastutil.bytes.Byte2ByteOpenHashMap;
@@ -12,13 +14,16 @@ import it.unimi.dsi.fastutil.bytes.Byte2IntMap;
 import it.unimi.dsi.fastutil.bytes.Byte2IntOpenHashMap;
 import it.unimi.dsi.fastutil.bytes.Byte2ShortMap;
 import it.unimi.dsi.fastutil.bytes.Byte2ShortOpenHashMap;
+import it.unimi.dsi.fastutil.bytes.ByteSet;
 import it.unimi.dsi.fastutil.ints.Int2ByteMap;
 import it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ShortMap;
+import it.unimi.dsi.fastutil.ints.Int2ShortMaps;
 import it.unimi.dsi.fastutil.ints.Int2ShortOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.BitSet;
 import java.util.function.IntConsumer;
 import java.util.function.ToIntFunction;
@@ -40,20 +45,28 @@ implements ISectionPalette {
         this.internalIdCount.put((byte)0, (short)Short.MIN_VALUE);
     }
 
-    public AbstractByteSectionPalette(byte[] blocks, @Nonnull int[] data, int[] unique, int count) {
-        this(new Int2ByteOpenHashMap(count), new Byte2IntOpenHashMap(count), new BitSet(count), new Byte2ShortOpenHashMap(count), blocks);
-        for (int internalId = 0; internalId < count; ++internalId) {
-            int blockId = unique[internalId];
-            this.internalToExternal.put((byte)internalId, blockId);
-            this.externalToInternal.put(blockId, (byte)internalId);
-            this.internalIdSet.set(this.unsignedInternalId((byte)internalId));
-            this.internalIdCount.put((byte)internalId, (short)0);
+    public AbstractByteSectionPalette(@Nonnull byte[] blocks, @Nonnull int[] data, @Nonnull Int2ShortMap externalIdCounts) {
+        this(new Int2ByteOpenHashMap(externalIdCounts.size()), new Byte2IntOpenHashMap(externalIdCounts.size()), new BitSet(externalIdCounts.size()), new Byte2ShortOpenHashMap(externalIdCounts.size()), blocks);
+        ObjectIterator<Int2ShortMap.Entry> externalIdCountIter = Int2ShortMaps.fastIterator(externalIdCounts);
+        byte internalIdCounter = 0;
+        while (externalIdCountIter.hasNext()) {
+            Int2ShortMap.Entry entry = (Int2ShortMap.Entry)externalIdCountIter.next();
+            this.internalToExternal.put(internalIdCounter, entry.getIntKey());
+            this.externalToInternal.put(entry.getIntKey(), internalIdCounter);
+            this.internalIdSet.set(this.unsignedInternalId(internalIdCounter));
+            this.internalIdCount.put(internalIdCounter, entry.getShortValue());
+            internalIdCounter = (byte)(internalIdCounter + 1);
         }
-        for (int index = 0; index < data.length; ++index) {
-            int id = data[index];
-            byte internalId = this.externalToInternal.get(id);
-            this.incrementBlockCount(internalId);
-            this.set0(index, internalId);
+        int index = 0;
+        while (index < data.length) {
+            int externalId = data[index];
+            int start = index;
+            while (++index < data.length && data[index] == externalId) {
+            }
+            byte internalId = this.externalToInternal.get(externalId);
+            for (int i = start; i < index; ++i) {
+                this.set0(i, internalId);
+            }
         }
     }
 
@@ -254,18 +267,54 @@ implements ISectionPalette {
     }
 
     @Override
-    public void find(@Nonnull IntList ids, @Nonnull IntSet internalIdHolder, @Nonnull IntConsumer indexConsumer) {
-        int i;
-        for (i = 0; i < ids.size(); ++i) {
+    public void find(@Nonnull IntList ids, @Nonnull IntConsumer indexConsumer) {
+        ByteSet internalIds = this.getThreadLocalInternalIdSet(ids);
+        if (internalIds.isEmpty()) {
+            return;
+        }
+        int index = 0;
+        byte type = this.get0(index);
+        while (index < 32768) {
+            int start = index;
+            byte runType = type;
+            while (++index < 32768 && (type = this.get0(index)) == runType) {
+            }
+            if (!internalIds.contains(runType)) continue;
+            for (int i = start; i < index; ++i) {
+                indexConsumer.accept(i);
+            }
+        }
+    }
+
+    @Override
+    public void find(@Nonnull IntList ids, @Nonnull BiIntConsumer indexBlockConsumer) {
+        ByteSet internalIds = this.getThreadLocalInternalIdSet(ids);
+        if (internalIds.isEmpty()) {
+            return;
+        }
+        int index = 0;
+        byte type = this.get0(index);
+        while (index < 32768) {
+            int start = index;
+            byte runType = type;
+            while (++index < 32768 && (type = this.get0(index)) == runType) {
+            }
+            if (!internalIds.contains(runType)) continue;
+            int external = this.internalToExternal.get(runType);
+            for (int i = start; i < index; ++i) {
+                indexBlockConsumer.accept(i, external);
+            }
+        }
+    }
+
+    private ByteSet getThreadLocalInternalIdSet(IntList ids) {
+        ByteSet internalIds = PaletteSetProvider.get().getByteSet(ids.size());
+        for (int i = 0; i < ids.size(); ++i) {
             byte internal = this.externalToInternal.getOrDefault(ids.getInt(i), (byte)-128);
             if (internal == -128) continue;
-            internalIdHolder.add(internal);
+            internalIds.add(internal);
         }
-        for (i = 0; i < 32768; ++i) {
-            byte type = this.get0(i);
-            if (!internalIdHolder.contains(type)) continue;
-            indexConsumer.accept(i);
-        }
+        return internalIds;
     }
 }
 

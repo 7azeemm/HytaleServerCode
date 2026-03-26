@@ -7,10 +7,8 @@ import com.hypixel.hytale.assetstore.map.BlockTypeAssetMap;
 import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
 import com.hypixel.hytale.codec.DirectDecodeCodec;
 import com.hypixel.hytale.codec.ExtraInfo;
-import com.hypixel.hytale.codec.lookup.ACodecMapCodec;
 import com.hypixel.hytale.component.Archetype;
 import com.hypixel.hytale.component.Component;
-import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.component.data.unknown.TempUnknownComponent;
 import com.hypixel.hytale.component.data.unknown.UnknownComponents;
@@ -25,8 +23,6 @@ import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.BsonPrefabBufferDeserializer;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
@@ -191,16 +187,9 @@ public class SelectionPrefabSerializer {
                 }
                 int blockId = BlockType.getBlockIdOrUnknown(assetMap, blockTypeKey, "Failed to find block '%s' in unknown legacy prefab!", blockTypeStr);
                 Holder<ChunkStore> wrapper = null;
-                if (version <= 2) {
-                    stateValue = innerObj.get("state");
-                    if (stateValue != null) {
-                        wrapper = SelectionPrefabSerializer.legacyStateDecode(stateValue.asDocument());
-                    }
-                } else {
-                    stateValue = innerObj.get("components");
-                    if (stateValue != null) {
-                        wrapper = version < 4 ? ChunkStore.REGISTRY.deserialize(stateValue.asDocument(), worldVersion) : ChunkStore.REGISTRY.deserialize(stateValue.asDocument());
-                    }
+                BsonValue stateValue = innerObj.get("components");
+                if (stateValue != null) {
+                    wrapper = version < 4 ? ChunkStore.REGISTRY.deserialize(stateValue.asDocument(), worldVersion) : ChunkStore.REGISTRY.deserialize(stateValue.asDocument());
                 }
                 selection.addBlockAtLocalPos(x, y, z, blockId, rotation, filler, support, wrapper);
             }
@@ -333,33 +322,6 @@ public class SelectionPrefabSerializer {
         Entity entity = constructor.apply(null);
         codec.decode(document, entity, new ExtraInfo(version));
         return entity.toHolder();
-    }
-
-    @Nonnull
-    public static Holder<ChunkStore> legacyStateDecode(@Nonnull BsonDocument document) {
-        ExtraInfo extraInto = ExtraInfo.THREAD_LOCAL.get();
-        String type = BlockState.TYPE_STRUCTURE.getNow(document, extraInto);
-        Class blockStateClass = BlockState.CODEC.getClassFor(type);
-        if (blockStateClass != null) {
-            try {
-                BlockState t = (BlockState)BlockState.CODEC.decode(document, extraInto);
-                Holder<ChunkStore> holder = ChunkStore.REGISTRY.newHolder();
-                ComponentType componentType = BlockStateModule.get().getComponentType(blockStateClass);
-                if (componentType == null) {
-                    throw new IllegalArgumentException("Unable to find component type for: " + String.valueOf(blockStateClass));
-                }
-                holder.addComponent(componentType, t);
-                return holder;
-            }
-            catch (ACodecMapCodec.UnknownIdException t) {
-                // empty catch block
-            }
-        }
-        Holder<ChunkStore> holder = ChunkStore.REGISTRY.newHolder();
-        UnknownComponents unknownComponents = new UnknownComponents();
-        unknownComponents.addComponent(type, new TempUnknownComponent(document));
-        holder.addComponent(ChunkStore.REGISTRY.getUnknownComponentType(), unknownComponents);
-        return holder;
     }
 }
 

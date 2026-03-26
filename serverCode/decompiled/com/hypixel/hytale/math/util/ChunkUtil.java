@@ -29,6 +29,8 @@ public class ChunkUtil {
     public static final int MIN_Y = 0;
     public static final int MIN_ENTITY_Y = -32;
     public static final int MIN_SECTION = 0;
+    public static final int MIN_CHUNK_COORD = -67108864;
+    public static final int MAX_CHUNK_COORD = 0x3FFFFFF;
 
     private ChunkUtil() {
     }
@@ -175,6 +177,18 @@ public class ChunkUtil {
 
     public static int worldCoordFromLocalCoord(int chunkCoord, int localCoord) {
         return chunkCoord << 5 | localCoord;
+    }
+
+    public static boolean isValidChunkIndex(long chunkIndex) {
+        return ChunkUtil.isValidChunkCoords(ChunkUtil.xOfChunkIndex(chunkIndex), ChunkUtil.zOfChunkIndex(chunkIndex));
+    }
+
+    public static boolean isValidChunkCoords(int chunkCoordX, int chunkCoordZ) {
+        return ChunkUtil.isValidChunkCoord(chunkCoordX) && ChunkUtil.isValidChunkCoord(chunkCoordZ);
+    }
+
+    public static boolean isValidChunkCoord(int chunkCoord) {
+        return chunkCoord >= -67108864 && chunkCoord <= 0x3FFFFFF;
     }
 }
 

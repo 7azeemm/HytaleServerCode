@@ -47,7 +47,9 @@ import com.hypixel.hytale.protocol.TransformUpdate;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolsSetSoundSet;
 import com.hypixel.hytale.protocol.packets.entities.EntityUpdates;
 import com.hypixel.hytale.protocol.packets.inventory.SetActiveSlot;
+import com.hypixel.hytale.protocol.packets.inventory.UpdatePlayerInventory;
 import com.hypixel.hytale.protocol.packets.player.SetBlockPlacementOverride;
+import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.asset.type.gameplay.PlayerConfig;
@@ -61,7 +63,9 @@ import com.hypixel.hytale.server.core.entity.entities.player.data.UniqueItemUsag
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.RespawnPage;
 import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
+import com.hypixel.hytale.server.core.event.events.player.RemovedPlayerFromWorldEvent;
 import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.io.PacketHandler;
@@ -93,7 +97,6 @@ import com.hypixel.hytale.server.core.universe.world.WorldConfig;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.PositionUtil;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.lang.runtime.SwitchBootstraps;
 import java.util.Arrays;
 import java.util.List;
@@ -254,45 +257,15 @@ public class PlayerSystems {
             playerRefComponent.getPacketHandler().setQueuePackets(false);
             playerRefComponent.getPacketHandler().tryFlush();
             WorldConfig worldConfig = world.getWorldConfig();
-            PlayerUtil.broadcastMessageToPlayers(playerRefComponent.getUuid(), Message.translation("server.general.playerLeftWorld").param("username", playerRefComponent.getUsername()).param("world", worldConfig.getDisplayName() != null ? worldConfig.getDisplayName() : WorldConfig.formatDisplayName(world.getName())), store);
+            Message leaveMessage = Message.translation("server.general.playerLeftWorld").param("username", playerRefComponent.getUsername()).param("world", worldConfig.getDisplayName() != null ? worldConfig.getDisplayName() : WorldConfig.formatDisplayName(world.getName()));
+            RemovedPlayerFromWorldEvent event = HytaleServer.get().getEventBus().dispatchFor(RemovedPlayerFromWorldEvent.class, world.getName()).dispatch(new RemovedPlayerFromWorldEvent(holder, world, leaveMessage));
+            if (event.shouldBroadcastLeaveMessage()) {
+                PlayerUtil.broadcastMessageToPlayers(playerRefComponent.getUuid(), event.getLeaveMessage(), store);
+            }
         }
     }
 
-    public static class EnsureUniqueItemUsagesSystem
-    extends HolderSystem<EntityStore> {
-        @Override
-        public Query<EntityStore> getQuery() {
-            return Query.and(PlayerRef.getComponentType(), Query.not(UniqueItemUsagesComponent.getComponentType()));
-        }
-
-        @Override
-        public void onEntityAdd(@Nonnull Holder<EntityStore> holder, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store) {
-            holder.ensureComponent(UniqueItemUsagesComponent.getComponentType());
-        }
-
-        @Override
-        public void onEntityRemoved(@Nonnull Holder<EntityStore> holder, @Nonnull RemoveReason reason, @Nonnull Store<EntityStore> store) {
-        }
-    }
-
-    public static class EnsureEffectControllerSystem
-    extends HolderSystem<EntityStore> {
-        @Override
-        public Query<EntityStore> getQuery() {
-            return PlayerRef.getComponentType();
-        }
-
-        @Override
-        public void onEntityAdd(@Nonnull Holder<EntityStore> holder, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store) {
-            holder.ensureComponent(EffectControllerComponent.getComponentType());
-        }
-
-        @Override
-        public void onEntityRemoved(@Nonnull Holder<EntityStore> holder, @Nonnull RemoveReason reason, @Nonnull Store<EntityStore> store) {
-        }
-    }
-
-    public static class EnsurePlayerInput
+    public static class PlayerInitSystem
     extends HolderSystem<EntityStore> {
         @Override
         public Query<EntityStore> getQuery() {
@@ -302,6 +275,18 @@ public class PlayerSystems {
         @Override
         public void onEntityAdd(@Nonnull Holder<EntityStore> holder, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store) {
             holder.ensureComponent(PlayerInput.getComponentType());
+            holder.ensureComponent(EffectControllerComponent.getComponentType());
+            holder.ensureComponent(UniqueItemUsagesComponent.getComponentType());
+            Player player = holder.getComponent(Player.getComponentType());
+            assert (player != null);
+            player.getInventory().migrateToComponents(holder);
+            holder.ensureComponent(InventoryComponent.Storage.getComponentType());
+            holder.ensureComponent(InventoryComponent.Armor.getComponentType());
+            holder.ensureComponent(InventoryComponent.Hotbar.getComponentType());
+            holder.ensureComponent(InventoryComponent.Utility.getComponentType());
+            holder.ensureComponent(InventoryComponent.Tool.getComponentType());
+            holder.ensureComponent(InventoryComponent.Backpack.getComponentType());
+            player.getInventory().backwardsCompatHook(holder);
         }
 
         @Override
@@ -445,6 +430,10 @@ public class PlayerSystems {
 
         @Override
         public void onEntityAdded(@Nonnull Ref<EntityStore> ref, @Nonnull AddReason reason, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            InventoryComponent.Tool tool;
+            InventoryComponent.Utility utility;
+            InventoryComponent.Hotbar hotbar;
+            InventoryComponent.Armor armor;
             World world = commandBuffer.getExternalData().getWorld();
             Player playerComponent = commandBuffer.getComponent(ref, Player.getComponentType());
             assert (playerComponent != null);
@@ -463,12 +452,30 @@ public class PlayerSystems {
             PlayerWorldData perWorldData = playerComponent.getPlayerConfigData().getPerWorldData(world.getName());
             Player.initGameMode(ref, commandBuffer);
             playerConnection.writeNoCache(new BuilderToolsSetSoundSet(world.getGameplayConfig().getCreativePlaySoundSetIndex()));
-            playerComponent.sendInventory();
+            ObjectArrayList<ItemStack> remainder = new ObjectArrayList<ItemStack>();
+            InventoryComponent.Storage storage = commandBuffer.getComponent(ref, InventoryComponent.Storage.getComponentType());
+            if (storage != null) {
+                storage.ensureCapacity((short)36, remainder);
+            }
+            if ((armor = commandBuffer.getComponent(ref, InventoryComponent.Armor.getComponentType())) != null) {
+                armor.ensureCapacity(InventoryComponent.DEFAULT_ARMOR_CAPACITY, remainder);
+            }
+            if ((hotbar = commandBuffer.getComponent(ref, InventoryComponent.Hotbar.getComponentType())) != null) {
+                hotbar.ensureCapacity((short)9, remainder);
+            }
+            if ((utility = commandBuffer.getComponent(ref, InventoryComponent.Utility.getComponentType())) != null) {
+                utility.ensureCapacity((short)4, remainder);
+            }
+            if ((tool = commandBuffer.getComponent(ref, InventoryComponent.Tool.getComponentType())) != null) {
+                tool.ensureCapacity((short)23, remainder);
+            }
+            InventoryComponent.Backpack backpack = commandBuffer.getComponent(ref, InventoryComponent.Backpack.getComponentType());
+            playerConnection.writeNoCache(new UpdatePlayerInventory(storage != null ? storage.getInventory().toPacket() : null, armor != null ? armor.getInventory().toPacket() : null, hotbar != null ? hotbar.getInventory().toPacket() : null, utility != null ? utility.getInventory().toPacket() : null, tool != null ? tool.getInventory().toPacket() : null, backpack != null ? backpack.getInventory().toPacket() : null));
             Inventory playerInventory = playerComponent.getInventory();
             playerConnection.writeNoCache(new SetActiveSlot(-1, playerInventory.getActiveHotbarSlot()));
             playerConnection.writeNoCache(new SetActiveSlot(-5, playerInventory.getActiveUtilitySlot()));
             playerConnection.writeNoCache(new SetActiveSlot(-8, playerInventory.getActiveToolsSlot()));
-            if (playerInventory.containsBrokenItem()) {
+            if (Inventory.containsBrokenItem(ref, commandBuffer)) {
                 playerComponent.sendMessage(Message.translation("server.general.repair.itemBrokenOnRespawn").color("#ff5555"));
             }
             playerConnection.writeNoCache(new SetBlockPlacementOverride(playerComponent.isOverrideBlockPlacementRestrictions()));
@@ -488,7 +495,7 @@ public class PlayerSystems {
             if (transform != null) {
                 Vector3d position = transform.getPosition();
                 SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = commandBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-                ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                 playerSpatialResource.getSpatialStructure().collect(position, 75.0, results);
                 results.add(ref);
                 if (playerComponent.isFirstSpawn()) {

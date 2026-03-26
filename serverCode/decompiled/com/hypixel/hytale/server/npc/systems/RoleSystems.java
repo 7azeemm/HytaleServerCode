@@ -54,7 +54,7 @@ import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import com.hypixel.hytale.server.npc.systems.BalancingInitialisationSystem;
 import com.hypixel.hytale.server.npc.systems.SteeringSystem;
 import com.hypixel.hytale.server.npc.systems.SteppableTickingSystem;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +62,7 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 
 public class RoleSystems {
-    private static final ThreadLocal<List<Ref<EntityStore>>> ENTITY_LIST = ThreadLocal.withInitial(ArrayList::new);
+    private static final ThreadLocal<List<Ref<EntityStore>>> ENTITY_LIST = ThreadLocal.withInitial(ReferenceArrayList::new);
 
     public static class RoleDebugSystem
     extends SteppableTickingSystem {
@@ -75,6 +75,12 @@ public class RoleSystems {
         private static final float NPC_RING_THICKNESS = 0.1f;
         private static final float NPC_RING_OFFSET = 0.1f;
         private static final float LEASH_LINE_THICKNESS = 0.05f;
+        private static final double PATH_WAYPOINT_SPHERE_SIZE = 0.25;
+        private static final double PATH_CURRENT_TARGET_SPHERE_SIZE = 0.35;
+        private static final double PATH_END_NODE_SPHERE_SIZE = 0.4;
+        private static final double PATH_SPHERE_Y_OFFSET = 0.5;
+        private static final double PATH_LINE_THICKNESS = 0.05;
+        private static final double PATH_NPC_LINE_THICKNESS = 0.08;
         @Nonnull
         private final ComponentType<EntityStore, NPCEntity> npcComponentType;
         @Nonnull
@@ -104,6 +110,7 @@ public class RoleSystems {
 
         @Override
         public void steppedTick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            boolean hasPathVis;
             NPCEntity npcComponent = archetypeChunk.getComponent(index, this.npcComponentType);
             assert (npcComponent != null);
             Role role = npcComponent.getRole();
@@ -120,7 +127,8 @@ public class RoleSystems {
             }
             boolean hasSensorVis = debugSupport.hasSensorVisData();
             boolean hasLeashVis = debugSupport.isDebugFlagSet(RoleDebugFlags.VisLeashPosition);
-            if (hasSensorVis || hasLeashVis) {
+            boolean bl = hasPathVis = debugSupport.isVisPath() && debugSupport.hasPathVisData();
+            if (hasSensorVis || hasLeashVis || hasPathVis) {
                 Ref<EntityStore> npcRef = archetypeChunk.getReferenceTo(index);
                 TransformComponent transformComponent = archetypeChunk.getComponent(index, TransformComponent.getComponentType());
                 assert (transformComponent != null);
@@ -132,6 +140,9 @@ public class RoleSystems {
                 }
                 if (hasLeashVis) {
                     RoleDebugSystem.renderLeashPositionVisualization(npcComponent, npcRef, transformComponent, boundingBoxComponent, world);
+                }
+                if (hasPathVis) {
+                    RoleDebugSystem.renderPathVisualization(debugSupport, transformComponent, boundingBoxComponent, world);
                 }
             }
         }
@@ -150,7 +161,7 @@ public class RoleSystems {
                 Vector3d targetEyePosition = targetLook.getPosition();
                 Vector3d direction = new Vector3d(targetEyePosition.x - npcEyePosition.x, targetEyePosition.y - npcEyePosition.y, targetEyePosition.z - npcEyePosition.z);
                 Vector3f color = DebugUtils.INDEXED_COLORS[slotIndex % DebugUtils.INDEXED_COLORS.length];
-                DebugUtils.addArrow(world, npcEyePosition, direction, color, 0.1f, false);
+                DebugUtils.addArrow(world, npcEyePosition, direction, color, 0.1f, 0);
             }
         }
 
@@ -171,10 +182,10 @@ public class RoleSystems {
                 double height = npcPosition.y + npcMidHeight + (double)i * 0.1;
                 if (sensorData.viewAngle() > 0.0 && sensorData.viewAngle() < 6.273185482025147) {
                     double sectorHeading = -heading + Math.PI;
-                    DebugUtils.addSector(world, npcPosition.x, height, npcPosition.z, sectorHeading, sensorData.range(), sensorData.viewAngle(), sensorData.minRange(), color, 0.4f, 0.1f, false);
+                    DebugUtils.addSector(world, npcPosition.x, height, npcPosition.z, sectorHeading, sensorData.range(), sensorData.viewAngle(), sensorData.minRange(), color, 0.4f, 0.1f, 0);
                     continue;
                 }
-                DebugUtils.addDisc(world, npcPosition.x, height, npcPosition.z, sensorData.range(), sensorData.minRange(), color, 0.4f, 0.1f, false);
+                DebugUtils.addDisc(world, npcPosition.x, height, npcPosition.z, sensorData.range(), sensorData.minRange(), color, 0.4f, 0.1f, 0);
             }
             Map<Ref<EntityStore>, List<DebugSupport.EntityVisData>> entityDataMap = debugSupport.getEntityVisData();
             if (entityDataMap != null) {
@@ -207,7 +218,7 @@ public class RoleSystems {
                     if (!anyMatched) {
                         DebugUtils.addCube(world, entityPosition.x, entityPosition.y + markerBaseHeight, entityPosition.z, DebugUtils.COLOR_GRAY, 0.2, 0.1f);
                     }
-                    DebugUtils.addLine(world, npcPosition.x, npcPosition.y + npcMidHeight, npcPosition.z, entityPosition.x, entityPosition.y + markerBaseHeight, entityPosition.z, DebugUtils.COLOR_GRAY, 0.03, 0.1f, false);
+                    DebugUtils.addLine(world, npcPosition.x, npcPosition.y + npcMidHeight, npcPosition.z, entityPosition.x, entityPosition.y + markerBaseHeight, entityPosition.z, DebugUtils.COLOR_GRAY, 0.03, 0.1f, 0);
                 }
             }
             debugSupport.clearSensorVisData();
@@ -248,11 +259,11 @@ public class RoleSystems {
                 double npcEdgeX = npcPosition.x - hDirX * npcRingOuterRadius * cosPitch;
                 double npcEdgeY = npcMidY - sinPitch * npcRingOuterRadius;
                 double npcEdgeZ = npcPosition.z - hDirZ * npcRingOuterRadius * cosPitch;
-                DebugUtils.addLine(world, leashEdgeX, leashEdgeY, leashEdgeZ, npcEdgeX, npcEdgeY, npcEdgeZ, color, 0.05f, 0.1f, false);
+                DebugUtils.addLine(world, leashEdgeX, leashEdgeY, leashEdgeZ, npcEdgeX, npcEdgeY, npcEdgeZ, color, 0.05f, 0.1f, 0);
             } else {
-                DebugUtils.addDisc(world, leashPoint.x, leashPoint.y, leashPoint.z, 0.5, 0.4f, color, 0.8f, 0.1f, false);
-                DebugUtils.addDisc(world, npcPosition.x, npcMidY, npcPosition.z, npcRingOuterRadius, npcRingInnerRadius, color, 0.8f, 0.1f, false);
-                DebugUtils.addLine(world, leashPoint.x, leashPoint.y, leashPoint.z, npcPosition.x, npcMidY, npcPosition.z, color, 0.05f, 0.1f, false);
+                DebugUtils.addDisc(world, leashPoint.x, leashPoint.y, leashPoint.z, 0.5, 0.4f, color, 0.8f, 0.1f, 0);
+                DebugUtils.addDisc(world, npcPosition.x, npcMidY, npcPosition.z, npcRingOuterRadius, npcRingInnerRadius, color, 0.8f, 0.1f, 0);
+                DebugUtils.addLine(world, leashPoint.x, leashPoint.y, leashPoint.z, npcPosition.x, npcMidY, npcPosition.z, color, 0.05f, 0.1f, 0);
             }
         }
 
@@ -263,7 +274,66 @@ public class RoleSystems {
             Matrix4d tmp = new Matrix4d();
             matrix.rotateAxis(yawAngle, 0.0, 1.0, 0.0, tmp);
             matrix.rotateAxis(pitchAngle, 0.0, 0.0, 1.0, tmp);
-            DebugUtils.addDisc(world, matrix, outerRadius, innerRadius, color, 0.8f, 0.1f, false);
+            DebugUtils.addDisc(world, matrix, outerRadius, innerRadius, color, 0.8f, 0.1f, 0);
+        }
+
+        private static void renderPathVisualization(@Nonnull DebugSupport debugSupport, @Nonnull TransformComponent transformComponent, @Nonnull BoundingBox boundingBoxComponent, @Nonnull World world) {
+            List<DebugSupport.PathWaypointVisData> pathData = debugSupport.getPathVisData();
+            if (pathData == null || pathData.isEmpty()) {
+                return;
+            }
+            Vector3d npcPosition = transformComponent.getPosition();
+            double npcMidHeight = boundingBoxComponent.getBoundingBox().middleY();
+            double prevX = 0.0;
+            double prevY = 0.0;
+            double prevZ = 0.0;
+            boolean hasPrev = false;
+            double targetX = 0.0;
+            double targetY = 0.0;
+            double targetZ = 0.0;
+            boolean hasTarget = false;
+            boolean isSeekTarget = false;
+            for (DebugSupport.PathWaypointVisData waypoint : pathData) {
+                double sphereSize;
+                Vector3f color;
+                Vector3d waypointPos = waypoint.position();
+                double offsetY = waypointPos.y + 0.5;
+                if (waypoint.isEndNode()) {
+                    color = DebugUtils.COLOR_MAGENTA;
+                    sphereSize = 0.4;
+                    if (waypoint.isCurrentTarget()) {
+                        targetX = waypointPos.x;
+                        targetY = offsetY;
+                        targetZ = waypointPos.z;
+                        hasTarget = true;
+                        isSeekTarget = waypoint.isSeekTarget();
+                    }
+                } else if (waypoint.isCurrentTarget()) {
+                    color = DebugUtils.COLOR_CYAN;
+                    sphereSize = 0.35;
+                    targetX = waypointPos.x;
+                    targetY = offsetY;
+                    targetZ = waypointPos.z;
+                    hasTarget = true;
+                    isSeekTarget = waypoint.isSeekTarget();
+                } else {
+                    color = DebugUtils.COLOR_LIME;
+                    sphereSize = 0.25;
+                }
+                DebugUtils.addSphere(world, waypointPos.x, offsetY, waypointPos.z, color, sphereSize, 0.1f);
+                if (hasPrev) {
+                    DebugUtils.addLine(world, prevX, prevY, prevZ, waypointPos.x, offsetY, waypointPos.z, DebugUtils.COLOR_GRAY, 0.05, 0.1f, 0);
+                }
+                prevX = waypointPos.x;
+                prevY = offsetY;
+                prevZ = waypointPos.z;
+                hasPrev = true;
+            }
+            if (hasTarget) {
+                double npcMidY = npcPosition.y + npcMidHeight;
+                Vector3f lineColor = isSeekTarget ? DebugUtils.COLOR_RED : DebugUtils.COLOR_YELLOW;
+                DebugUtils.addLine(world, npcPosition.x, npcMidY, npcPosition.z, targetX, targetY, targetZ, lineColor, 0.08, 0.1f, 0);
+            }
         }
     }
 

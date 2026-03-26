@@ -21,6 +21,7 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.RefChangeSystem;
 import com.hypixel.hytale.component.system.RefSystem;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Transform;
 import com.hypixel.hytale.math.vector.Vector3d;
@@ -48,6 +49,7 @@ import com.hypixel.hytale.server.core.entity.entities.player.pages.PageManager;
 import com.hypixel.hytale.server.core.entity.entities.player.pages.RespawnPage;
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent;
 import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackSlotTransaction;
@@ -69,12 +71,18 @@ import com.hypixel.hytale.server.core.modules.interaction.Interactions;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.UnarmedInteractions;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
+import com.hypixel.hytale.server.core.modules.voice.VoiceModule;
+import com.hypixel.hytale.server.core.modules.voice.VoicePlayerState;
+import com.hypixel.hytale.server.core.modules.voice.VoiceRouter;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -99,9 +107,55 @@ public class DeathSystems {
     public static class CorpseRemoval
     extends EntityTickingSystem<EntityStore> {
         @Nonnull
+        private static final Query<EntityStore> QUERY = Query.and(DeathComponent.getComponentType(), Query.not(Player.getComponentType()), TransformComponent.getComponentType());
+        @Nonnull
+        private static final Set<Dependency<EntityStore>> DEPENDENCIES = Collections.singleton(new SystemDependency(Order.AFTER, TickCorpseRemoval.class));
+
+        @Override
+        @Nonnull
+        public Query<EntityStore> getQuery() {
+            return QUERY;
+        }
+
+        @Override
+        @Nonnull
+        public Set<Dependency<EntityStore>> getDependencies() {
+            return DEPENDENCIES;
+        }
+
+        @Override
+        public void tick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            DeathComponent deathComponent = archetypeChunk.getComponent(index, DeathComponent.getComponentType());
+            assert (deathComponent != null);
+            InteractionChain deathInteractionChain = deathComponent.getInteractionChain();
+            if (deathInteractionChain != null && deathInteractionChain.getServerState() == InteractionState.NotFinished) {
+                return;
+            }
+            DeferredCorpseRemoval corpseRemoval = archetypeChunk.getComponent(index, DeferredCorpseRemoval.getComponentType());
+            if (corpseRemoval == null) {
+                commandBuffer.removeEntity(archetypeChunk.getReferenceTo(index), RemoveReason.REMOVE);
+                return;
+            }
+            if (!corpseRemoval.shouldRemove()) {
+                return;
+            }
+            commandBuffer.removeEntity(archetypeChunk.getReferenceTo(index), RemoveReason.REMOVE);
+            String deathParticles = corpseRemoval.getDeathParticles();
+            if (deathParticles == null) {
+                return;
+            }
+            TransformComponent transformComponent = archetypeChunk.getComponent(index, TransformComponent.getComponentType());
+            assert (transformComponent != null);
+            ParticleUtil.spawnParticleEffect(deathParticles, transformComponent.getPosition(), commandBuffer);
+        }
+    }
+
+    public static class TickCorpseRemoval
+    extends EntityTickingSystem<EntityStore> {
+        @Nonnull
         private static final ComponentType<EntityStore, DeferredCorpseRemoval> DEFERRED_CORPSE_REMOVAL_COMPONENT_TYPE = DeferredCorpseRemoval.getComponentType();
         @Nonnull
-        private static final Query<EntityStore> QUERY = Query.and(DeathComponent.getComponentType(), Query.not(Player.getComponentType()));
+        private static final Query<EntityStore> QUERY = Query.and(DeathComponent.getComponentType(), Query.not(Player.getComponentType()), TransformComponent.getComponentType(), DEFERRED_CORPSE_REMOVAL_COMPONENT_TYPE);
 
         @Override
         @Nonnull
@@ -118,9 +172,8 @@ public class DeathSystems {
                 return;
             }
             DeferredCorpseRemoval corpseRemoval = archetypeChunk.getComponent(index, DEFERRED_CORPSE_REMOVAL_COMPONENT_TYPE);
-            if (corpseRemoval == null || corpseRemoval.tick(dt)) {
-                commandBuffer.removeEntity(archetypeChunk.getReferenceTo(index), RemoveReason.REMOVE);
-            }
+            assert (corpseRemoval != null);
+            corpseRemoval.tick(dt);
         }
     }
 
@@ -230,6 +283,41 @@ public class DeathSystems {
             assert (playerRefComponent != null);
             PageManager pageManager = playerComponent.getPageManager();
             pageManager.openCustomPage(ref, store, new RespawnPage(playerRefComponent, deathMessage, component.displayDataOnDeathScreen(), component.getDeathItemLoss()));
+        }
+    }
+
+    public static class StopVoiceOnDeath
+    extends OnDeathSystem {
+        private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
+
+        @Override
+        @Nonnull
+        public Query<EntityStore> getQuery() {
+            return Query.and(Player.getComponentType(), PlayerRef.getComponentType());
+        }
+
+        @Override
+        public void onComponentAdded(@Nonnull Ref<EntityStore> ref, @Nonnull DeathComponent component, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
+            PlayerRef playerRef;
+            PlayerRef playerRefComponent = store.getComponent(ref, PlayerRef.getComponentType());
+            if (playerRefComponent == null) {
+                return;
+            }
+            UUID playerId = playerRefComponent.getUuid();
+            VoiceModule voiceModule = VoiceModule.get();
+            if (voiceModule == null) {
+                return;
+            }
+            VoicePlayerState voiceState = voiceModule.getPlayerState(playerId);
+            if (voiceState == null) {
+                return;
+            }
+            voiceState.setSilenced(true);
+            voiceState.setSpeaking(false);
+            VoiceRouter voiceRouter = voiceModule.getVoiceRouter();
+            if (voiceRouter != null && (playerRef = Universe.get().getPlayer(playerId)) != null) {
+                voiceRouter.sendVoiceConfig(playerRef);
+            }
         }
     }
 
@@ -373,20 +461,21 @@ public class DeathSystems {
                 return;
             }
             component.setDisplayDataOnDeathScreen(true);
-            CombinedItemContainer combinedItemContainer = playerComponent.getInventory().getCombinedEverything();
+            CombinedItemContainer combinedInventoryComponent = InventoryComponent.getCombined(commandBuffer, ref, InventoryComponent.EVERYTHING);
             if (component.getItemsDurabilityLossPercentage() > 0.0) {
+                EntityStatMap entityStatMapComponent;
                 double durabilityLossRatio = component.getItemsDurabilityLossPercentage() / 100.0;
                 boolean hasArmorBroken = false;
-                for (short i = 0; i < combinedItemContainer.getCapacity(); i = (short)(i + 1)) {
+                for (short i = 0; i < combinedInventoryComponent.getCapacity(); i = (short)(i + 1)) {
                     double durabilityLoss;
                     ItemStack updatedItemStack;
                     ItemStackSlotTransaction transaction;
-                    ItemStack itemStack = combinedItemContainer.getItemStack(i);
-                    if (ItemStack.isEmpty(itemStack) || itemStack.isBroken() || !itemStack.getItem().getDurabilityLossOnDeath() || !(transaction = combinedItemContainer.replaceItemStackInSlot(i, itemStack, updatedItemStack = itemStack.withIncreasedDurability(-(durabilityLoss = itemStack.getMaxDurability() * durabilityLossRatio)))).getSlotAfter().isBroken() || itemStack.getItem().getArmor() == null) continue;
+                    ItemStack itemStack = combinedInventoryComponent.getItemStack(i);
+                    if (ItemStack.isEmpty(itemStack) || itemStack.isBroken() || !itemStack.getItem().getDurabilityLossOnDeath() || !(transaction = combinedInventoryComponent.replaceItemStackInSlot(i, itemStack, updatedItemStack = itemStack.withIncreasedDurability(-(durabilityLoss = itemStack.getMaxDurability() * durabilityLossRatio)))).getSlotAfter().isBroken() || itemStack.getItem().getArmor() == null) continue;
                     hasArmorBroken = true;
                 }
-                if (hasArmorBroken) {
-                    playerComponent.getStatModifiersManager().setRecalculate(true);
+                if (hasArmorBroken && (entityStatMapComponent = commandBuffer.getComponent(ref, EntityStatMap.getComponentType())) != null) {
+                    entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
                 }
             }
             List<ItemStack> itemsToDrop = null;
@@ -400,18 +489,18 @@ public class DeathSystems {
                     if (!(itemsAmountLossPercentage > 0.0)) break;
                     double itemAmountLossRatio = itemsAmountLossPercentage / 100.0;
                     itemsToDrop = new ObjectArrayList<ItemStack>();
-                    for (short i = 0; i < combinedItemContainer.getCapacity(); i = (short)(i + 1)) {
-                        ItemStack itemStack = combinedItemContainer.getItemStack(i);
+                    for (short i = 0; i < combinedInventoryComponent.getCapacity(); i = (short)(i + 1)) {
+                        ItemStack itemStack = combinedInventoryComponent.getItemStack(i);
                         if (ItemStack.isEmpty(itemStack) || !itemStack.getItem().dropsOnDeath()) continue;
                         int quantityToLose = Math.max(1, MathUtil.floor((double)itemStack.getQuantity() * itemAmountLossRatio));
                         itemsToDrop.add(itemStack.withQuantity(quantityToLose));
                         int newQuantity = itemStack.getQuantity() - quantityToLose;
                         if (newQuantity > 0) {
                             ItemStack updatedItemStack = itemStack.withQuantity(newQuantity);
-                            combinedItemContainer.replaceItemStackInSlot(i, itemStack, updatedItemStack);
+                            combinedInventoryComponent.replaceItemStackInSlot(i, itemStack, updatedItemStack);
                             continue;
                         }
-                        combinedItemContainer.removeItemStackFromSlot(i);
+                        combinedInventoryComponent.removeItemStackFromSlot(i);
                     }
                     break;
                 }

@@ -4,10 +4,13 @@
 package com.hypixel.hytale.server.core.io.transport;
 
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.protocol.FormattedMessage;
 import com.hypixel.hytale.protocol.io.netty.ProtocolUtil;
-import com.hypixel.hytale.protocol.packets.connection.Disconnect;
 import com.hypixel.hytale.protocol.packets.connection.DisconnectType;
+import com.hypixel.hytale.protocol.packets.connection.QuicApplicationErrorCode;
+import com.hypixel.hytale.protocol.packets.connection.ServerDisconnect;
 import com.hypixel.hytale.server.core.HytaleServer;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.auth.CertificateUtil;
 import com.hypixel.hytale.server.core.auth.ServerAuthManager;
 import com.hypixel.hytale.server.core.io.netty.HytaleChannelInitializer;
@@ -57,7 +60,7 @@ public class QUICTransport
 implements Transport {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     public static final AttributeKey<X509Certificate> CLIENT_CERTIFICATE_ATTR = AttributeKey.valueOf("CLIENT_CERTIFICATE");
-    public static final AttributeKey<Integer> ALPN_REJECT_ERROR_CODE_ATTR = AttributeKey.valueOf("ALPN_REJECT_ERROR_CODE");
+    public static final AttributeKey<QuicApplicationErrorCode> ALPN_REJECT_ERROR_CODE_ATTR = AttributeKey.valueOf("ALPN_REJECT_ERROR_CODE");
     public static final AttributeKey<String> SNI_HOSTNAME_ATTR = AttributeKey.valueOf("SNI_HOSTNAME");
     @Nonnull
     private final EventLoopGroup workerGroup = NettyUtil.getEventLoopGroup("ServerWorkerGroup");
@@ -142,7 +145,7 @@ implements Transport {
         @Override
         public void channelActive(@Nonnull ChannelHandlerContext ctx) throws Exception {
             Duration playTimeout = HytaleServer.get().getConfig().getConnectionTimeouts().getPlay();
-            ChannelHandler quicHandler = ((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)new QuicServerCodecBuilder().sslContext(this.sslContext)).tokenHandler(null).activeMigration(false)).maxIdleTimeout(playTimeout.toMillis(), TimeUnit.MILLISECONDS)).ackDelayExponent(3L)).initialMaxData(524288L)).initialMaxStreamDataUnidirectional(0L)).initialMaxStreamsUnidirectional(0L)).initialMaxStreamDataBidirectionalLocal(131072L)).initialMaxStreamDataBidirectionalRemote(131072L)).initialMaxStreamsBidirectional(1L)).discoverPmtu(true)).congestionControlAlgorithm(QuicCongestionControlAlgorithm.BBR)).option(QuicChannelOption.QLOG, System.getProperty("hytale.qlog") != null ? new QLogConfiguration(".", "hytale-server-quic-qlogs", "") : null).handler(new ChannelInboundHandlerAdapter(){
+            ChannelHandler quicHandler = ((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)((QuicServerCodecBuilder)new QuicServerCodecBuilder().sslContext(this.sslContext)).tokenHandler(null).activeMigration(false)).maxIdleTimeout(playTimeout.toMillis(), TimeUnit.MILLISECONDS)).ackDelayExponent(3L)).initialMaxData(524288L)).initialMaxStreamDataUnidirectional(0L)).initialMaxStreamsUnidirectional(0L)).initialMaxStreamDataBidirectionalLocal(131072L)).initialMaxStreamDataBidirectionalRemote(131072L)).initialMaxStreamsBidirectional(8L)).discoverPmtu(true)).congestionControlAlgorithm(QuicCongestionControlAlgorithm.BBR)).option(QuicChannelOption.QLOG, System.getProperty("hytale.qlog") != null ? new QLogConfiguration(".", "hytale-server-quic-qlogs", "") : null).handler(new ChannelInboundHandlerAdapter(){
 
                 @Override
                 public boolean isSharable() {
@@ -168,7 +171,7 @@ implements Transport {
                     int negotiatedVersion = this.parseProtocolVersion(negotiatedAlpn);
                     if (negotiatedVersion < 2) {
                         LOGGER.at(Level.INFO).log("Marking connection from %s (SNI: %s) for rejection: ALPN %s < required %d", NettyUtil.formatRemoteAddress(channel), sni, negotiatedAlpn, 2);
-                        channel.attr(ALPN_REJECT_ERROR_CODE_ATTR).set(5);
+                        channel.attr(ALPN_REJECT_ERROR_CODE_ATTR).set(QuicApplicationErrorCode.ClientOutdated);
                     }
                     if ((clientCert = this.extractClientCertificate(channel)) == null) {
                         LOGGER.at(Level.WARNING).log("Connection rejected: no client certificate from %s (SNI: %s)", (Object)NettyUtil.formatRemoteAddress(channel), (Object)sni);
@@ -205,7 +208,8 @@ implements Transport {
                     ((HytaleLogger.Api)LOGGER.at(Level.WARNING).withCause(cause)).log("Got exception from netty pipeline in ChannelInitializer!");
                     Channel channel = ctx.channel();
                     if (channel.isWritable()) {
-                        channel.writeAndFlush(new Disconnect("Internal server error!", DisconnectType.Crash)).addListener((GenericFutureListener)ProtocolUtil.CLOSE_ON_COMPLETE);
+                        FormattedMessage disconnectReason = Message.translation("server.general.disconnect.internalServerError").getFormattedMessage();
+                        channel.writeAndFlush(new ServerDisconnect(disconnectReason, DisconnectType.Crash)).addListener((GenericFutureListener)ProtocolUtil.CLOSE_ON_COMPLETE);
                     } else {
                         ProtocolUtil.closeApplicationConnection(channel);
                     }

@@ -3,17 +3,18 @@
  */
 package com.hypixel.hytale.protocol.packets.buildertools;
 
-import com.hypixel.hytale.math.Quatf;
 import com.hypixel.hytale.protocol.BlockPosition;
 import com.hypixel.hytale.protocol.NetworkChannel;
 import com.hypixel.hytale.protocol.Packet;
 import com.hypixel.hytale.protocol.ToServerPacket;
 import com.hypixel.hytale.protocol.Vector3f;
+import com.hypixel.hytale.protocol.io.PacketIO;
 import com.hypixel.hytale.protocol.io.ValidationResult;
 import io.netty.buffer.ByteBuf;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.joml.Quaternionfc;
 
 public class BuilderToolSelectionTransform
 implements Packet,
@@ -26,7 +27,7 @@ ToServerPacket {
     public static final int VARIABLE_BLOCK_START = 80;
     public static final int MAX_SIZE = 80;
     @Nullable
-    public Quatf rotation;
+    public Quaternionfc rotation;
     @Nullable
     public BlockPosition translationOffset;
     @Nullable
@@ -54,7 +55,7 @@ ToServerPacket {
     public BuilderToolSelectionTransform() {
     }
 
-    public BuilderToolSelectionTransform(@Nullable Quatf rotation, @Nullable BlockPosition translationOffset, @Nullable BlockPosition initialSelectionMin, @Nullable BlockPosition initialSelectionMax, @Nullable Vector3f initialRotationOrigin, boolean cutOriginal, boolean applyTransformationToSelectionMinMax, boolean isExitingTransformMode, @Nullable BlockPosition initialPastePointForClipboardPaste) {
+    public BuilderToolSelectionTransform(@Nullable Quaternionfc rotation, @Nullable BlockPosition translationOffset, @Nullable BlockPosition initialSelectionMin, @Nullable BlockPosition initialSelectionMax, @Nullable Vector3f initialRotationOrigin, boolean cutOriginal, boolean applyTransformationToSelectionMinMax, boolean isExitingTransformMode, @Nullable BlockPosition initialPastePointForClipboardPaste) {
         this.rotation = rotation;
         this.translationOffset = translationOffset;
         this.initialSelectionMin = initialSelectionMin;
@@ -83,7 +84,7 @@ ToServerPacket {
         BuilderToolSelectionTransform obj = new BuilderToolSelectionTransform();
         byte nullBits = buf.getByte(offset);
         if ((nullBits & 1) != 0) {
-            obj.rotation = Quatf.deserialize(buf, offset + 1);
+            obj.rotation = PacketIO.readQuaternionf(buf, offset + 1);
         }
         if ((nullBits & 2) != 0) {
             obj.translationOffset = BlockPosition.deserialize(buf, offset + 17);
@@ -133,7 +134,7 @@ ToServerPacket {
         }
         buf.writeByte(nullBits);
         if (this.rotation != null) {
-            this.rotation.serialize(buf);
+            PacketIO.writeQuaternionf(buf, this.rotation);
         } else {
             buf.writeZero(16);
         }

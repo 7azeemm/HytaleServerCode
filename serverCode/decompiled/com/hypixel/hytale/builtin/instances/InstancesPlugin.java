@@ -24,6 +24,8 @@ import com.hypixel.hytale.builtin.instances.removal.RemovalCondition;
 import com.hypixel.hytale.builtin.instances.removal.RemovalSystem;
 import com.hypixel.hytale.builtin.instances.removal.TimeoutCondition;
 import com.hypixel.hytale.builtin.instances.removal.WorldEmptyCondition;
+import com.hypixel.hytale.builtin.teleport.components.TeleportHistory;
+import com.hypixel.hytale.codec.schema.SchemaContext;
 import com.hypixel.hytale.codec.schema.config.ObjectSchema;
 import com.hypixel.hytale.codec.schema.config.Schema;
 import com.hypixel.hytale.codec.schema.config.StringSchema;
@@ -45,7 +47,6 @@ import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
-import com.hypixel.hytale.server.core.asset.GenerateSchemaEvent;
 import com.hypixel.hytale.server.core.asset.LoadAssetEvent;
 import com.hypixel.hytale.server.core.asset.type.gameplay.respawn.RespawnController;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
@@ -63,6 +64,7 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Int
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.OpenCustomUIInteraction;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.schema.SchemaGenerator;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
@@ -129,7 +131,18 @@ extends JavaPlugin {
         ComponentRegistryProxy<ChunkStore> chunkStoreRegistry = this.getChunkStoreRegistry();
         this.getCommandRegistry().registerCommand(new InstancesCommand());
         eventRegistry.register((short)64, LoadAssetEvent.class, this::validateInstanceAssets);
-        eventRegistry.register(GenerateSchemaEvent.class, InstancesPlugin::generateSchema);
+        SchemaGenerator.registerAssetSchema("InstanceConfig.json", ctx -> {
+            ObjectSchema worldConfig = WorldConfig.CODEC.toSchema((SchemaContext)ctx);
+            Map<String, Schema> props = worldConfig.getProperties();
+            props.put("UUID", Schema.anyOf(new StringSchema(), new ObjectSchema()));
+            worldConfig.setTitle("Instance Configuration");
+            worldConfig.setId("InstanceConfig.json");
+            Schema.HytaleMetadata hytale = worldConfig.getHytale();
+            hytale.setPath("Instances");
+            hytale.setExtension(CONFIG_FILENAME);
+            hytale.setUiEditorIgnore(Boolean.TRUE);
+            return worldConfig;
+        }, List.of("Instances/**/instance.bson"), ".bson");
         eventRegistry.registerGlobal(AddPlayerToWorldEvent.class, InstancesPlugin::onPlayerAddToWorld);
         eventRegistry.registerGlobal(DrainPlayerFromWorldEvent.class, InstancesPlugin::onPlayerDrainFromWorld);
         eventRegistry.register(PlayerConnectEvent.class, InstancesPlugin::onPlayerConnect);
@@ -216,6 +229,10 @@ extends JavaPlugin {
         UUIDComponent uuidComponent = componentAccessor.getComponent(entityRef, UUIDComponent.getComponentType());
         assert (uuidComponent != null);
         UUID playerUUID = uuidComponent.getUuid();
+        HeadRotation headRotation = componentAccessor.getComponent(entityRef, HeadRotation.getComponentType());
+        if (headRotation != null) {
+            componentAccessor.ensureAndGetComponent(entityRef, TeleportHistory.getComponentType()).append(originalWorld, originalPosition.getPosition().clone(), headRotation.getRotation().clone(), "Instance");
+        }
         InstanceEntityConfig finalPlayerConfig = instanceEntityConfigComponent;
         ((CompletableFuture)((CompletableFuture)CompletableFuture.runAsync(playerRefComponent::removeFromStore, originalWorld).thenCombine(worldFuture.orTimeout(1L, TimeUnit.MINUTES), (ignored, world) -> world)).thenCompose(world -> {
             ISpawnProvider spawnProvider = world.getWorldConfig().getSpawnProvider();
@@ -239,7 +256,7 @@ extends JavaPlugin {
                 return;
             }
             InstancesPlugin.get().getLogger().at(Level.SEVERE).log("No fallback world for %s, disconnecting", playerRefComponent.getUsername());
-            playerRefComponent.getPacketHandler().disconnect("Failed to teleport - no world available");
+            playerRefComponent.getPacketHandler().disconnect(Message.translation("server.general.disconnect.teleportNoWorld"));
         });
     }
 
@@ -257,6 +274,11 @@ extends JavaPlugin {
         ISpawnProvider spawnProvider = targetWorldConfig.getSpawnProvider();
         if (spawnProvider == null) {
             throw new IllegalStateException("Spawn provider cannot be null when teleporting player to instance!");
+        }
+        TransformComponent transformComponent = componentAccessor.getComponent(playerRef, TransformComponent.getComponentType());
+        HeadRotation headRotation = componentAccessor.getComponent(playerRef, HeadRotation.getComponentType());
+        if (transformComponent != null && headRotation != null) {
+            componentAccessor.ensureAndGetComponent(playerRef, TeleportHistory.getComponentType()).append(originalWorld, transformComponent.getPosition().clone(), headRotation.getRotation().clone(), "Instance '" + targetWorld.getName() + "'");
         }
         Transform spawnTransform = spawnProvider.getSpawnPoint(targetWorld, playerUUID);
         Teleport teleportComponent = Teleport.createForPlayer(targetWorld, spawnTransform);
@@ -280,6 +302,11 @@ extends JavaPlugin {
         }
         if ((targetWorld = (universe = Universe.get()).getWorld(returnPoint.getWorld())) == null) {
             throw new IllegalArgumentException("Missing return world");
+        }
+        TransformComponent transformComponent = componentAccessor.getComponent(targetRef, TransformComponent.getComponentType());
+        HeadRotation headRotation = componentAccessor.getComponent(targetRef, HeadRotation.getComponentType());
+        if (transformComponent != null && headRotation != null) {
+            componentAccessor.ensureAndGetComponent(targetRef, TeleportHistory.getComponentType()).append(world, transformComponent.getPosition().clone(), headRotation.getRotation().clone(), "Instance '" + world.getName() + "'");
         }
         Teleport teleportComponent = Teleport.createForPlayer(targetWorld, returnPoint.getReturnPoint());
         CompletableFuture<Void> future = new CompletableFuture<Void>();
@@ -498,22 +525,6 @@ extends JavaPlugin {
         event.setTransform(returnPoint.getReturnPoint());
     }
 
-    private static void generateSchema(@Nonnull GenerateSchemaEvent event) {
-        ObjectSchema worldConfig = WorldConfig.CODEC.toSchema(event.getContext());
-        Map<String, Schema> props = worldConfig.getProperties();
-        props.put("UUID", Schema.anyOf(new StringSchema(), new ObjectSchema()));
-        worldConfig.setTitle("Instance Configuration");
-        worldConfig.setId("InstanceConfig.json");
-        Schema.HytaleMetadata hytaleMetadata = worldConfig.getHytale();
-        if (hytaleMetadata != null) {
-            hytaleMetadata.setPath("Instances");
-            hytaleMetadata.setExtension(CONFIG_FILENAME);
-            hytaleMetadata.setUiEditorIgnore(Boolean.TRUE);
-        }
-        event.addSchema("InstanceConfig.json", worldConfig);
-        event.addSchemaLink("InstanceConfig", List.of("Instances/**/instance.bson"), ".bson");
-    }
-
     /*
      * WARNING - Removed try catching itself - possible behaviour change.
      */
@@ -546,7 +557,7 @@ extends JavaPlugin {
             try {
                 World world = universe.makeWorld(worldName, instancePath, config, false).join();
                 EnumSet<ValidationOption> options = EnumSet.of(ValidationOption.BLOCK_STATES, ValidationOption.BLOCKS);
-                world.validate(sb, WorldValidationUtil.blockValidator(errors, options), options);
+                world.validate(sb, WorldValidationUtil.blockValidator(sb, options), options);
             }
             catch (Exception e) {
                 sb.append("\t").append(e.getMessage());

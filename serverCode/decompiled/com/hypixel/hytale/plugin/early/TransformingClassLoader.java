@@ -17,7 +17,7 @@ import javax.annotation.Nonnull;
 
 public final class TransformingClassLoader
 extends URLClassLoader {
-    private static final Set<String> SECURE_PACKAGE_PREFIXES = Set.of("java.", "javax.", "jdk.", "sun.", "com.sun.", "org.bouncycastle.", "server.io.netty.", "org.objectweb.asm.", "com.google.gson.", "org.slf4j.", "org.apache.logging.", "ch.qos.logback.", "com.google.flogger.", "server.io.sentry.", "com.hypixel.protoplus.", "com.hypixel.fastutil.", "com.hypixel.hytale.plugin.early.");
+    private static final Set<String> SECURE_PACKAGE_PREFIXES = Set.of("java.", "javax.", "jdk.", "sun.", "com.sun.", "org.bouncycastle.", "server.io.netty.", "org.objectweb.asm.", "com.google.gson.", "org.slf4j.", "org.apache.logging.", "ch.qos.logback.", "com.google.flogger.", "server.io.sentry.", "com.hypixel.fastutil.", "com.hypixel.hytale.plugin.early.");
     private final List<ClassTransformer> transformers;
     private final ClassLoader appClassLoader;
 

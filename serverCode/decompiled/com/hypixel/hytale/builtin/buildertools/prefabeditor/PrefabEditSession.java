@@ -169,9 +169,17 @@ implements Resource<EntityStore> {
         return this.worldArrivedFrom;
     }
 
+    public void setWorldArrivedFrom(UUID worldUuid) {
+        this.worldArrivedFrom = worldUuid;
+    }
+
     @Nullable
     public Transform getTransformArrivedFrom() {
         return this.transformArrivedFrom;
+    }
+
+    public void setTransformArrivedFrom(Transform transform) {
+        this.transformArrivedFrom = transform;
     }
 
     public UUID getWorldCreator() {

@@ -15,7 +15,6 @@ import javax.annotation.Nonnull;
 
 public class ScatterOperation
 extends ToolOperation {
-    private final int brushDensity = this.getBrushDensity();
     private final BlockTypeAssetMap<String, BlockType> assetMap = BlockType.getAssetMap();
 
     public ScatterOperation(@Nonnull Ref<EntityStore> ref, @Nonnull Player player, @Nonnull BuilderToolOnUseInteraction packet, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
@@ -25,7 +24,7 @@ extends ToolOperation {
     @Override
     boolean execute0(int x, int y, int z) {
         int currentBlock = this.edit.getBlock(x, y, z);
-        if (currentBlock <= 0 && this.builderState.isAsideBlock(this.edit.getAccessor(), x, y, z) && this.assetMap.getAsset((int)this.edit.getBlock((int)x, (int)(y - 1), (int)z)).getFlags().isStackable && this.random.nextInt(100) <= this.brushDensity) {
+        if (currentBlock <= 0 && this.builderState.isAsideBlock(this.edit.getAccessor(), x, y, z) && this.assetMap.getAsset((int)this.edit.getBlock((int)x, (int)(y - 1), (int)z)).getFlags().isStackable && this.random.nextInt(100) <= this.density) {
             this.edit.setBlock(x, y, z, this.pattern.nextBlock(this.random));
         }
         return true;

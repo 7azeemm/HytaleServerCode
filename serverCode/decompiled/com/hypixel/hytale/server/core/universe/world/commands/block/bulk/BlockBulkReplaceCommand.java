@@ -27,7 +27,6 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +62,6 @@ extends AbstractPlayerCommand {
         int originChunkZ = MathUtil.floor(playerPos.getZ()) >> 5;
         CompletableFuture.runAsync(() -> {
             long start = System.nanoTime();
-            IntOpenHashSet temp = new IntOpenHashSet();
             ChunkStore chunkComponentStore = world.getChunkStore();
             AtomicInteger replaced = new AtomicInteger();
             SpiralIterator iterator = new SpiralIterator(originChunkX, originChunkZ, radius);
@@ -76,7 +74,7 @@ extends AbstractPlayerCommand {
                     int chunkX = ChunkUtil.xOfChunkIndex(key);
                     int chunkY = sectionIndex;
                     int chunkZ = ChunkUtil.zOfChunkIndex(key);
-                    section.find(findBlockIdList, temp, blockIndex -> {
+                    section.find(findBlockIdList, blockIndex -> {
                         int x = chunkX << 5 | ChunkUtil.xFromIndex(blockIndex);
                         int y = chunkY << 5 | ChunkUtil.yFromIndex(blockIndex);
                         int z = chunkZ << 5 | ChunkUtil.zFromIndex(blockIndex);

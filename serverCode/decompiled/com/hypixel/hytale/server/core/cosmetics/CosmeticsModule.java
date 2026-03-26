@@ -3,6 +3,9 @@
  */
 package com.hypixel.hytale.server.core.cosmetics;
 
+import com.hypixel.hytale.assetstore.AssetRegistry;
+import com.hypixel.hytale.assetstore.codec.AssetCodec;
+import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
 import com.hypixel.hytale.common.plugin.PluginManifest;
 import com.hypixel.hytale.common.util.ArrayUtil;
 import com.hypixel.hytale.common.util.RandomUtil;
@@ -10,10 +13,13 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.protocol.PlayerSkin;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
+import com.hypixel.hytale.server.core.asset.HytaleAssetStore;
 import com.hypixel.hytale.server.core.asset.LoadAssetEvent;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
 import com.hypixel.hytale.server.core.asset.type.model.config.ModelAsset;
 import com.hypixel.hytale.server.core.cosmetics.CosmeticRegistry;
+import com.hypixel.hytale.server.core.cosmetics.EmoteAsset;
+import com.hypixel.hytale.server.core.cosmetics.EmoteAssetPacketGenerator;
 import com.hypixel.hytale.server.core.cosmetics.PlayerSkinPart;
 import com.hypixel.hytale.server.core.cosmetics.PlayerSkinPartTexture;
 import com.hypixel.hytale.server.core.cosmetics.commands.EmoteCommand;
@@ -43,6 +49,7 @@ extends JavaPlugin {
         if (Options.getOptionSet().has(Options.VALIDATE_ASSETS)) {
             this.getEventRegistry().register((short)64, LoadAssetEvent.class, this::validateGeneratedSkin);
         }
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(EmoteAsset.class, new IndexedLookupTableAssetMap(EmoteAsset[]::new)).setPath("Emote")).setCodec((AssetCodec)EmoteAsset.CODEC)).setKeyFunction(EmoteAsset::getId)).setPacketGenerator(new EmoteAssetPacketGenerator()).setReplaceOnRemove(EmoteAsset::new)).build());
     }
 
     public CosmeticRegistry getRegistry() {

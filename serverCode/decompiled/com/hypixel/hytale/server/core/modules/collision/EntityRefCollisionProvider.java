@@ -22,7 +22,7 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.modules.entity.damage.DeathComponent;
 import com.hypixel.hytale.server.core.modules.projectile.component.Projectile;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
@@ -52,7 +52,7 @@ public class EntityRefCollisionProvider {
     @Nullable
     protected Ref<EntityStore> ignoreOther;
     @Nonnull
-    protected List<Ref<EntityStore>> tmpResults = new ObjectArrayList<Ref<EntityStore>>();
+    protected List<Ref<EntityStore>> tmpResults = new ReferenceArrayList<Ref<EntityStore>>();
     @Nonnull
     protected Vector3d tmpVector = new Vector3d();
     @Nullable

@@ -21,7 +21,7 @@ import com.hypixel.hytale.server.npc.corecomponents.ActionBase;
 import com.hypixel.hytale.server.npc.corecomponents.audiovisual.builders.BuilderActionSpawnParticles;
 import com.hypixel.hytale.server.npc.role.Role;
 import com.hypixel.hytale.server.npc.sensorinfo.InfoProvider;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class ActionSpawnParticles
@@ -51,15 +51,15 @@ extends ActionBase {
         assert (transformComponent != null);
         Vector3d position = new Vector3d(this.offset).rotateY(transformComponent.getRotation().getYaw()).add(transformComponent.getPosition());
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = store.getResource(EntityModule.get().getPlayerSpatialResourceType());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         playerSpatialResource.getSpatialStructure().collect(position, this.range, results);
         NetworkId networkIdComponent = store.getComponent(ref, NetworkId.getComponentType());
         if (networkIdComponent == null) {
             return true;
         }
         SpawnModelParticles packet = new SpawnModelParticles(networkIdComponent.getId(), this.modelParticlesProtocol);
-        for (Ref ref2 : results) {
-            PlayerRef playerRefComponent = store.getComponent(ref2, PlayerRef.getComponentType());
+        for (Ref playerRef : results) {
+            PlayerRef playerRefComponent = store.getComponent(playerRef, PlayerRef.getComponentType());
             if (playerRefComponent == null) continue;
             playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
         }

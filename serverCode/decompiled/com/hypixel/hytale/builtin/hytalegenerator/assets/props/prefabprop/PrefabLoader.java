@@ -6,30 +6,28 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop;
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.PrefabFileVisitor;
 import com.hypixel.hytale.common.util.ExceptionUtil;
-import com.hypixel.hytale.server.core.prefab.selection.buffer.BsonPrefabBufferDeserializer;
-import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.PrefabBuffer;
-import com.hypixel.hytale.server.core.util.BsonUtil;
+import com.hypixel.hytale.server.core.prefab.selection.buffer.PrefabBufferUtil;
+import com.hypixel.hytale.server.core.prefab.selection.buffer.impl.IPrefabBuffer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.bson.BsonDocument;
 
 public class PrefabLoader {
-    public static void loadAllPrefabBuffersUnder(@Nonnull Path dirPath, @Nonnull List<PrefabBuffer> pathPrefabs) {
-        if (!Files.isDirectory(dirPath, new LinkOption[0])) {
-            PrefabBuffer prefab = PrefabLoader.loadPrefabBufferAt(dirPath);
+    public static void traverseAllPrefabBuffersUnder(@Nonnull Path path, @Nonnull BiConsumer<Path, IPrefabBuffer> prefabsOut) {
+        if (!Files.isDirectory(path, new LinkOption[0])) {
+            IPrefabBuffer prefab = PrefabLoader.loadPrefabBufferAt(path);
             if (prefab == null) {
                 return;
             }
-            pathPrefabs.add(prefab);
+            prefabsOut.accept(path, prefab);
             return;
         }
         try {
-            Files.walkFileTree(dirPath, new PrefabFileVisitor(pathPrefabs));
+            Files.walkFileTree(path, new PrefabFileVisitor(prefabsOut));
         }
         catch (IOException e) {
             Object msg = "Exception thrown by HytaleGenerator while loading a Prefab:\n";
@@ -39,21 +37,18 @@ public class PrefabLoader {
     }
 
     @Nullable
-    public static PrefabBuffer loadPrefabBufferAt(@Nonnull Path filePath) {
+    public static IPrefabBuffer loadPrefabBufferAt(@Nonnull Path filePath) {
         if (!PrefabLoader.hasJsonExtension(filePath)) {
             return null;
         }
-        try {
-            BsonDocument prefabAsBson = BsonUtil.readDocumentNow(filePath);
-            if (prefabAsBson == null) {
-                return null;
-            }
-            return BsonPrefabBufferDeserializer.INSTANCE.deserialize(filePath, prefabAsBson);
+        if (!Files.exists(filePath, new LinkOption[0])) {
+            LoggerUtil.getLogger().info("Didn't find a prefab with path: " + String.valueOf(filePath));
+            return null;
         }
-        catch (Exception e) {
-            String msg = "Exception thrown by HytaleGenerator while loading a PrefabBuffer for " + String.valueOf(filePath) + ":\n";
-            msg = msg + ExceptionUtil.toStringWithStack(e);
-            LoggerUtil.getLogger().severe(msg);
+        try {
+            return PrefabBufferUtil.getCached(filePath);
+        }
+        catch (Error e) {
             return null;
         }
     }

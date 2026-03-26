@@ -12,12 +12,14 @@ import com.hypixel.hytale.procedurallib.supplier.IDoubleRange;
 import com.hypixel.hytale.procedurallib.supplier.IFloatRange;
 import com.hypixel.hytale.server.worldgen.cave.CaveNodeType;
 import com.hypixel.hytale.server.worldgen.util.BlockFluidEntry;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import com.hypixel.hytale.server.worldgen.util.condition.BlockMaskCondition;
 import com.hypixel.hytale.server.worldgen.util.condition.flag.Int2FlagsCondition;
 import java.util.Random;
 import javax.annotation.Nonnull;
 
 public class CaveType {
+    public static final ListPool<CaveType> ENTRY_POOL = new ListPool<CaveType>(10, new CaveType[0]);
     protected final String name;
     protected final CaveNodeType entryNodeType;
     protected final IFloatRange yaw;

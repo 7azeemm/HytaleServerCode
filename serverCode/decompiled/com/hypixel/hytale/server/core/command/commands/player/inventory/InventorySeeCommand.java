@@ -13,6 +13,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ContainerWindow;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.DelegateItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
@@ -47,12 +48,11 @@ extends AbstractPlayerCommand {
         World targetWorld = targetStore.getExternalData().getWorld();
         targetWorld.execute(() -> {
             CombinedItemContainer targetInventory;
-            Player targetPlayerComponent = targetStore.getComponent(targetRef, Player.getComponentType());
-            if (targetPlayerComponent == null) {
+            if (!targetRef.isValid()) {
                 context.sendMessage(MESSAGE_COMMANDS_ERRORS_PLAYER_NOT_IN_WORLD);
                 return;
             }
-            ItemContainer targetItemContainer = targetInventory = targetPlayerComponent.getInventory().getCombinedHotbarFirst();
+            ItemContainer targetItemContainer = targetInventory = InventoryComponent.getCombined(targetStore, targetRef, InventoryComponent.HOTBAR_FIRST);
             if (!context.sender().hasPermission(HytalePermissions.fromCommand("invsee", "modify"))) {
                 DelegateItemContainer<CombinedItemContainer> delegateItemContainer = new DelegateItemContainer<CombinedItemContainer>(targetInventory);
                 delegateItemContainer.setGlobalFilter(FilterType.DENY_ALL);

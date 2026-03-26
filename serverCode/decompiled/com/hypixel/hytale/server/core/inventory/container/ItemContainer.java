@@ -86,6 +86,14 @@ public abstract class ItemContainer {
 
     protected abstract <X, V> V writeAction(Function<X, V> var1, X var2);
 
+    protected abstract void lockForRead();
+
+    protected abstract void unlockForRead();
+
+    protected abstract void lockForWrite();
+
+    protected abstract void unlockForWrite();
+
     protected abstract ClearTransaction internal_clear();
 
     @Nullable
@@ -125,15 +133,15 @@ public abstract class ItemContainer {
         return map;
     }
 
-    public EventRegistration registerChangeEvent(@Nonnull Consumer<ItemContainerChangeEvent> consumer) {
+    public EventRegistration<Void, ItemContainerChangeEvent> registerChangeEvent(@Nonnull Consumer<ItemContainerChangeEvent> consumer) {
         return this.registerChangeEvent((short)0, consumer);
     }
 
-    public EventRegistration registerChangeEvent(@Nonnull EventPriority priority, @Nonnull Consumer<ItemContainerChangeEvent> consumer) {
+    public EventRegistration<Void, ItemContainerChangeEvent> registerChangeEvent(@Nonnull EventPriority priority, @Nonnull Consumer<ItemContainerChangeEvent> consumer) {
         return this.registerChangeEvent(priority.getValue(), consumer);
     }
 
-    public EventRegistration registerChangeEvent(short priority, @Nonnull Consumer<ItemContainerChangeEvent> consumer) {
+    public EventRegistration<Void, ItemContainerChangeEvent> registerChangeEvent(short priority, @Nonnull Consumer<ItemContainerChangeEvent> consumer) {
         return this.externalChangeEventRegistry.register(priority, null, consumer);
     }
 
@@ -1227,7 +1235,7 @@ public abstract class ItemContainer {
         return to;
     }
 
-    public static <T extends ItemContainer> T ensureContainerCapacity(@Nullable T inputContainer, short capacity, @Nonnull Short2ObjectConcurrentHashMap.ShortFunction<T> newContainerSupplier, List<ItemStack> remainder) {
+    public static <T extends ItemContainer> T ensureContainerCapacity(@Nullable T inputContainer, short capacity, @Nonnull Short2ObjectConcurrentHashMap.ShortFunction<T> newContainerSupplier, @Nullable List<ItemStack> remainder) {
         if (inputContainer == null) {
             return (T)((ItemContainer)newContainerSupplier.apply(capacity));
         }

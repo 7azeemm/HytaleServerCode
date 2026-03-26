@@ -21,8 +21,6 @@ import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.asset.type.particle.config.ParticleSystem;
 import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.AllLegacyLivingEntityTypesQuery;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
@@ -31,20 +29,6 @@ import com.hypixel.hytale.server.core.modules.entitystats.EntityStatsSystems;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.EntityStatType;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.EntityStatTypePacketGenerator;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.AliveCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.ChargingCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.Condition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.EnvironmentCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.GlidingCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.LogicCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.NoDamageTakenCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.OutOfCombatCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.PlayerCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.RegenHealthCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.SprintingCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.StatCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.SuffocatingCondition;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.condition.WieldingCondition;
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.Modifier;
 import com.hypixel.hytale.server.core.modules.entitystats.modifier.StaticModifier;
 import com.hypixel.hytale.server.core.modules.interaction.InteractionModule;
@@ -83,19 +67,6 @@ extends JavaPlugin {
     protected void setup() {
         Modifier.CODEC.register("Boost", (Class<Modifier>)StaticModifier.class, (Codec<Modifier>)StaticModifier.ENTITY_CODEC);
         Modifier.CODEC.register("Static", (Class<Modifier>)StaticModifier.class, (Codec<Modifier>)StaticModifier.ENTITY_CODEC);
-        Condition.CODEC.register("LogicCondition", (Class<Condition>)LogicCondition.class, (Codec<Condition>)LogicCondition.CODEC);
-        Condition.CODEC.register("RegenHealth", (Class<Condition>)RegenHealthCondition.class, (Codec<Condition>)RegenHealthCondition.CODEC);
-        Condition.CODEC.register("NoDamageTaken", (Class<Condition>)NoDamageTakenCondition.class, (Codec<Condition>)NoDamageTakenCondition.CODEC);
-        Condition.CODEC.register("Suffocating", (Class<Condition>)SuffocatingCondition.class, (Codec<Condition>)SuffocatingCondition.CODEC);
-        Condition.CODEC.register("Charging", (Class<Condition>)ChargingCondition.class, (Codec<Condition>)ChargingCondition.CODEC);
-        Condition.CODEC.register("Alive", (Class<Condition>)AliveCondition.class, (Codec<Condition>)AliveCondition.CODEC);
-        Condition.CODEC.register("Environment", (Class<Condition>)EnvironmentCondition.class, (Codec<Condition>)EnvironmentCondition.CODEC);
-        Condition.CODEC.register("Player", (Class<Condition>)PlayerCondition.class, (Codec<Condition>)PlayerCondition.CODEC);
-        Condition.CODEC.register("OutOfCombat", (Class<Condition>)OutOfCombatCondition.class, (Codec<Condition>)OutOfCombatCondition.CODEC);
-        Condition.CODEC.register("Wielding", (Class<Condition>)WieldingCondition.class, (Codec<Condition>)WieldingCondition.CODEC);
-        Condition.CODEC.register("Sprinting", (Class<Condition>)SprintingCondition.class, (Codec<Condition>)SprintingCondition.CODEC);
-        Condition.CODEC.register("Gliding", (Class<Condition>)GlidingCondition.class, (Codec<Condition>)GlidingCondition.CODEC);
-        Condition.CODEC.register("Stat", (Class<Condition>)StatCondition.class, (Codec<Condition>)StatCondition.CODEC);
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(EntityStatType.class, new IndexedLookupTableAssetMap(EntityStatType[]::new)).setPath("Entity/Stats")).setCodec((AssetCodec)EntityStatType.CODEC)).setKeyFunction(EntityStatType::getId)).setPacketGenerator(new EntityStatTypePacketGenerator()).setReplaceOnRemove(EntityStatType::getUnknownFor)).preLoadAssets(Collections.singletonList(EntityStatType.UNKNOWN))).loadsAfter(SoundEvent.class, ParticleSystem.class)).build());
         this.getEventRegistry().register(LoadedAssetsEvent.class, EntityStatType.class, this::onLoadedAssetsEvent);
         this.statModifyingSystemType = this.getEntityStoreRegistry().registerSystemType(EntityStatsSystems.StatModifyingSystem.class);
@@ -142,9 +113,10 @@ extends JavaPlugin {
         Universe.get().getWorlds().forEach((s, world) -> world.execute(() -> {
             Store<EntityStore> store = world.getEntityStore().getStore();
             store.forEachEntityParallel(AllLegacyLivingEntityTypesQuery.INSTANCE, (index, archetypeChunk, commandBuffer) -> {
-                LivingEntity livingEntity = (LivingEntity)EntityUtils.getEntity(index, archetypeChunk);
-                assert (livingEntity != null);
-                livingEntity.getStatModifiersManager().setRecalculate(true);
+                EntityStatMap entityStatMapComponent = archetypeChunk.getComponent(index, EntityStatMap.getComponentType());
+                if (entityStatMapComponent != null) {
+                    entityStatMapComponent.getStatModifiersManager().scheduleRecalculate();
+                }
             });
         }));
     }

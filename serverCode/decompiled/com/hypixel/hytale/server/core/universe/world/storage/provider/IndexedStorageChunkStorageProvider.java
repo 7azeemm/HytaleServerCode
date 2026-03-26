@@ -21,6 +21,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.IChunkLoader;
 import com.hypixel.hytale.server.core.universe.world.storage.IChunkSaver;
 import com.hypixel.hytale.server.core.universe.world.storage.provider.IChunkStorageProvider;
+import com.hypixel.hytale.server.core.util.io.FileUtil;
 import com.hypixel.hytale.sneakythrow.SneakyThrow;
 import com.hypixel.hytale.storage.IndexedStorageFile;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -73,13 +74,35 @@ implements IChunkStorageProvider<IndexedStorageCache> {
     @Override
     @Nonnull
     public IChunkLoader getLoader(@Nonnull IndexedStorageCache cache, @Nonnull Store<ChunkStore> store) {
-        return new IndexedStorageChunkLoader(store, cache, this.flushOnWrite);
+        return new IndexedStorageChunkLoader(store, cache, this.flushOnWrite, false);
     }
 
     @Override
     @Nonnull
     public IChunkSaver getSaver(@Nonnull IndexedStorageCache cache, @Nonnull Store<ChunkStore> store) {
         return new IndexedStorageChunkSaver(store, cache, this.flushOnWrite);
+    }
+
+    @Override
+    public void beginRecovery(Path file, Path recoveryPath) throws IOException {
+        FileUtil.atomicMove(file.resolve("chunks"), recoveryPath.resolve("chunks"));
+    }
+
+    @Override
+    public void revertRecovery(Path file, Path recoveryPath) throws IOException {
+        Path chunks = file.resolve("chunks");
+        if (Files.exists(chunks, new LinkOption[0])) {
+            FileUtil.deleteDirectory(chunks);
+        }
+        FileUtil.atomicMove(recoveryPath.resolve("chunks"), chunks);
+    }
+
+    @Override
+    @Nullable
+    public IChunkLoader getRecoveryLoader(@Nonnull Store<ChunkStore> store, Path backupPath) {
+        IndexedStorageCache cache = new IndexedStorageCache();
+        cache.path = backupPath.resolve("chunks");
+        return new IndexedStorageChunkLoader(store, cache, false, true);
     }
 
     @Nonnull
@@ -194,7 +217,7 @@ implements IChunkStorageProvider<IndexedStorageCache> {
             }
             LongOpenHashSet chunkIndexes = new LongOpenHashSet();
             try (Stream<Path> stream = Files.list(this.path);){
-                stream.forEach(path -> {
+                stream.forEach(SneakyThrow.sneakyConsumer(path -> {
                     long regionIndex;
                     if (Files.isDirectory(path, new LinkOption[0])) {
                         return;
@@ -207,7 +230,7 @@ implements IChunkStorageProvider<IndexedStorageCache> {
                     }
                     int regionX = ChunkUtil.xOfChunkIndex(regionIndex);
                     int regionZ = ChunkUtil.zOfChunkIndex(regionIndex);
-                    IndexedStorageFile regionFile = this.getOrTryOpen(regionX, regionZ, true);
+                    IndexedStorageFile regionFile = this.getOrTryOpen(regionX, regionZ, false);
                     if (regionFile == null) {
                         return;
                     }
@@ -221,7 +244,7 @@ implements IChunkStorageProvider<IndexedStorageCache> {
                         int chunkZ = regionZ << 5 | localZ;
                         chunkIndexes.add(ChunkUtil.indexChunk(chunkX, chunkZ));
                     }
-                });
+                }));
             }
             return chunkIndexes;
         }
@@ -282,15 +305,20 @@ implements IChunkStorageProvider<IndexedStorageCache> {
         @Nonnull
         private final IndexedStorageCache cache;
         private final boolean flushOnWrite;
+        private final boolean ownsCache;
 
-        public IndexedStorageChunkLoader(@Nonnull Store<ChunkStore> store, @Nonnull IndexedStorageCache cache, boolean flushOnWrite) {
+        public IndexedStorageChunkLoader(@Nonnull Store<ChunkStore> store, @Nonnull IndexedStorageCache cache, boolean flushOnWrite, boolean ownsCache) {
             super(store);
             this.cache = cache;
             this.flushOnWrite = flushOnWrite;
+            this.ownsCache = ownsCache;
         }
 
         @Override
         public void close() throws IOException {
+            if (this.ownsCache) {
+                this.cache.close();
+            }
         }
 
         @Override

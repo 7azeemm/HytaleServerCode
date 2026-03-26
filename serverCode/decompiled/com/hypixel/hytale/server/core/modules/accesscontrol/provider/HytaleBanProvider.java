@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonWriter;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.modules.accesscontrol.AccessControlModule;
 import com.hypixel.hytale.server.core.modules.accesscontrol.ban.Ban;
 import com.hypixel.hytale.server.core.modules.accesscontrol.provider.AccessProvider;
@@ -35,7 +36,7 @@ implements AccessProvider {
 
     @Override
     @Nonnull
-    public CompletableFuture<Optional<String>> getDisconnectReason(UUID uuid) {
+    public CompletableFuture<Optional<Message>> getDisconnectReason(@Nonnull UUID uuid) {
         Ban ban = this.bans.get(uuid);
         if (ban != null && !ban.isInEffect()) {
             this.bans.remove(uuid);

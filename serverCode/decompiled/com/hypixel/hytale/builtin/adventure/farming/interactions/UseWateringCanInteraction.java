@@ -3,7 +3,6 @@
  */
 package com.hypixel.hytale.builtin.adventure.farming.interactions;
 
-import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
 import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -15,10 +14,10 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.InteractionState;
 import com.hypixel.hytale.protocol.InteractionType;
-import com.hypixel.hytale.protocol.WaitForDataFrom;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
+import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
@@ -34,69 +33,88 @@ import javax.annotation.Nullable;
 public class UseWateringCanInteraction
 extends SimpleBlockInteraction {
     @Nonnull
-    public static final BuilderCodec<UseWateringCanInteraction> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(UseWateringCanInteraction.class, UseWateringCanInteraction::new, SimpleBlockInteraction.CODEC).documentation("Waters the target farmable block.")).addField(new KeyedCodec<Long>("Duration", Codec.LONG), (interaction, duration) -> {
+    public static final BuilderCodec<UseWateringCanInteraction> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(UseWateringCanInteraction.class, UseWateringCanInteraction::new, SimpleBlockInteraction.CODEC).documentation("Waters the target farmable block. Supports configurable width and depth for directional area-of-effect watering.")).addField(new KeyedCodec<Long>("Duration", Codec.LONG), (interaction, duration) -> {
         interaction.duration = duration;
     }, interaction -> interaction.duration)).addField(new KeyedCodec<T[]>("RefreshModifiers", Codec.STRING_ARRAY), (interaction, refreshModifiers) -> {
         interaction.refreshModifiers = refreshModifiers;
-    }, interaction -> interaction.refreshModifiers)).build();
+    }, interaction -> interaction.refreshModifiers)).addField(new KeyedCodec<Integer>("RadiusX", Codec.INTEGER), (interaction, radiusX) -> {
+        interaction.radiusX = radiusX;
+    }, interaction -> interaction.radiusX)).addField(new KeyedCodec<Integer>("RadiusZ", Codec.INTEGER), (interaction, radiusZ) -> {
+        interaction.radiusZ = radiusZ;
+    }, interaction -> interaction.radiusZ)).build();
     protected long duration;
     protected String[] refreshModifiers;
-
-    @Override
-    @Nonnull
-    public WaitForDataFrom getWaitForDataFrom() {
-        return WaitForDataFrom.Server;
-    }
+    protected int radiusX;
+    protected int radiusZ;
 
     @Override
     protected void interactWithBlock(@Nonnull World world, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull InteractionType type, @Nonnull InteractionContext context, @Nullable ItemStack itemInHand, @Nonnull Vector3i targetBlock, @Nonnull CooldownHandler cooldownHandler) {
-        int z;
-        int x = targetBlock.getX();
-        long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z = targetBlock.getZ());
+        WorldTimeResource worldTimeResource = commandBuffer.getResource(WorldTimeResource.getResourceType());
+        Instant gameTime = worldTimeResource.getGameTime();
+        Instant wateredUntil = gameTime.plus(this.duration, ChronoUnit.SECONDS);
+        int facingX = 0;
+        int facingZ = -1;
+        HeadRotation headRotation = commandBuffer.getComponent(context.getEntity(), HeadRotation.getComponentType());
+        if (headRotation != null) {
+            Vector3i facing = headRotation.getHorizontalAxisDirection();
+            facingX = facing.getX();
+            facingZ = facing.getZ();
+        }
+        if (facingX != 0 && facingZ != 0) {
+            facingX = 0;
+        }
+        int lateralX = facingZ != 0 ? 1 : 0;
+        int lateralZ = facingX != 0 ? 1 : 0;
+        int width = Math.max(this.radiusX, 1);
+        int depth = Math.max(this.radiusZ, 1);
+        int halfLeft = (width - 1) / 2;
+        int halfRight = width - 1 - halfLeft;
+        boolean anyWatered = false;
+        for (int forward = 0; forward < depth; ++forward) {
+            for (int lateral = -halfLeft; lateral <= halfRight; ++lateral) {
+                int bx = targetBlock.getX() + lateral * lateralX + forward * facingX;
+                int bz = targetBlock.getZ() + lateral * lateralZ + forward * facingZ;
+                if (!this.waterBlockAt(world, bx, targetBlock.getY(), bz, wateredUntil)) continue;
+                anyWatered = true;
+            }
+        }
+        if (!anyWatered) {
+            context.getState().state = InteractionState.Failed;
+        }
+    }
+
+    private boolean waterBlockAt(@Nonnull World world, int x, int y, int z, @Nonnull Instant wateredUntil) {
+        TilledSoilBlock tilledSoilBlockComponent;
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
         Object worldChunk = world.getChunk(chunkIndex);
         if (worldChunk == null) {
-            context.getState().state = InteractionState.Failed;
-            return;
-        }
-        Ref<ChunkStore> blockRef = ((WorldChunk)worldChunk).getBlockComponentEntity(x, targetBlock.getY(), z);
-        if (blockRef == null) {
-            blockRef = BlockModule.ensureBlockEntity(worldChunk, targetBlock.x, targetBlock.y, targetBlock.z);
-        }
-        if (blockRef == null || !blockRef.isValid()) {
-            context.getState().state = InteractionState.Failed;
-            return;
+            return false;
         }
         Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
-        WorldTimeResource worldTimeResource = commandBuffer.getResource(WorldTimeResource.getResourceType());
-        TilledSoilBlock tilledSoilBlockComponent = chunkStore.getComponent(blockRef, TilledSoilBlock.getComponentType());
-        if (tilledSoilBlockComponent != null) {
-            Instant wateredUntil = worldTimeResource.getGameTime().plus(this.duration, ChronoUnit.SECONDS);
+        Ref<ChunkStore> blockRef = ((WorldChunk)worldChunk).getBlockComponentEntity(x, y, z);
+        if (blockRef == null) {
+            blockRef = BlockModule.ensureBlockEntity(worldChunk, x, y, z);
+        }
+        if (blockRef != null && blockRef.isValid() && (tilledSoilBlockComponent = chunkStore.getComponent(blockRef, TilledSoilBlock.getComponentType())) != null) {
             tilledSoilBlockComponent.setWateredUntil(wateredUntil);
-            ((WorldChunk)worldChunk).setTicking(x, targetBlock.getY(), z, true);
-            ((WorldChunk)worldChunk).getBlockChunk().getSectionAtBlockY(targetBlock.y).scheduleTick(ChunkUtil.indexBlock(x, targetBlock.y, z), wateredUntil);
-            ((WorldChunk)worldChunk).setTicking(x, targetBlock.getY() + 1, z, true);
-            return;
+            ((WorldChunk)worldChunk).setTicking(x, y, z, true);
+            ((WorldChunk)worldChunk).getBlockChunk().getSectionAtBlockY(y).scheduleTick(ChunkUtil.indexBlock(x, y, z), wateredUntil);
+            ((WorldChunk)worldChunk).setTicking(x, y + 1, z, true);
+            return true;
         }
-        FarmingBlock farmingBlockComponent = chunkStore.getComponent(blockRef, FarmingBlock.getComponentType());
-        if (farmingBlockComponent == null) {
-            context.getState().state = InteractionState.Failed;
-            return;
-        }
-        Ref<ChunkStore> soilBlockRef = ((WorldChunk)worldChunk).getBlockComponentEntity(x, targetBlock.getY() - 1, z);
+        Ref<ChunkStore> soilBlockRef = ((WorldChunk)worldChunk).getBlockComponentEntity(x, y - 1, z);
         if (soilBlockRef == null || !soilBlockRef.isValid()) {
-            context.getState().state = InteractionState.Failed;
-            return;
+            return false;
         }
-        tilledSoilBlockComponent = chunkStore.getComponent(soilBlockRef, TilledSoilBlock.getComponentType());
-        if (tilledSoilBlockComponent == null) {
-            context.getState().state = InteractionState.Failed;
-            return;
+        TilledSoilBlock tilledSoilBlockComponent2 = chunkStore.getComponent(soilBlockRef, TilledSoilBlock.getComponentType());
+        if (tilledSoilBlockComponent2 == null) {
+            return false;
         }
-        Instant wateredUntil = worldTimeResource.getGameTime().plus(this.duration, ChronoUnit.SECONDS);
-        tilledSoilBlockComponent.setWateredUntil(wateredUntil);
-        ((WorldChunk)worldChunk).getBlockChunk().getSectionAtBlockY(targetBlock.y - 1).scheduleTick(ChunkUtil.indexBlock(x, targetBlock.y - 1, z), wateredUntil);
-        ((WorldChunk)worldChunk).setTicking(x, targetBlock.getY() - 1, z, true);
-        ((WorldChunk)worldChunk).setTicking(x, targetBlock.getY(), z, true);
+        tilledSoilBlockComponent2.setWateredUntil(wateredUntil);
+        ((WorldChunk)worldChunk).getBlockChunk().getSectionAtBlockY(y - 1).scheduleTick(ChunkUtil.indexBlock(x, y - 1, z), wateredUntil);
+        ((WorldChunk)worldChunk).setTicking(x, y - 1, z, true);
+        ((WorldChunk)worldChunk).setTicking(x, y, z, true);
+        return true;
     }
 
     @Override

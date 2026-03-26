@@ -64,7 +64,6 @@ import com.hypixel.hytale.server.spawning.assets.spawnmarker.config.SpawnMarker;
 import com.hypixel.hytale.server.spawning.spawnmarkers.SpawnMarkerEntity;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -137,21 +136,21 @@ public class SpawnMarkerSystems {
                 if (storedFlock != null) {
                     boolean hasPlayersInRange;
                     SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(this.playerSpatialComponent);
-                    ObjectList results = SpatialResource.getThreadLocalReferenceList();
+                    List results = SpatialResource.getThreadLocalReferenceList();
                     spatialResource.getSpatialStructure().collect(transformComponent.getPosition(), cachedMarker.getDeactivationDistance(), results);
                     boolean bl = hasPlayersInRange = !results.isEmpty();
                     if (hasPlayersInRange) {
                         if (storedFlock.hasStoredNPCs()) {
                             commandBuffer.run(_store -> {
-                                ObjectList<Ref<EntityStore>> tempStorageList = SpatialResource.getThreadLocalReferenceList();
-                                storedFlock.restoreNPCs((List<Ref<EntityStore>>)tempStorageList, (Store<EntityStore>)_store);
+                                List<Ref<EntityStore>> tempStorageList = SpatialResource.getThreadLocalReferenceList();
+                                storedFlock.restoreNPCs(tempStorageList, (Store<EntityStore>)_store);
                                 spawnMarkerEntityComponent.setSpawnCount(tempStorageList.size());
                                 Vector3d position = spawnMarkerEntityComponent.getSpawnPosition();
                                 Vector3f rotation = transformComponent.getRotation();
                                 InvalidatablePersistentRef[] npcReferences = new InvalidatablePersistentRef[tempStorageList.size()];
                                 int bound = tempStorageList.size();
                                 for (int i = 0; i < bound; ++i) {
-                                    Ref ref = (Ref)tempStorageList.get(i);
+                                    Ref<EntityStore> ref = tempStorageList.get(i);
                                     NPCEntity npcComponent = _store.getComponent(ref, this.npcComponentType);
                                     assert (npcComponent != null);
                                     TransformComponent npcTransform = _store.getComponent(ref, this.transformComponentType);
@@ -159,7 +158,7 @@ public class SpawnMarkerSystems {
                                     HeadRotation npcHeadRotation = _store.getComponent(ref, this.headRotationComponentType);
                                     assert (npcHeadRotation != null);
                                     InvalidatablePersistentRef reference = new InvalidatablePersistentRef();
-                                    reference.setEntity((Ref<EntityStore>)ref, (ComponentAccessor<EntityStore>)_store);
+                                    reference.setEntity(ref, (ComponentAccessor<EntityStore>)_store);
                                     npcReferences[i] = reference;
                                     npcTransform.getPosition().assign(position);
                                     npcTransform.getRotation().assign(rotation);
@@ -215,7 +214,7 @@ public class SpawnMarkerSystems {
                             }
                             Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
                             commandBuffer.run(_store -> {
-                                ObjectList<Ref<EntityStore>> tempStorageList = SpatialResource.getThreadLocalReferenceList();
+                                List<Ref<EntityStore>> tempStorageList = SpatialResource.getThreadLocalReferenceList();
                                 for (InvalidatablePersistentRef reference : npcReferences) {
                                     Ref<EntityStore> npcRef = reference.getEntity((ComponentAccessor<EntityStore>)_store);
                                     if (npcRef == null || !npcRef.isValid()) {
@@ -226,7 +225,7 @@ public class SpawnMarkerSystems {
                                     spawnMarkerReference.getReference().setEntity(ref, store);
                                     tempStorageList.add(npcRef);
                                 }
-                                storedFlock.storeNPCs((List<Ref<EntityStore>>)tempStorageList, (Store<EntityStore>)_store);
+                                storedFlock.storeNPCs(tempStorageList, (Store<EntityStore>)_store);
                                 spawnMarkerEntityComponent.setNpcReferences(null);
                             });
                         }

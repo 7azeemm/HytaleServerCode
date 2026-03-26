@@ -17,12 +17,9 @@ import com.hypixel.hytale.protocol.Direction;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.server.core.asset.type.model.config.Model;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionChain;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.InteractionManager;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.modules.collision.CollisionModule;
 import com.hypixel.hytale.server.core.modules.entity.DespawnComponent;
@@ -150,12 +147,7 @@ extends JavaPlugin {
         if (interactionManagerComponent == null) {
             return;
         }
-        Entity entity = EntityUtils.getEntity(creatorRef, store);
-        if (!(entity instanceof LivingEntity)) {
-            return;
-        }
-        LivingEntity livingEntity = (LivingEntity)entity;
-        InteractionContext context = InteractionContext.forProxyEntity(interactionManagerComponent, livingEntity, ref);
+        InteractionContext context = InteractionContext.forProxyEntity(interactionManagerComponent, creatorRef, ref, store);
         String rootInteractionId = context.getRootInteractionId(InteractionType.ProjectileSpawn);
         if (rootInteractionId == null) {
             return;

@@ -3,8 +3,8 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.patterns;
 
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
-import com.hypixel.hytale.builtin.hytalegenerator.framework.math.Calculator;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
+import com.hypixel.hytale.builtin.hytalegenerator.math.Calculator;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.codecs.EnumCodec;
@@ -12,6 +12,7 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.checkerframework.checker.nullness.compatqual.NonNullDecl;
 
 public class SurfacePattern
 extends Pattern {
@@ -20,11 +21,11 @@ extends Pattern {
     @Nonnull
     private final Pattern originPattern;
     @Nonnull
-    private final SpaceSize readSpaceSize;
-    @Nonnull
     private final List<Vector3i> surfacePositions;
     @Nonnull
     private final List<Vector3i> originPositions;
+    @Nonnull
+    private final Bounds3i bounds_voxelGrid;
     @Nonnull
     private final Vector3i rChildPosition;
     @Nonnull
@@ -59,17 +60,15 @@ extends Pattern {
         for (Vector3i pos : this.originPositions) {
             this.applyFacing(pos, facing);
         }
-        SpaceSize floorSpace = surfacePattern.readSpace();
+        Bounds3i stampBounds_voxelGrid = surfacePattern.getBounds_voxelGrid().clone();
+        this.bounds_voxelGrid = !this.surfacePositions.isEmpty() ? stampBounds_voxelGrid.clone().offset(this.surfacePositions.getFirst()) : new Bounds3i();
         for (Vector3i pos : this.surfacePositions) {
-            floorSpace = SpaceSize.merge(floorSpace, new SpaceSize(pos));
+            this.bounds_voxelGrid.encompass(stampBounds_voxelGrid.clone().offset(pos));
         }
-        floorSpace = SpaceSize.stack(floorSpace, surfacePattern.readSpace());
-        SpaceSize originSpace = originPattern.readSpace();
+        stampBounds_voxelGrid.assign(originPattern.getBounds_voxelGrid());
         for (Vector3i pos : this.originPositions) {
-            originSpace = SpaceSize.merge(originSpace, new SpaceSize(pos));
+            this.bounds_voxelGrid.encompass(stampBounds_voxelGrid.clone().offset(pos));
         }
-        originSpace = SpaceSize.stack(originSpace, originPattern.readSpace());
-        this.readSpaceSize = SpaceSize.merge(floorSpace, originSpace);
     }
 
     @Override
@@ -141,9 +140,9 @@ extends Pattern {
     }
 
     @Override
-    @Nonnull
-    public SpaceSize readSpace() {
-        return this.readSpaceSize.clone();
+    @NonNullDecl
+    public Bounds3i getBounds_voxelGrid() {
+        return this.bounds_voxelGrid;
     }
 
     public static enum Facing {

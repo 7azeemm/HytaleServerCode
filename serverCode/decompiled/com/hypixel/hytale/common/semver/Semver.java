@@ -208,8 +208,13 @@ implements Comparable<Semver> {
         if (build == null) {
             return;
         }
-        if (build.isEmpty() || !StringUtil.isAlphaNumericHyphenString(build)) {
-            throw new IllegalArgumentException("Build must only be alphanumeric (" + build + ")");
+        if (build.isEmpty() || build.charAt(0) == '.' || build.charAt(build.length() - 1) == '.') {
+            throw new IllegalArgumentException("Build identifiers must only contain ASCII alphanumerics and hyphens [0-9A-Za-z-] (" + build + ")");
+        }
+        for (int i = 0; i < build.length(); ++i) {
+            char c = build.charAt(i);
+            if (!(c == '.' ? build.charAt(i - 1) == '.' : (c < '0' || c > 'z' || c > '9' && c < 'A' || c > 'Z' && c < 'a') && c != '-')) continue;
+            throw new IllegalArgumentException("Build identifiers must only contain ASCII alphanumerics and hyphens [0-9A-Za-z-] (" + build + ")");
         }
     }
 

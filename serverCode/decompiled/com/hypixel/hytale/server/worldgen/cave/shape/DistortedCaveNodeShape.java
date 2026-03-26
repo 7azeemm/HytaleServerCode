@@ -66,11 +66,6 @@ implements CaveNodeShape {
     }
 
     @Override
-    public boolean hasGeometry() {
-        return this.shape.hasGeometry();
-    }
-
-    @Override
     public boolean shouldReplace(int seed, double x, double z, int y) {
         double centerY;
         double shapeHeight;

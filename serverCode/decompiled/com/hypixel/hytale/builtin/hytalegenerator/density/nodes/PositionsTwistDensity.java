@@ -6,6 +6,7 @@ package com.hypixel.hytale.builtin.hytalegenerator.density.nodes;
 import com.hypixel.hytale.builtin.hytalegenerator.ReusableList;
 import com.hypixel.hytale.builtin.hytalegenerator.VectorUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
+import com.hypixel.hytale.builtin.hytalegenerator.pipe.Control;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.math.vector.Vector3d;
 import it.unimi.dsi.fastutil.doubles.Double2DoubleFunction;
@@ -70,7 +71,7 @@ extends Density {
         this.rChildContext = new Density.Context();
     }
 
-    public void consumer(@Nonnull Vector3d p) {
+    public void consumer(@Nonnull Vector3d p, @Nonnull Control control) {
         double distance = p.distanceTo(this.rQueryPosition);
         if (distance > this.maxDistance) {
             return;
@@ -115,10 +116,10 @@ extends Density {
         }
         this.rWarpVectors.clear();
         this.rWarpDistances.clear();
-        this.rPositionsContext.minInclusive = this.rMin;
-        this.rPositionsContext.maxExclusive = this.rMax;
-        this.rPositionsContext.consumer = this::consumer;
-        this.positions.positionsIn(this.rPositionsContext);
+        this.rPositionsContext.bounds.min.assign(this.rMin);
+        this.rPositionsContext.bounds.max.assign(this.rMax);
+        this.rPositionsContext.pipe = this::consumer;
+        this.positions.generate(this.rPositionsContext);
         if (this.rWarpVectors.getSoftSize() == 0) {
             return this.input.process(context);
         }

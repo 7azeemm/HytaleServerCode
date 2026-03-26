@@ -17,8 +17,6 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntConsumer;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -27,7 +25,6 @@ import javax.annotation.Nullable;
 
 public class BlockPositionEntryGenerator {
     private final FoundBlockConsumer foundBlockConsumer = new FoundBlockConsumer();
-    private final IntSet internalIdHolder = new IntOpenHashSet();
 
     @Nonnull
     public BlockPositionProvider generate(short changeCounter, int sectionIndex, @Nonnull BlockChunk chunk, IntList unifiedBlocksOfInterest, @Nonnull BitSet searchedBlockSets) {
@@ -40,8 +37,7 @@ public class BlockPositionEntryGenerator {
         }
         ChunkSectionReference chunkSectionPointer = new ChunkSectionReference(chunk, section, sectionIndex);
         this.foundBlockConsumer.init(chunkSectionPointer, searchedBlockSets);
-        section.find(unifiedBlocksOfInterest, this.internalIdHolder, this.foundBlockConsumer);
-        this.internalIdHolder.clear();
+        section.find(unifiedBlocksOfInterest, this.foundBlockConsumer);
         Int2ObjectOpenHashMap<List<IBlockPositionData>> blockData = this.foundBlockConsumer.getBlockData();
         this.foundBlockConsumer.release();
         return new BlockPositionProvider(searchedBlockSets, blockData, changeCounter);

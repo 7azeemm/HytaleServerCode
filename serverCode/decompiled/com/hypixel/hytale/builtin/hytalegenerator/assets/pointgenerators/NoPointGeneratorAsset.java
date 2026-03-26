@@ -4,8 +4,8 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators.PointGeneratorAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.fields.points.PointProvider;
-import com.hypixel.hytale.builtin.hytalegenerator.seed.SeedBox;
+import com.hypixel.hytale.builtin.hytalegenerator.noise.pointprovider.PointProvider;
+import com.hypixel.hytale.builtin.hytalegenerator.rng.SeedBox;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.math.vector.Vector2d;
 import com.hypixel.hytale.math.vector.Vector2i;

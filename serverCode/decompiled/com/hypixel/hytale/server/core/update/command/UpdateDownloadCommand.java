@@ -41,7 +41,8 @@ extends AbstractAsyncCommand {
             context.sendMessage(MSG_DOWNLOAD_IN_PROGRESS);
             return CompletableFuture.completedFuture(null);
         }
-        if (!UpdateService.isValidUpdateLayout() && !((Boolean)this.forceFlag.get(context)).booleanValue()) {
+        boolean force = (Boolean)this.forceFlag.get(context);
+        if (!UpdateService.isValidUpdateLayout() && !force) {
             context.sendMessage(MSG_INVALID_LAYOUT);
             return CompletableFuture.completedFuture(null);
         }
@@ -52,7 +53,6 @@ extends AbstractAsyncCommand {
         }
         UpdateService updateService = new UpdateService();
         return updateService.checkForUpdate(UpdateService.getEffectivePatchline()).thenCompose(manifest -> {
-            String currentVersion;
             if (manifest == null) {
                 context.sendMessage(MSG_CHECK_FAILED);
                 return CompletableFuture.completedFuture(null);
@@ -60,7 +60,8 @@ extends AbstractAsyncCommand {
             if (updateModule != null) {
                 updateModule.setLatestKnownVersion((UpdateService.VersionManifest)manifest);
             }
-            if ((currentVersion = ManifestUtil.getImplementationVersion()) != null && currentVersion.equals(manifest.version)) {
+            String currentVersion = ManifestUtil.getImplementationVersion();
+            if (!force && currentVersion != null && currentVersion.equals(manifest.version)) {
                 context.sendMessage(MSG_NO_UPDATE);
                 return CompletableFuture.completedFuture(null);
             }
@@ -91,6 +92,9 @@ extends AbstractAsyncCommand {
                     UpdateService.deleteStagedUpdate();
                 } else {
                     context.sendMessage(MSG_DOWNLOAD_COMPLETE);
+                    if (!UpdateService.isValidUpdateLayout()) {
+                        context.sendMessage(Message.translation("server.commands.update.download_setup_hint"));
+                    }
                 }
             });
             if (updateModule != null) {

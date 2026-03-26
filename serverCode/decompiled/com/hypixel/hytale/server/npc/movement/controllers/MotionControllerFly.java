@@ -171,8 +171,8 @@ extends MotionControllerBase {
                 expYaw = PhysicsMath.headingFromDirection(dirX, dirZ);
                 expPitch = TrigMathUtil.atan2(translation.y, Math.sqrt(dotXZ));
             } else {
-                float f = expYaw = steering.hasYaw() ? steering.getYaw() : yaw;
-                expPitch = steering.hasPitch() ? steering.getPitch() : (this.autoLevel ? 0.0f : pitch);
+                float f = expYaw = steering.hasYawOrDirection() ? steering.getYawOrDirection() : yaw;
+                expPitch = steering.hasPitchOrDirection() ? steering.getPitchOrDirection() : (this.autoLevel ? 0.0f : pitch);
             }
             steering.clearYaw();
             steering.clearPitch();

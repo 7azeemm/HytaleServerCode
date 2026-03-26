@@ -53,6 +53,7 @@ import com.hypixel.hytale.server.core.modules.entity.hitboxcollision.HitboxColli
 import com.hypixel.hytale.server.core.modules.entity.repulsion.RepulsionConfig;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Interaction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
+import com.hypixel.hytale.server.core.prefab.selection.mask.BlockFilter;
 import com.hypixel.hytale.server.core.prefab.selection.mask.BlockMask;
 import com.hypixel.hytale.server.core.prefab.selection.mask.BlockPattern;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -109,6 +110,18 @@ public final class ArgTypes {
         @Override
         public String parse(String input, ParseResult parseResult) {
             return input;
+        }
+    };
+    public static final SingleArgumentType<String> GREEDY_STRING = new SingleArgumentType<String>("server.commands.parsing.argtype.greedystring.name", "server.commands.parsing.argtype.greedystring.usage", new String[]{"Hello world!", "Let's go everyone", "This is a multi-word sentence."}){
+
+        @Override
+        public String parse(String input, ParseResult parseResult) {
+            return input;
+        }
+
+        @Override
+        public boolean isGreedyString() {
+            return true;
         }
     };
     public static final SingleArgumentType<Float> FLOAT = new SingleArgumentType<Float>("server.commands.parsing.argtype.float.name", "server.commands.parsing.argtype.float.usage", new String[]{"3.14159", "-2.5", "7"}){
@@ -632,7 +645,13 @@ public final class ArgTypes {
         @Nullable
         public BlockMask parse(@Nonnull String input, @Nonnull ParseResult parseResult) {
             try {
-                return BlockMask.parse(input);
+                BlockMask mask = BlockMask.parse(input);
+                if (mask.hasInvalidBlocks()) {
+                    BlockFilter.ParsedFilterParts parts = BlockFilter.parseComponents(input);
+                    parseResult.fail(Message.translation("server.builderTools.invalidBlockType").param("key", parts.blocks()));
+                    return null;
+                }
+                return mask;
             }
             catch (Exception e) {
                 parseResult.fail(Message.raw("There was an error in the parsing of your block mask: " + input + ", please try again."));

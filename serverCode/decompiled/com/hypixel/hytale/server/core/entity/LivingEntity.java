@@ -7,7 +7,6 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.event.EventRegistration;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Transform;
@@ -16,58 +15,45 @@ import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.MovementStates;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.StatModifiersManager;
+import com.hypixel.hytale.server.core.entity.EntityUtils;
+import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent;
 import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackSlotTransaction;
-import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
-import com.hypixel.hytale.server.core.inventory.transaction.ListTransaction;
 import com.hypixel.hytale.server.core.modules.collision.WorldUtil;
-import com.hypixel.hytale.server.core.modules.entity.BlockMigrationExtraInfo;
 import com.hypixel.hytale.server.core.modules.entity.component.Invulnerable;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.TargetUtil;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public abstract class LivingEntity
 extends Entity {
     @Nonnull
-    public static final BuilderCodec<LivingEntity> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.abstractBuilder(LivingEntity.class, Entity.CODEC).append(new KeyedCodec<Inventory>("Inventory", Inventory.CODEC), (livingEntity, inventory, extraInfo) -> {
-        livingEntity.setInventory((Inventory)inventory);
-        if (extraInfo instanceof BlockMigrationExtraInfo) {
-            livingEntity.inventory.doMigration(((BlockMigrationExtraInfo)extraInfo).getBlockMigration());
-        }
-    }, (livingEntity, extraInfo) -> livingEntity.inventory).add()).afterDecode(livingEntity -> {
+    public static final BuilderCodec<LivingEntity> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.abstractBuilder(LivingEntity.class, Entity.CODEC).append(new KeyedCodec<Inventory>("Inventory", Inventory.CODEC), (livingEntity, inventory, extraInfo) -> livingEntity.setInventory((Inventory)inventory), (livingEntity, extraInfo) -> livingEntity.inventory).add()).afterDecode(livingEntity -> {
         if (livingEntity.inventory == null) {
-            livingEntity.setInventory(livingEntity.createDefaultInventory());
+            livingEntity.setInventory(new Inventory());
         }
     })).build();
     public static final int DEFAULT_ITEM_THROW_SPEED = 6;
-    @Nonnull
-    private final StatModifiersManager statModifiersManager = new StatModifiersManager();
     private Inventory inventory;
     protected double currentFallDistance;
-    private EventRegistration armorInventoryChangeEventRegistration;
     private boolean isEquipmentNetworkOutdated;
 
     public LivingEntity() {
-        this.setInventory(this.createDefaultInventory());
+        this.setInventory(new Inventory());
     }
 
     public LivingEntity(@Nonnull World world) {
         super(world);
-        this.setInventory(this.createDefaultInventory());
+        this.setInventory(new Inventory());
     }
-
-    protected abstract Inventory createDefaultInventory();
 
     public boolean canBreathe(@Nonnull Ref<EntityStore> ref, @Nonnull BlockMaterial breathingMaterial, int fluidId, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         boolean invulnerable = componentAccessor.getArchetype(ref).contains(Invulnerable.getComponentType());
@@ -92,35 +78,11 @@ extends Entity {
     }
 
     @Nonnull
-    public Inventory setInventory(Inventory inventory) {
-        return this.setInventory(inventory, false);
-    }
-
-    @Nonnull
-    public Inventory setInventory(Inventory inventory, boolean ensureCapacity) {
-        ObjectArrayList<ItemStack> remainder = ensureCapacity ? new ObjectArrayList<ItemStack>() : null;
-        inventory = this.setInventory(inventory, ensureCapacity, remainder);
-        if (remainder != null && !remainder.isEmpty()) {
-            ListTransaction<ItemStackTransaction> transactionList = inventory.getCombinedHotbarFirst().addItemStacks(remainder);
-            for (ItemStackTransaction itemStackTransaction : transactionList.getList()) {
-            }
-        }
-        return inventory;
-    }
-
-    @Nonnull
-    public Inventory setInventory(Inventory inventory, boolean ensureCapacity, List<ItemStack> remainder) {
+    private Inventory setInventory(Inventory inventory) {
         if (this.inventory != null) {
             this.inventory.unregister();
         }
-        if (this.armorInventoryChangeEventRegistration != null) {
-            this.armorInventoryChangeEventRegistration.unregister();
-        }
-        if (ensureCapacity) {
-            inventory = Inventory.ensureCapacity(inventory, remainder);
-        }
         inventory.setEntity(this);
-        this.armorInventoryChangeEventRegistration = inventory.getArmor().registerChangeEvent(event -> this.statModifiersManager.setRecalculate(true));
         this.inventory = inventory;
         return inventory;
     }
@@ -149,17 +111,14 @@ extends Entity {
         super.moveTo(ref, locX, locY, locZ, componentAccessor);
     }
 
-    public boolean canDecreaseItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        return false;
-    }
-
-    public boolean canApplyItemStackPenalties(Ref<EntityStore> ref, ComponentAccessor<EntityStore> componentAccessor) {
-        return true;
-    }
-
     @Nullable
-    public ItemStackSlotTransaction decreaseItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nullable ItemStack itemStack, int inventoryId, int slotId, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        if (!this.canDecreaseItemStackDurability(ref, componentAccessor)) {
+    public static ItemStackSlotTransaction decreaseItemStackDurability(@Nonnull Ref<EntityStore> ref, @Nullable ItemStack itemStack, int inventoryId, int slotId, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
+        Entity entity = EntityUtils.getEntity(ref, componentAccessor);
+        if (!(entity instanceof LivingEntity)) {
+            return null;
+        }
+        LivingEntity livingEntity = (LivingEntity)entity;
+        if (!ItemUtils.canDecreaseItemStackDurability(ref, componentAccessor)) {
             return null;
         }
         if (itemStack == null || itemStack.isEmpty() || itemStack.getItem() == null) {
@@ -169,19 +128,20 @@ extends Entity {
             return null;
         }
         Item item = itemStack.getItem();
-        ItemContainer section = this.inventory.getSectionById(inventoryId);
+        ItemContainer section = livingEntity.getInventory().getSectionById(inventoryId);
         if (section == null) {
             return null;
         }
         if (item.getArmor() != null) {
-            ItemStackSlotTransaction transaction = this.updateItemStackDurability(ref, itemStack, section, slotId, -item.getDurabilityLossOnHit(), componentAccessor);
-            if (transaction.getSlotAfter().isBroken()) {
-                this.statModifiersManager.setRecalculate(true);
+            EntityStatMap entityStatMap;
+            ItemStackSlotTransaction transaction = livingEntity.updateItemStackDurability(ref, itemStack, section, slotId, -item.getDurabilityLossOnHit(), componentAccessor);
+            if (transaction.getSlotAfter().isBroken() && (entityStatMap = componentAccessor.getComponent(ref, EntityStatMap.getComponentType())) != null) {
+                entityStatMap.getStatModifiersManager().scheduleRecalculate();
             }
             return transaction;
         }
         if (item.getWeapon() != null) {
-            return this.updateItemStackDurability(ref, itemStack, section, slotId, -item.getDurabilityLossOnHit(), componentAccessor);
+            return livingEntity.updateItemStackDurability(ref, itemStack, section, slotId, -item.getDurabilityLossOnHit(), componentAccessor);
         }
         return null;
     }
@@ -200,11 +160,6 @@ extends Entity {
         boolean temp = this.isEquipmentNetworkOutdated;
         this.isEquipmentNetworkOutdated = false;
         return temp;
-    }
-
-    @Nonnull
-    public StatModifiersManager getStatModifiersManager() {
-        return this.statModifiersManager;
     }
 
     public double getCurrentFallDistance() {

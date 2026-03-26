@@ -3,8 +3,8 @@
  */
 package com.hypixel.hytale.builtin.crafting.interaction;
 
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
 import com.hypixel.hytale.builtin.crafting.component.CraftingManager;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
 import com.hypixel.hytale.builtin.crafting.window.CraftingWindow;
 import com.hypixel.hytale.builtin.crafting.window.DiagramCraftingWindow;
 import com.hypixel.hytale.builtin.crafting.window.SimpleCraftingWindow;
@@ -16,9 +16,11 @@ import com.hypixel.hytale.codec.validation.Validators;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.packets.interface_.Page;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
@@ -27,7 +29,9 @@ import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHa
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -76,25 +80,44 @@ extends SimpleBlockInteraction {
         if (craftingManagerComponent == null || craftingManagerComponent.hasBenchSet()) {
             return;
         }
-        BlockState blockState = world.getState(targetBlock.x, targetBlock.y, targetBlock.z, true);
-        if (blockState instanceof BenchState) {
-            BenchState benchState = (BenchState)blockState;
-            CraftingWindow benchWindow = switch (this.pageType.ordinal()) {
-                default -> throw new MatchException(null, null);
-                case 0 -> new SimpleCraftingWindow(benchState);
-                case 1 -> new DiagramCraftingWindow(ref, commandBuffer, benchState);
-                case 2 -> new StructuralCraftingWindow(benchState);
-            };
-            UUIDComponent uuidComponent = commandBuffer.getComponent(ref, UUIDComponent.getComponentType());
-            if (uuidComponent == null) {
-                return;
-            }
-            UUID uuid = uuidComponent.getUuid();
-            if (benchState.getWindows().putIfAbsent(uuid, benchWindow) == null) {
-                benchWindow.registerCloseEvent(event -> benchState.getWindows().remove(uuid, benchWindow));
-            }
-            playerComponent.getPageManager().setPageWithWindows(ref, store, Page.Bench, true, benchWindow);
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> chunkRef = chunkStore.getChunkReference(ChunkUtil.indexChunkFromBlock(targetBlock.x, targetBlock.z));
+        if (chunkRef == null || !chunkRef.isValid()) {
+            return;
         }
+        BlockComponentChunk blockComponentChunk = chunkStore.getStore().getComponent(chunkRef, BlockComponentChunk.getComponentType());
+        if (blockComponentChunk == null) {
+            return;
+        }
+        Ref<ChunkStore> blockEntityRef = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(targetBlock.x, targetBlock.y, targetBlock.z));
+        if (blockEntityRef == null || !blockEntityRef.isValid()) {
+            return;
+        }
+        BenchBlock benchBlock = chunkStore.getStore().getComponent(blockEntityRef, BenchBlock.getComponentType());
+        if (benchBlock == null) {
+            return;
+        }
+        BlockType blockType = world.getBlockType(targetBlock.x, targetBlock.y, targetBlock.z);
+        if (blockType == null) {
+            return;
+        }
+        Object worldChunk = world.getChunk(ChunkUtil.indexChunkFromBlock(targetBlock.x, targetBlock.z));
+        int rotationIndex = ((WorldChunk)worldChunk).getRotationIndex(targetBlock.x, targetBlock.y, targetBlock.z);
+        CraftingWindow benchWindow = switch (this.pageType.ordinal()) {
+            default -> throw new MatchException(null, null);
+            case 0 -> new SimpleCraftingWindow(targetBlock.x, targetBlock.y, targetBlock.z, rotationIndex, blockType, benchBlock);
+            case 1 -> new DiagramCraftingWindow(ref, commandBuffer, targetBlock.x, targetBlock.y, targetBlock.z, rotationIndex, blockType, benchBlock);
+            case 2 -> new StructuralCraftingWindow(targetBlock.x, targetBlock.y, targetBlock.z, rotationIndex, blockType, benchBlock);
+        };
+        UUIDComponent uuidComponent = commandBuffer.getComponent(ref, UUIDComponent.getComponentType());
+        if (uuidComponent == null) {
+            return;
+        }
+        UUID uuid = uuidComponent.getUuid();
+        if (benchBlock.getWindows().putIfAbsent(uuid, benchWindow) == null) {
+            benchWindow.registerCloseEvent(event -> benchBlock.getWindows().remove(uuid, benchWindow));
+        }
+        playerComponent.getPageManager().setPageWithWindows(ref, store, Page.Bench, true, benchWindow);
     }
 
     @Override

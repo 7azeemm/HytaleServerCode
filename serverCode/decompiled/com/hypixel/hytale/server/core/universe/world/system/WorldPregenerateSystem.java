@@ -15,7 +15,7 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -42,7 +42,7 @@ extends StoreSystem<ChunkStore> {
             int lowZ = MathUtil.floor(region.min.y);
             int highX = MathUtil.floor(region.max.x);
             int highZ = MathUtil.floor(region.max.y);
-            ObjectArrayList futures = new ObjectArrayList();
+            ReferenceArrayList futures = new ReferenceArrayList();
             for (int x = lowX; x <= highX; x += 32) {
                 for (int z = lowZ; z <= highZ; z += 32) {
                     futures.add(world.getChunkStore().getChunkReferenceAsync(ChunkUtil.indexChunkFromBlock(x, z)));

@@ -66,6 +66,9 @@ extends DebugSupport.DebugFlagsChangeListener {
 
     public boolean canAct(@Nonnull Ref<EntityStore> var1, @Nonnull ComponentAccessor<EntityStore> var2);
 
+    @Nullable
+    public String canActFailReason(@Nonnull Ref<EntityStore> var1, @Nonnull ComponentAccessor<EntityStore> var2);
+
     public boolean isInProgress();
 
     public boolean isObstructed();
@@ -180,10 +183,6 @@ extends DebugSupport.DebugFlagsChangeListener {
         if (!1.$assertionsDisabled && movementStatesComponent == null) {
             throw new AssertionError();
         }
-        Velocity velocityComponent = componentAccessor.getComponent(ref, Velocity.getComponentType());
-        if (!1.$assertionsDisabled && velocityComponent == null) {
-            throw new AssertionError();
-        }
         MovementStates states = movementStatesComponent.getMovementStates();
         return switch (state) {
             default -> throw new MatchException(null, null);
@@ -194,9 +193,16 @@ extends DebugSupport.DebugFlagsChangeListener {
             case MovementState.JUMPING -> states.jumping;
             case MovementState.SPRINTING -> states.sprinting;
             case MovementState.RUNNING -> states.running;
-            case MovementState.IDLE -> velocityComponent.getVelocity().closeToZero(0.001);
-            case MovementState.WALKING -> {
-                if (!(velocityComponent.getVelocity().closeToZero(0.001) || states.falling || states.climbing || states.flying || states.running || states.sprinting || states.jumping || states.crouching)) {
+            case MovementState.IDLE, MovementState.WALKING -> {
+                Velocity velocityComponent = componentAccessor.getComponent(ref, Velocity.getComponentType());
+                if (!1.$assertionsDisabled && velocityComponent == null) {
+                    throw new AssertionError();
+                }
+                boolean isIdle = velocityComponent.getVelocity().closeToZero(0.001);
+                if (state == MovementState.IDLE) {
+                    yield isIdle;
+                }
+                if (!(isIdle || states.falling || states.climbing || states.flying || states.running || states.sprinting || states.jumping || states.crouching)) {
                     yield true;
                 }
                 yield false;

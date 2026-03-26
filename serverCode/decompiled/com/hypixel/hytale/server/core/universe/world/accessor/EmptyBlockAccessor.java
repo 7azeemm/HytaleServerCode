@@ -9,7 +9,6 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.world.accessor.BlockAccessor;
 import com.hypixel.hytale.server.core.universe.world.accessor.ChunkAccessor;
 import com.hypixel.hytale.server.core.universe.world.accessor.IChunkAccessorSync;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import javax.annotation.Nullable;
 
@@ -79,18 +78,8 @@ implements BlockAccessor {
 
     @Override
     @Nullable
-    public BlockState getState(int x, int y, int z) {
-        return null;
-    }
-
-    @Override
-    @Nullable
     public Holder<ChunkStore> getBlockComponentHolder(int x, int y, int z) {
         return null;
-    }
-
-    @Override
-    public void setState(int x, int y, int z, BlockState state, boolean notify) {
     }
 
     @Override

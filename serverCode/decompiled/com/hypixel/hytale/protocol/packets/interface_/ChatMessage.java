@@ -24,7 +24,7 @@ ToServerPacket {
     public static final int FIXED_BLOCK_SIZE = 1;
     public static final int VARIABLE_FIELD_COUNT = 1;
     public static final int VARIABLE_BLOCK_START = 1;
-    public static final int MAX_SIZE = 16384006;
+    public static final int MAX_SIZE = 1026;
     @Nullable
     public String message;
 
@@ -59,8 +59,8 @@ ToServerPacket {
             if (messageLen < 0) {
                 throw ProtocolException.negativeLength("Message", messageLen);
             }
-            if (messageLen > 4096000) {
-                throw ProtocolException.stringTooLong("Message", messageLen, 4096000);
+            if (messageLen > 255) {
+                throw ProtocolException.stringTooLong("Message", messageLen, 255);
             }
             int messageVarLen = VarInt.length(buf, pos);
             obj.message = PacketIO.readVarString(buf, pos, PacketIO.UTF8);
@@ -87,7 +87,7 @@ ToServerPacket {
         }
         buf.writeByte(nullBits);
         if (this.message != null) {
-            PacketIO.writeVarString(buf, this.message, 4096000);
+            PacketIO.writeVarString(buf, this.message, 255);
         }
     }
 
@@ -111,8 +111,8 @@ ToServerPacket {
             if (messageLen < 0) {
                 return ValidationResult.error("Invalid string length for Message");
             }
-            if (messageLen > 4096000) {
-                return ValidationResult.error("Message exceeds max length 4096000");
+            if (messageLen > 255) {
+                return ValidationResult.error("Message exceeds max length 255");
             }
             pos += VarInt.length(buffer, pos);
             if ((pos += messageLen) > buffer.writerIndex()) {

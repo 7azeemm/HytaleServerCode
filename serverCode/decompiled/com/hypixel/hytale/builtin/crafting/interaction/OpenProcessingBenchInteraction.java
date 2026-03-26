@@ -3,7 +3,8 @@
  */
 package com.hypixel.hytale.builtin.crafting.interaction;
 
-import com.hypixel.hytale.builtin.crafting.state.ProcessingBenchState;
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
+import com.hypixel.hytale.builtin.crafting.component.ProcessingBenchBlock;
 import com.hypixel.hytale.builtin.crafting.window.BenchWindow;
 import com.hypixel.hytale.builtin.crafting.window.ProcessingBenchWindow;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
@@ -17,21 +18,22 @@ import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.protocol.packets.interface_.Page;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.Bench;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.BlockAccessor;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import java.util.Map;
 import java.util.UUID;
-import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -48,41 +50,56 @@ extends SimpleBlockInteraction {
         if (playerComponent == null) {
             return;
         }
-        BlockState state = world.getState(pos.x, pos.y, pos.z, true);
-        if (!(state instanceof ProcessingBenchState)) {
-            playerComponent.sendMessage(Message.translation("server.interactions.invalidBlockState").param("interaction", this.getClass().getSimpleName()).param("blockState", state != null ? state.getClass().getSimpleName() : "null"));
+        ChunkStore chunkStore = world.getChunkStore();
+        Ref<ChunkStore> chunkRef = chunkStore.getChunkReference(ChunkUtil.indexChunkFromBlock(pos.x, pos.z));
+        if (chunkRef == null || !chunkRef.isValid()) {
             return;
         }
-        ProcessingBenchState benchState = (ProcessingBenchState)state;
+        Store<ChunkStore> chunkStoreStore = chunkStore.getStore();
+        BlockComponentChunk blockComponentChunk = chunkStoreStore.getComponent(chunkRef, BlockComponentChunk.getComponentType());
+        if (blockComponentChunk == null) {
+            return;
+        }
+        Ref<ChunkStore> blockEntityRef = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(pos.x, pos.y, pos.z));
+        if (blockEntityRef == null || !blockEntityRef.isValid()) {
+            return;
+        }
+        ProcessingBenchBlock benchState = chunkStoreStore.getComponent(blockEntityRef, ProcessingBenchBlock.getComponentType());
+        if (benchState == null) {
+            playerComponent.sendMessage(Message.translation("server.interactions.invalidBlockState").param("interaction", this.getClass().getSimpleName()).param("blockState", "null"));
+            return;
+        }
+        BenchBlock benchBlock = chunkStoreStore.getComponent(blockEntityRef, BenchBlock.getComponentType());
+        if (benchBlock == null) {
+            return;
+        }
+        BlockModule.BlockStateInfo blockStateInfo = chunkStoreStore.getComponent(blockEntityRef, BlockModule.BlockStateInfo.getComponentType());
         BlockType blockType = world.getBlockType(pos.x, pos.y, pos.z);
-        Bench blockTypeBench = blockType.getBench();
-        if (!(blockTypeBench != null && blockTypeBench.equals(benchState.getBench()) || benchState.initialize(blockType))) {
-            ProcessingBenchState.LOGGER.at(Level.WARNING).log("Failed to re-initialize: %s, %s", (Object)blockType.getId(), (Object)pos);
-            int x = pos.getX();
-            int z = pos.getZ();
-            world.getChunk(ChunkUtil.indexChunkFromBlock(x, z)).setState(x, pos.getY(), z, null);
-            return;
-        }
         UUIDComponent uuidComponent = commandBuffer.getComponent(ref, UUIDComponent.getComponentType());
         if (uuidComponent == null) {
             return;
         }
         UUID uuid = uuidComponent.getUuid();
-        ProcessingBenchWindow window = new ProcessingBenchWindow(benchState);
-        Map<UUID, BenchWindow> windows = benchState.getWindows();
+        Object worldChunk = world.getChunk(ChunkUtil.indexChunkFromBlock(pos.x, pos.z));
+        if (worldChunk == null) {
+            return;
+        }
+        int rotationIndex = ((WorldChunk)worldChunk).getRotationIndex(pos.x, pos.y, pos.z);
+        ProcessingBenchWindow window = new ProcessingBenchWindow(benchState, benchBlock, blockStateInfo, pos.x, pos.y, pos.z, rotationIndex, blockType);
+        Map<UUID, BenchWindow> windows = benchBlock.getWindows();
         if (windows.putIfAbsent(uuid, window) == null) {
-            benchState.updateFuelValues();
+            benchState.updateFuelValues(benchBlock.getWindows());
             if (playerComponent.getPageManager().setPageWithWindows(ref, store, Page.Bench, true, window)) {
                 window.registerCloseEvent(event -> {
                     int soundEventIndex;
                     windows.remove(uuid, window);
                     BlockType currentBlockType = world.getBlockType(pos);
-                    if (currentBlockType == null) {
+                    if (currentBlockType == null || currentBlockType == BlockType.EMPTY || currentBlockType == BlockType.UNKNOWN) {
                         return;
                     }
                     String interactionState = BlockAccessor.getCurrentInteractionState(currentBlockType);
                     if (windows.isEmpty() && !"Processing".equals(interactionState) && !"ProcessCompleted".equals(interactionState)) {
-                        world.setBlockInteractionState(pos, benchState.getBaseBlockType(), benchState.getTierStateName());
+                        world.setBlockInteractionState(pos, BenchBlock.getBaseBlockType(currentBlockType), benchBlock.getTierStateName());
                     }
                     if ((soundEventIndex = blockType.getBench().getLocalCloseSoundEventIndex()) == 0) {
                         return;

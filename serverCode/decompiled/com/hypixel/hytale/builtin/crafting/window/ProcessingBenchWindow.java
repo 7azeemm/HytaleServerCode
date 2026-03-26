@@ -6,31 +6,27 @@ package com.hypixel.hytale.builtin.crafting.window;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hypixel.hytale.builtin.crafting.CraftingPlugin;
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
 import com.hypixel.hytale.builtin.crafting.component.CraftingManager;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
-import com.hypixel.hytale.builtin.crafting.state.ProcessingBenchState;
+import com.hypixel.hytale.builtin.crafting.component.ProcessingBenchBlock;
 import com.hypixel.hytale.builtin.crafting.window.BenchWindow;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.event.EventRegistration;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.protocol.packets.window.SetActiveAction;
 import com.hypixel.hytale.protocol.packets.window.TierUpgradeAction;
 import com.hypixel.hytale.protocol.packets.window.WindowAction;
 import com.hypixel.hytale.protocol.packets.window.WindowType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.Bench;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.ProcessingBench;
 import com.hypixel.hytale.server.core.asset.type.item.config.CraftingRecipe;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.ItemContainerWindow;
-import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
+import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
-import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import java.lang.runtime.SwitchBootstraps;
 import java.util.HashSet;
@@ -42,6 +38,10 @@ import javax.annotation.Nullable;
 public class ProcessingBenchWindow
 extends BenchWindow
 implements ItemContainerWindow {
+    @Nonnull
+    private final ProcessingBenchBlock processingBenchState;
+    @Nullable
+    private final BlockModule.BlockStateInfo blockStateInfo;
     private CombinedItemContainer itemContainer;
     @Nullable
     private EventRegistration<?, ?> inventoryRegistration;
@@ -54,9 +54,11 @@ implements ItemContainerWindow {
     @Nonnull
     private final Set<Short> processingFuelSlots = new HashSet<Short>();
 
-    public ProcessingBenchWindow(@Nonnull ProcessingBenchState benchState) {
-        super(WindowType.Processing, benchState);
-        ProcessingBench processingBench = (ProcessingBench)this.blockType.getBench();
+    public ProcessingBenchWindow(@Nonnull ProcessingBenchBlock benchState, @Nonnull BenchBlock benchBlock, @Nullable BlockModule.BlockStateInfo blockStateInfo, int x, int y, int z, int rotationIndex, @Nonnull BlockType blockType) {
+        super(WindowType.Processing, x, y, z, rotationIndex, blockType, benchBlock);
+        this.processingBenchState = benchState;
+        this.blockStateInfo = blockStateInfo;
+        ProcessingBench processingBench = (ProcessingBench)blockType.getBench();
         CraftingRecipe recipe = benchState.getRecipe();
         float inputProgress = benchState.getInputProgress();
         float progress = recipe != null && recipe.getTimeSeconds() > 0.0f ? inputProgress / recipe.getTimeSeconds() : 0.0f;
@@ -123,9 +125,11 @@ implements ItemContainerWindow {
     }
 
     public void setMaxFuel(int maxFuel) {
-        this.maxFuel = maxFuel;
-        this.windowData.addProperty("maxFuel", maxFuel);
-        this.invalidate();
+        if (this.maxFuel != maxFuel) {
+            this.maxFuel = maxFuel;
+            this.windowData.addProperty("maxFuel", maxFuel);
+            this.invalidate();
+        }
     }
 
     public void setProgress(float progress) {
@@ -172,12 +176,7 @@ implements ItemContainerWindow {
 
     @Override
     public void handleAction(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store, @Nonnull WindowAction action) {
-        World world = store.getExternalData().getWorld();
-        BlockState blockState = ((WorldChunk)world.getChunk(ChunkUtil.indexChunkFromBlock(this.x, this.z))).getState(this.x, this.y, this.z);
-        if (!(blockState instanceof ProcessingBenchState)) {
-            return;
-        }
-        ProcessingBenchState benchState = (ProcessingBenchState)blockState;
+        ProcessingBenchBlock benchState = this.processingBenchState;
         WindowAction windowAction = action;
         Objects.requireNonNull(windowAction);
         WindowAction windowAction2 = windowAction;
@@ -185,7 +184,7 @@ implements ItemContainerWindow {
         switch (SwitchBootstraps.typeSwitch("typeSwitch", new Object[]{SetActiveAction.class, TierUpgradeAction.class}, (Object)windowAction2, n)) {
             case 0: {
                 SetActiveAction setActiveAction = (SetActiveAction)windowAction2;
-                if (benchState.setActive(setActiveAction.state)) break;
+                if (benchState.setActive(setActiveAction.state, this.benchBlock, this.blockStateInfo)) break;
                 this.invalidate();
                 break;
             }
@@ -200,20 +199,6 @@ implements ItemContainerWindow {
                 break;
             }
         }
-    }
-
-    @Override
-    protected boolean onOpen0(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store) {
-        super.onOpen0(ref, store);
-        Player playerComponent = store.getComponent(ref, Player.getComponentType());
-        assert (playerComponent != null);
-        Inventory inventory = playerComponent.getInventory();
-        this.inventoryRegistration = inventory.getCombinedHotbarFirst().registerChangeEvent(event -> {
-            this.windowData.add("inventoryHints", ProcessingBenchWindow.generateInventoryHints(this.bench, inventory.getCombinedHotbarFirst()));
-            this.invalidate();
-        });
-        this.windowData.add("inventoryHints", ProcessingBenchWindow.generateInventoryHints(this.bench, inventory.getCombinedHotbarFirst()));
-        return true;
     }
 
     private void updateOutputSlots(int tierLevel) {
@@ -239,11 +224,7 @@ implements ItemContainerWindow {
         super.updateBenchTierLevel(newValue);
         this.updateInputSlots(newValue);
         this.updateOutputSlots(newValue);
-        BenchState benchState = this.benchState;
-        if (benchState instanceof ProcessingBenchState) {
-            ProcessingBenchState processingBenchState = (ProcessingBenchState)benchState;
-            this.itemContainer = processingBenchState.getItemContainer();
-        }
+        this.itemContainer = this.processingBenchState.getItemContainer();
     }
 
     @Override

@@ -4,21 +4,28 @@
 package com.hypixel.hytale.server.core.universe.world.worldgen;
 
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.util.NumberUtil;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.EmptySectionPalette;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.palette.ISectionPalette;
 import io.netty.buffer.ByteBuf;
-import it.unimi.dsi.fastutil.ints.IntArrays;
+import it.unimi.dsi.fastutil.ints.Int2ShortOpenHashMap;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
 
 public class GeneratedChunkSection {
     @Nonnull
-    private final int[] data = new int[32768];
+    private final int[] data;
     @Nonnull
-    private final int[] temp = new int[32768];
-    private ISectionPalette fillers = EmptySectionPalette.INSTANCE;
-    private ISectionPalette rotations = EmptySectionPalette.INSTANCE;
+    private final transient Int2ShortOpenHashMap tempIdCounts = new Int2ShortOpenHashMap();
+    private ISectionPalette fillers;
+    private ISectionPalette rotations;
+
+    public GeneratedChunkSection() {
+        this.data = new int[32768];
+        this.fillers = EmptySectionPalette.INSTANCE;
+        this.rotations = EmptySectionPalette.INSTANCE;
+    }
 
     public int getRotationIndex(int x, int y, int z) {
         return this.getRotationIndex(ChunkUtil.indexBlock(x, y, z));
@@ -68,6 +75,8 @@ public class GeneratedChunkSection {
 
     public void reset() {
         Arrays.fill(this.data, 0);
+        this.fillers = EmptySectionPalette.INSTANCE;
+        this.rotations = EmptySectionPalette.INSTANCE;
     }
 
     public boolean isSolidAir() {
@@ -80,14 +89,17 @@ public class GeneratedChunkSection {
 
     @Nonnull
     public BlockSection toChunkSection() {
-        System.arraycopy(this.data, 0, this.temp, 0, 32768);
-        IntArrays.unstableSort(this.temp);
-        int count = 1;
-        for (int i = 1; i < 32768; ++i) {
-            if (this.temp[i] == this.temp[i - 1]) continue;
-            this.temp[count++] = this.temp[i];
+        this.tempIdCounts.clear();
+        int index = 0;
+        while (index < this.data.length) {
+            int id = this.data[index];
+            int start = index;
+            while (++index < this.data.length && this.data[index] == id) {
+            }
+            short count = (short)(index - start);
+            this.tempIdCounts.mergeShort(id, count, NumberUtil::sum);
         }
-        return new BlockSection(ISectionPalette.from(this.data, this.temp, count), this.fillers, this.rotations);
+        return new BlockSection(ISectionPalette.from(this.data, this.tempIdCounts), this.fillers, this.rotations);
     }
 
     public void serialize(@Nonnull ByteBuf buf) {

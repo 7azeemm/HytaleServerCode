@@ -21,7 +21,9 @@ import com.hypixel.hytale.server.core.asset.type.gameplay.WorldConfig;
 import com.hypixel.hytale.server.core.asset.type.item.config.BlockGroup;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
+import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
@@ -93,8 +95,9 @@ extends SimpleBlockInteraction {
             return;
         }
         ItemStack heldItem = context.getHeldItem();
-        if (heldItem != null && playerComponent.canDecreaseItemStackDurability(ref, store) && !heldItem.isUnbreakable()) {
-            playerComponent.updateItemStackDurability(ref, heldItem, playerComponent.getInventory().getHotbar(), context.getHeldItemSlot(), -heldItem.getItem().getDurabilityLossOnHit(), commandBuffer);
+        InventoryComponent.Hotbar hotbarComponent = commandBuffer.getComponent(ref, InventoryComponent.Hotbar.getComponentType());
+        if (heldItem != null && hotbarComponent != null && ItemUtils.canDecreaseItemStackDurability(ref, commandBuffer) && !heldItem.isUnbreakable()) {
+            playerComponent.updateItemStackDurability(ref, heldItem, hotbarComponent.getInventory(), context.getHeldItemSlot(), -heldItem.getItem().getDurabilityLossOnHit(), commandBuffer);
         }
         int newBlockId = BlockType.getAssetMap().getIndex(nextBlockType.getId());
         int rotation = worldChunkComponent.getRotationIndex(targetBlock.x, targetBlock.y, targetBlock.z);

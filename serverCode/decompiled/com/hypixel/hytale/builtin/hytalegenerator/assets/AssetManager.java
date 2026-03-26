@@ -9,6 +9,12 @@ import com.hypixel.hytale.assetstore.event.LoadedAssetsEvent;
 import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.SettingsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.AssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.ConstantAssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.FieldFunctionAssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.ImportedAssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.SandwichAssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.assignments.WeightedAssignmentsAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.biomes.BiomeAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.blockmask.BlockMaskAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.CeilingCurveAsset;
@@ -20,6 +26,7 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.DistanceSCurveAs
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.FloorCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.ImportedCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.InverterCurveAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.MaxCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.MinCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.MultiplierCurveAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.NotCurveAsset;
@@ -157,13 +164,13 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ConstantPatter
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.CuboidPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.DensityPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.FloorPatternAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.GapPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.ImportedPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.MaterialPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.NotPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.OffsetPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.OrPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.RotatorPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.SurfacePatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.WallPatternAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.pointgenerators.MeshPointGeneratorAsset;
@@ -172,32 +179,47 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.Ancho
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.BaseHeightPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.BoundPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.CachedPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.ClustersPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.FieldFunctionOccurrencePositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.FieldFunctionPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.FrameworkPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.ImportedPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.Jitter2dPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.Jitter3dPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.ListPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.Mesh2DPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.Mesh3DPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.OffsetPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.PositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.ScalerPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.SimpleHorizontalPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.SquareGrid2dPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.SquareGrid3dPositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.TriangularGrid2dPositionProviderAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.UnionPositionProviderAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.AssignmentsAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.ConstantAssignmentsAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.FieldFunctionAssignmentsAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.ImportedAssignmentsAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.SandwichAssignmentsAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.propassignments.WeightedAssignmentsAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.AssignedPropDistributionAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.ConstantPropDistributionAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.ImportedPropDistributionAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.PositionsPropDistributionAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.PropDistributionAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.propdistribution.UnionPropDistributionAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.BoxPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.ClusterPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.ColumnPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.CuboidPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.DensityPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.DensitySelectorPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.ImportedPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.LocatorPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.ManualPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.MaskPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.OffsetPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.OrienterPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PondFillerPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.PropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.QueuePropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.RandomRotatorPropAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.props.StaticRotatorPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.UnionPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.WeightedPropAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.PrefabPropAsset;
@@ -209,8 +231,12 @@ import com.hypixel.hytale.builtin.hytalegenerator.assets.props.prefabprop.direct
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.AreaScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ColumnLinearScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ColumnRandomScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.DirectScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ImportedScannerAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.OriginScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.LinearScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.QueueScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.RadialScannerAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.RandomScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.scanners.ScannerAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.terrains.DensityTerrainAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.terrains.TerrainAsset;
@@ -246,6 +272,12 @@ public class AssetManager {
     private final HashMap<String, WorldStructureAsset> worldStructureAssets;
     @Nonnull
     private final HashMap<String, BlockMaskAsset> blockMaskAssets;
+    @Nonnull
+    private final HashMap<String, PropDistributionAsset> propDistributionAssets;
+    @Nonnull
+    private final HashMap<String, PositionProviderAsset> positionProviderAssets;
+    @Nonnull
+    private final HashMap<String, PropAsset> propAssets;
     private SettingsAsset settingsAsset;
     @Nonnull
     private final HytaleLogger logger;
@@ -259,12 +291,45 @@ public class AssetManager {
         this.biomeAssets = new HashMap(1);
         this.worldStructureAssets = new HashMap(1);
         this.blockMaskAssets = new HashMap(1);
+        this.propDistributionAssets = new HashMap(1);
+        this.positionProviderAssets = new HashMap(1);
+        this.propAssets = new HashMap(1);
         eventRegistry.register(LoadedAssetsEvent.class, DensityAsset.class, this::loadDensityAssets);
         eventRegistry.register(LoadedAssetsEvent.class, AssignmentsAsset.class, this::loadAssignmentsAssets);
         eventRegistry.register(LoadedAssetsEvent.class, BiomeAsset.class, this::loadBiomeAssets);
         eventRegistry.register(LoadedAssetsEvent.class, WorldStructureAsset.class, this::loadWorldStructureAssets);
         eventRegistry.register(LoadedAssetsEvent.class, SettingsAsset.class, this::loadSettingsAssets);
         eventRegistry.register(LoadedAssetsEvent.class, BlockMaskAsset.class, this::loadBlockMaskAssets);
+        eventRegistry.register(LoadedAssetsEvent.class, PropDistributionAsset.class, this::loadPropDistributionAssets);
+        eventRegistry.register(LoadedAssetsEvent.class, PositionProviderAsset.class, this::loadPositionProviderAssets);
+        eventRegistry.register(LoadedAssetsEvent.class, PropAsset.class, this::loadPropAssets);
+    }
+
+    private void loadPropAssets(@Nonnull LoadedAssetsEvent<String, PropAsset, DefaultAssetMap<String, PropAsset>> event) {
+        this.blockMaskAssets.clear();
+        for (PropAsset value : event.getLoadedAssets().values()) {
+            this.propAssets.put(value.getId(), value);
+            this.logger.at(Level.FINE).log("Loaded Prop asset " + String.valueOf(value));
+        }
+        this.triggerReloadListeners();
+    }
+
+    private void loadPositionProviderAssets(@Nonnull LoadedAssetsEvent<String, PositionProviderAsset, DefaultAssetMap<String, PositionProviderAsset>> event) {
+        this.blockMaskAssets.clear();
+        for (PositionProviderAsset value : event.getLoadedAssets().values()) {
+            this.positionProviderAssets.put(value.getId(), value);
+            this.logger.at(Level.FINE).log("Loaded PositionProvider asset " + String.valueOf(value));
+        }
+        this.triggerReloadListeners();
+    }
+
+    private void loadPropDistributionAssets(@Nonnull LoadedAssetsEvent<String, PropDistributionAsset, DefaultAssetMap<String, PropDistributionAsset>> event) {
+        this.blockMaskAssets.clear();
+        for (PropDistributionAsset value : event.getLoadedAssets().values()) {
+            this.propDistributionAssets.put(value.getId(), value);
+            this.logger.at(Level.FINE).log("Loaded PropDistribution asset " + String.valueOf(value));
+        }
+        this.triggerReloadListeners();
     }
 
     private void loadBlockMaskAssets(@Nonnull LoadedAssetsEvent<String, BlockMaskAsset, DefaultAssetMap<String, BlockMaskAsset>> event) {
@@ -354,6 +419,9 @@ public class AssetManager {
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(DensityAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/Density")).setKeyFunction(DensityAsset::getId)).setCodec((AssetCodec)DensityAsset.CODEC)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(BlockMaskAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/MaterialMasks")).setKeyFunction(BlockMaskAsset::getId)).setCodec((AssetCodec)BlockMaskAsset.CODEC)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(AssignmentsAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/Assignments")).setKeyFunction(AssignmentsAsset::getId)).setCodec((AssetCodec)AssignmentsAsset.CODEC)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(PropDistributionAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/PropDistributions")).setKeyFunction(PropDistributionAsset::getId)).setCodec((AssetCodec)PropDistributionAsset.CODEC)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(PositionProviderAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/Positions")).setKeyFunction(PositionProviderAsset::getId)).setCodec((AssetCodec)PositionProviderAsset.CODEC)).build());
+        AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(PropAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/Props")).setKeyFunction(PropAsset::getId)).setCodec((AssetCodec)PropAsset.CODEC)).build());
         AssetRegistry.register(((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)((HytaleAssetStore.Builder)HytaleAssetStore.builder(SettingsAsset.class, new DefaultAssetMap()).setPath("HytaleGenerator/Settings")).setKeyFunction(SettingsAsset::getId)).setCodec((AssetCodec)SettingsAsset.CODEC)).build());
         DensityAsset.CODEC.register("SimplexNoise2D", SimplexNoise2dDensityAsset.class, SimplexNoise2dDensityAsset.CODEC);
         DensityAsset.CODEC.register("SimplexNoise3D", SimplexNoise3DDensityAsset.class, SimplexNoise3DDensityAsset.CODEC);
@@ -468,6 +536,13 @@ public class AssetManager {
         PositionProviderAsset.CODEC.register("Anchor", AnchorPositionProviderAsset.class, AnchorPositionProviderAsset.CODEC);
         PositionProviderAsset.CODEC.register("Bound", BoundPositionProviderAsset.class, BoundPositionProviderAsset.CODEC);
         PositionProviderAsset.CODEC.register("Framework", FrameworkPositionProviderAsset.class, FrameworkPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("SquareGrid2d", SquareGrid2dPositionProviderAsset.class, SquareGrid2dPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("SquareGrid3d", SquareGrid3dPositionProviderAsset.class, SquareGrid3dPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("TriangularGrid2d", TriangularGrid2dPositionProviderAsset.class, TriangularGrid2dPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("Scaler", ScalerPositionProviderAsset.class, ScalerPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("Jitter2d", Jitter2dPositionProviderAsset.class, Jitter2dPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("Jitter3d", Jitter3dPositionProviderAsset.class, Jitter3dPositionProviderAsset.CODEC);
+        PositionProviderAsset.CODEC.register("Clusters", ClustersPositionProviderAsset.class, ClustersPositionProviderAsset.CODEC);
         PointGeneratorAsset.CODEC.register("Mesh", MeshPointGeneratorAsset.class, MeshPointGeneratorAsset.CODEC);
         AssignmentsAsset.CODEC.register("FieldFunction", FieldFunctionAssignmentsAsset.class, FieldFunctionAssignmentsAsset.CODEC);
         AssignmentsAsset.CODEC.register("Sandwich", SandwichAssignmentsAsset.class, SandwichAssignmentsAsset.CODEC);
@@ -479,12 +554,25 @@ public class AssetManager {
         PropAsset.CODEC.register("Union", UnionPropAsset.class, UnionPropAsset.CODEC);
         PropAsset.CODEC.register("Column", ColumnPropAsset.class, ColumnPropAsset.CODEC);
         PropAsset.CODEC.register("Cluster", ClusterPropAsset.class, ClusterPropAsset.CODEC);
-        PropAsset.CODEC.register("Queue", QueuePropAsset.class, QueuePropAsset.CODEC);
         PropAsset.CODEC.register("Prefab", PrefabPropAsset.class, PrefabPropAsset.CODEC);
         PropAsset.CODEC.register("PondFiller", PondFillerPropAsset.class, PondFillerPropAsset.CODEC);
         PropAsset.CODEC.register("Density", DensityPropAsset.class, DensityPropAsset.CODEC);
         PropAsset.CODEC.register("Offset", OffsetPropAsset.class, OffsetPropAsset.CODEC);
         PropAsset.CODEC.register("Weighted", WeightedPropAsset.class, WeightedPropAsset.CODEC);
+        PropAsset.CODEC.register("Cuboid", CuboidPropAsset.class, CuboidPropAsset.CODEC);
+        PropAsset.CODEC.register("Manual", ManualPropAsset.class, ManualPropAsset.CODEC);
+        PropAsset.CODEC.register("Locator", LocatorPropAsset.class, LocatorPropAsset.CODEC);
+        PropAsset.CODEC.register("Queue", QueuePropAsset.class, QueuePropAsset.CODEC);
+        PropAsset.CODEC.register("Mask", MaskPropAsset.class, MaskPropAsset.CODEC);
+        PropAsset.CODEC.register("StaticRotator", StaticRotatorPropAsset.class, StaticRotatorPropAsset.CODEC);
+        PropAsset.CODEC.register("RandomRotator", RandomRotatorPropAsset.class, RandomRotatorPropAsset.CODEC);
+        PropAsset.CODEC.register("Orienter", OrienterPropAsset.class, OrienterPropAsset.CODEC);
+        PropAsset.CODEC.register("DensitySelector", DensitySelectorPropAsset.class, DensitySelectorPropAsset.CODEC);
+        PropDistributionAsset.CODEC.register("Constant", ConstantPropDistributionAsset.class, ConstantPropDistributionAsset.CODEC);
+        PropDistributionAsset.CODEC.register("Assigned", AssignedPropDistributionAsset.class, AssignedPropDistributionAsset.CODEC);
+        PropDistributionAsset.CODEC.register("Positions", PositionsPropDistributionAsset.class, PositionsPropDistributionAsset.CODEC);
+        PropDistributionAsset.CODEC.register("Union", UnionPropDistributionAsset.class, UnionPropDistributionAsset.CODEC);
+        PropDistributionAsset.CODEC.register("Imported", ImportedPropDistributionAsset.class, ImportedPropDistributionAsset.CODEC);
         DirectionalityAsset.CODEC.register("Imported", ImportedDirectionalityAsset.class, ImportedDirectionalityAsset.CODEC);
         DirectionalityAsset.CODEC.register("Static", StaticDirectionalityAsset.class, StaticDirectionalityAsset.CODEC);
         DirectionalityAsset.CODEC.register("Random", RandomDirectionalityAsset.class, RandomDirectionalityAsset.CODEC);
@@ -500,15 +588,19 @@ public class AssetManager {
         PatternAsset.CODEC.register("Or", OrPatternAsset.class, OrPatternAsset.CODEC);
         PatternAsset.CODEC.register("Not", NotPatternAsset.class, NotPatternAsset.CODEC);
         PatternAsset.CODEC.register("Surface", SurfacePatternAsset.class, SurfacePatternAsset.CODEC);
-        PatternAsset.CODEC.register("Gap", GapPatternAsset.class, GapPatternAsset.CODEC);
         PatternAsset.CODEC.register("FieldFunction", DensityPatternAsset.class, DensityPatternAsset.CODEC);
         PatternAsset.CODEC.register("Imported", ImportedPatternAsset.class, ImportedPatternAsset.CODEC);
         PatternAsset.CODEC.register("Constant", ConstantPatternAsset.class, ConstantPatternAsset.CODEC);
+        PatternAsset.CODEC.register("Rotator", RotatorPatternAsset.class, RotatorPatternAsset.CODEC);
         ScannerAsset.CODEC.register("ColumnLinear", ColumnLinearScannerAsset.class, ColumnLinearScannerAsset.CODEC);
         ScannerAsset.CODEC.register("ColumnRandom", ColumnRandomScannerAsset.class, ColumnRandomScannerAsset.CODEC);
-        ScannerAsset.CODEC.register("Origin", OriginScannerAsset.class, OriginScannerAsset.CODEC);
+        ScannerAsset.CODEC.register("Origin", DirectScannerAsset.class, DirectScannerAsset.CODEC);
         ScannerAsset.CODEC.register("Area", AreaScannerAsset.class, AreaScannerAsset.CODEC);
         ScannerAsset.CODEC.register("Imported", ImportedScannerAsset.class, ImportedScannerAsset.CODEC);
+        ScannerAsset.CODEC.register("Linear", LinearScannerAsset.class, LinearScannerAsset.CODEC);
+        ScannerAsset.CODEC.register("Random", RandomScannerAsset.class, RandomScannerAsset.CODEC);
+        ScannerAsset.CODEC.register("Queue", QueueScannerAsset.class, QueueScannerAsset.CODEC);
+        ScannerAsset.CODEC.register("Radial", RadialScannerAsset.class, RadialScannerAsset.CODEC);
         CurveAsset.CODEC.register("Imported", ImportedCurveAsset.class, ImportedCurveAsset.CODEC);
         CurveAsset.CODEC.register("Manual", ManualCurveAsset.class, ManualCurveAsset.CODEC);
         CurveAsset.CODEC.register("DistanceExponential", DistanceExponentialCurveAsset.class, DistanceExponentialCurveAsset.CODEC);
@@ -520,7 +612,7 @@ public class AssetManager {
         CurveAsset.CODEC.register("Clamp", ClampCurveAsset.class, ClampCurveAsset.CODEC);
         CurveAsset.CODEC.register("SmoothClamp", SmoothClampCurveAsset.class, SmoothClampCurveAsset.CODEC);
         CurveAsset.CODEC.register("Min", MinCurveAsset.class, MinCurveAsset.CODEC);
-        CurveAsset.CODEC.register("Max", MinCurveAsset.class, MinCurveAsset.CODEC);
+        CurveAsset.CODEC.register("Max", MaxCurveAsset.class, MaxCurveAsset.CODEC);
         CurveAsset.CODEC.register("SmoothMin", SmoothMinCurveAsset.class, SmoothMinCurveAsset.CODEC);
         CurveAsset.CODEC.register("SmoothMax", SmoothMaxCurveAsset.class, SmoothMaxCurveAsset.CODEC);
         CurveAsset.CODEC.register("SmoothFloor", SmoothFloorCurveAsset.class, SmoothFloorCurveAsset.CODEC);

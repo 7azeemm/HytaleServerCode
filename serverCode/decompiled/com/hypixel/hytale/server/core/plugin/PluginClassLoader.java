@@ -153,7 +153,7 @@ extends URLClassLoader {
     public static boolean isFromThirdPartyPlugin(@Nullable Throwable throwable) {
         while (throwable != null) {
             for (StackTraceElement element : throwable.getStackTrace()) {
-                if (!"ThirdParty".equals(element.getClassLoaderName())) continue;
+                if (element.getClassLoaderName() == null || !element.getClassLoaderName().startsWith("ThirdParty")) continue;
                 return true;
             }
             if (throwable.getCause() == throwable) break;

@@ -53,6 +53,7 @@ import com.hypixel.hytale.server.core.entity.EntityUtils;
 import com.hypixel.hytale.server.core.entity.InteractionChain;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
 import com.hypixel.hytale.server.core.entity.InteractionManager;
+import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.damage.DamageDataComponent;
 import com.hypixel.hytale.server.core.entity.effect.EffectControllerComponent;
@@ -60,12 +61,14 @@ import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementConfig;
 import com.hypixel.hytale.server.core.entity.knockback.KnockbackComponent;
 import com.hypixel.hytale.server.core.entity.movement.MovementStatesComponent;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.inventory.container.EmptyItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.meta.DynamicMetaStore;
 import com.hypixel.hytale.server.core.modules.entity.AllLegacyLivingEntityTypesQuery;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
+import com.hypixel.hytale.server.core.modules.entity.component.CachedStatsComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.Intangible;
 import com.hypixel.hytale.server.core.modules.entity.component.Invulnerable;
 import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
@@ -103,7 +106,6 @@ import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2FloatMap;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import java.lang.runtime.SwitchBootstraps;
 import java.time.Instant;
@@ -188,11 +190,12 @@ public class DamageSystems {
 
         @Override
         public void handle(int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Damage damage) {
-            LivingEntity entity = (LivingEntity)EntityUtils.getEntity(index, archetypeChunk);
-            assert (entity != null);
             World world = commandBuffer.getExternalData().getWorld();
             Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
-            Map<DamageCause, ArmorResistanceModifiers> resistances = ArmorDamageReduction.getResistanceModifiers(world, entity.getInventory().getArmor(), entity.canApplyItemStackPenalties(ref, commandBuffer), archetypeChunk.getComponent(index, EffectControllerComponent.getComponentType()));
+            InventoryComponent.Armor armorComponent = commandBuffer.getComponent(ref, InventoryComponent.Armor.getComponentType());
+            ItemContainer armorContainer = armorComponent != null ? armorComponent.getInventory() : EmptyItemContainer.INSTANCE;
+            EffectControllerComponent effectControllerComponent = archetypeChunk.getComponent(index, EffectControllerComponent.getComponentType());
+            Map<DamageCause, ArmorResistanceModifiers> resistances = ArmorDamageReduction.getResistanceModifiers(world, armorContainer, ItemUtils.canApplyItemStackPenalties(ref, commandBuffer), effectControllerComponent);
             if (!damage.getCause().doesBypassResistances() && !resistances.isEmpty()) {
                 ArmorResistanceModifiers damageModEntry = resistances.get(damage.getCause());
                 if (damageModEntry == null) {
@@ -290,7 +293,7 @@ public class DamageSystems {
         @Nonnull
         private static final ComponentType<EntityStore, TransformComponent> TRANSFORM_COMPONENT_TYPE = TransformComponent.getComponentType();
         @Nonnull
-        private static final Query<EntityStore> QUERY = Query.and(AllLegacyLivingEntityTypesQuery.INSTANCE, DamageDataComponent.getComponentType(), TRANSFORM_COMPONENT_TYPE);
+        private static final Query<EntityStore> QUERY = Query.and(AllLegacyLivingEntityTypesQuery.INSTANCE, InventoryComponent.Armor.getComponentType(), DamageDataComponent.getComponentType(), TRANSFORM_COMPONENT_TYPE);
 
         @Override
         @Nullable
@@ -310,13 +313,9 @@ public class DamageSystems {
 
         @Override
         public void handleInternal(int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Damage damage) {
-            LivingEntity entity = (LivingEntity)EntityUtils.getEntity(index, archetypeChunk);
-            assert (entity != null);
-            Inventory inventory = entity.getInventory();
-            if (inventory == null) {
-                return;
-            }
-            ItemContainer armorContainer = inventory.getArmor();
+            InventoryComponent.Armor armorComponent = archetypeChunk.getComponent(index, InventoryComponent.Armor.getComponentType());
+            assert (armorComponent != null);
+            ItemContainer armorContainer = armorComponent.getInventory();
             if (armorContainer == null) {
                 return;
             }
@@ -646,7 +645,7 @@ public class DamageSystems {
     public static class DamageAttackerTool
     extends DamageEventSystem {
         @Nonnull
-        private static final Query<EntityStore> QUERY = AllLegacyLivingEntityTypesQuery.INSTANCE;
+        private static final Query<EntityStore> QUERY = Query.and(AllLegacyLivingEntityTypesQuery.INSTANCE, InventoryComponent.Hotbar.getComponentType());
 
         @Override
         @Nullable
@@ -662,9 +661,6 @@ public class DamageSystems {
 
         @Override
         public void handle(int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Damage damage) {
-            LivingEntity sourceLivingEntity;
-            Inventory sourceInventory;
-            byte activeHotbarSlot;
             Damage.Source source;
             if (!damage.getCause().isDurabilityLoss() || !((source = damage.getSource()) instanceof Damage.EntitySource)) {
                 return;
@@ -674,9 +670,12 @@ public class DamageSystems {
             if (!sourceRef.isValid()) {
                 return;
             }
-            Entity sourceEntity = EntityUtils.getEntity(sourceRef, commandBuffer);
-            if (sourceEntity instanceof LivingEntity && (activeHotbarSlot = (sourceInventory = (sourceLivingEntity = (LivingEntity)sourceEntity).getInventory()).getActiveHotbarSlot()) != -1) {
-                sourceLivingEntity.decreaseItemStackDurability(sourceRef, sourceInventory.getItemInHand(), -1, sourceInventory.getActiveHotbarSlot(), commandBuffer);
+            InventoryComponent.Hotbar hotbarComponent = commandBuffer.getComponent(sourceRef, InventoryComponent.Hotbar.getComponentType());
+            assert (hotbarComponent != null);
+            byte activeHotbarSlot = hotbarComponent.getActiveSlot();
+            if (activeHotbarSlot != -1) {
+                ItemStack itemInHand = InventoryComponent.getItemInHand(commandBuffer, sourceRef);
+                LivingEntity.decreaseItemStackDurability(sourceRef, itemInHand, -1, activeHotbarSlot, commandBuffer);
             }
         }
     }
@@ -751,18 +750,23 @@ public class DamageSystems {
             assert (entity != null);
             Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
             DamageCause damageCause = damage.getCause();
-            if (damageCause.isDurabilityLoss()) {
-                ItemContainer armor = entity.getInventory().getArmor();
-                ShortArrayList armorPartIndexes = new ShortArrayList();
-                armor.forEachWithMeta((slot, itemStack, _armorPartIndexes) -> {
-                    if (!itemStack.isBroken()) {
-                        _armorPartIndexes.add(slot);
-                    }
-                }, armorPartIndexes);
-                if (!armorPartIndexes.isEmpty()) {
-                    short slot2 = armorPartIndexes.getShort(RandomExtra.randomRange(armorPartIndexes.size()));
-                    entity.decreaseItemStackDurability(ref, armor.getItemStack(slot2), -3, slot2, commandBuffer);
+            if (!damageCause.isDurabilityLoss()) {
+                return;
+            }
+            InventoryComponent.Armor armorComponent = commandBuffer.getComponent(ref, InventoryComponent.Armor.getComponentType());
+            if (armorComponent == null) {
+                return;
+            }
+            ItemContainer armor = armorComponent.getInventory();
+            ShortArrayList armorPartIndexes = new ShortArrayList();
+            armor.forEachWithMeta((slot, itemStack, _armorPartIndexes) -> {
+                if (!itemStack.isBroken()) {
+                    _armorPartIndexes.add(slot);
                 }
+            }, armorPartIndexes);
+            if (!armorPartIndexes.isEmpty()) {
+                short slot2 = armorPartIndexes.getShort(RandomExtra.randomRange(armorPartIndexes.size()));
+                LivingEntity.decreaseItemStackDurability(ref, armor.getItemStack(slot2), -3, slot2, commandBuffer);
             }
         }
     }
@@ -1110,25 +1114,32 @@ public class DamageSystems {
 
         @Override
         public void tick(float dt, int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer) {
-            int fluidId;
-            long packed;
-            BlockMaterial material;
-            Ref<EntityStore> ref;
             LivingEntity entity = (LivingEntity)EntityUtils.getEntity(index, archetypeChunk);
             assert (entity != null);
             EntityStatMap statMapComponent = archetypeChunk.getComponent(index, EntityStatMap.getComponentType());
             assert (statMapComponent != null);
             EntityStatValue oxygenStatValue = statMapComponent.get(DefaultEntityStatTypes.getOxygen());
-            if (oxygenStatValue != null && !entity.canBreathe(ref = archetypeChunk.getReferenceTo(index), material = BlockMaterial.VALUES[MathUtil.unpackLeft(packed = LivingEntity.getPackedMaterialAndFluidAtBreathingHeight(ref, commandBuffer))], fluidId = MathUtil.unpackRight(packed), commandBuffer) && oxygenStatValue.get() <= oxygenStatValue.getMin()) {
-                Damage damage;
-                if (fluidId != 0) {
-                    assert (DamageCause.DROWNING != null);
-                    damage = new Damage(Damage.NULL_SOURCE, DamageCause.DROWNING, 10.0f);
-                } else {
-                    assert (DamageCause.SUFFOCATION != null);
-                    damage = new Damage(Damage.NULL_SOURCE, DamageCause.SUFFOCATION, 20.0f);
+            if (oxygenStatValue != null) {
+                Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
+                long packed = LivingEntity.getPackedMaterialAndFluidAtBreathingHeight(ref, commandBuffer);
+                BlockMaterial material = BlockMaterial.VALUES[MathUtil.unpackLeft(packed)];
+                int fluidId = MathUtil.unpackRight(packed);
+                boolean canBreathe = entity.canBreathe(ref, material, fluidId, commandBuffer);
+                CachedStatsComponent cachedStatsComponent = archetypeChunk.getComponent(index, CachedStatsComponent.getComponentType());
+                if (cachedStatsComponent != null) {
+                    cachedStatsComponent.setCanBreathe(canBreathe);
                 }
-                DamageSystems.executeDamage(index, archetypeChunk, commandBuffer, damage);
+                if (!canBreathe && oxygenStatValue.get() <= oxygenStatValue.getMin()) {
+                    Damage damage;
+                    if (fluidId != 0) {
+                        assert (DamageCause.DROWNING != null);
+                        damage = new Damage(Damage.NULL_SOURCE, DamageCause.DROWNING, 10.0f);
+                    } else {
+                        assert (DamageCause.SUFFOCATION != null);
+                        damage = new Damage(Damage.NULL_SOURCE, DamageCause.SUFFOCATION, 20.0f);
+                    }
+                    DamageSystems.executeDamage(index, archetypeChunk, commandBuffer, damage);
+                }
             }
         }
 
@@ -1239,7 +1250,8 @@ public class DamageSystems {
 
         @Override
         public void handleInternal(int index, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, @Nonnull Store<EntityStore> store, @Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Damage damage) {
-            Vector3d targetPosition;
+            PlayerRef playerRefComponent;
+            boolean hasPlayerSound;
             Damage.EntitySource source;
             TransformComponent transformComponent = archetypeChunk.getComponent(index, TRANSFORM_COMPONENT_TYPE);
             assert (transformComponent != null);
@@ -1253,13 +1265,20 @@ public class DamageSystems {
             Damage.Source source2 = damage.getSource();
             Ref<EntityStore> sourceRef = source2 instanceof Damage.EntitySource ? ((source = (Damage.EntitySource)source2).getRef().isValid() ? source.getRef() : null) : null;
             Vector4d hitLocation = damage.getIfPresentMetaObject(Damage.HIT_LOCATION);
-            Vector3d vector3d = targetPosition = hitLocation == null ? transformComponent.getPosition() : new Vector3d(hitLocation.x, hitLocation.y, hitLocation.z);
+            Vector3d targetPosition = hitLocation == null ? transformComponent.getPosition() : new Vector3d(hitLocation.x, hitLocation.y, hitLocation.z);
+            boolean bl = hasPlayerSound = playerComponent != null && playerSoundEffect != null && playerSoundEffect.getSoundEventIndex() != 0;
             if (soundEffect != null && soundEffect.getSoundEventIndex() != 0) {
-                Predicate<Ref<EntityStore>> filter = sourceRef != null ? p -> !p.equals(sourceRef) : p -> true;
+                Predicate<Ref<EntityStore>> filter = p -> {
+                    if (sourceRef != null && p.equals(sourceRef)) {
+                        return false;
+                    }
+                    return !hasPlayerSound || !p.equals(ref);
+                };
                 SoundUtil.playSoundEvent3d(soundEffect.getSoundEventIndex(), targetPosition.x, targetPosition.y, targetPosition.z, filter, commandBuffer);
             }
-            if (playerComponent != null && playerSoundEffect != null && playerSoundEffect.getSoundEventIndex() != 0) {
-                SoundUtil.playSoundEvent3dToPlayer(ref, playerSoundEffect.getSoundEventIndex(), SoundCategory.SFX, targetPosition.x, targetPosition.y, targetPosition.z, commandBuffer);
+            if (hasPlayerSound && (playerRefComponent = commandBuffer.getComponent(ref, PlayerRef.getComponentType())) != null) {
+                int worldIndex = soundEffect != null ? soundEffect.getSoundEventIndex() : 0;
+                SoundUtil.playLocalPlayerSoundEvent(playerRefComponent, playerSoundEffect.getSoundEventIndex(), worldIndex, SoundCategory.SFX);
             }
         }
 
@@ -1314,7 +1333,7 @@ public class DamageSystems {
             if (!Arrays.isNullOrEmpty(worldParticles) && (sourceTransformComponent = commandBuffer.getComponent(sourceRef, TransformComponent.getComponentType())) != null) {
                 float angleBetween = TrigMathUtil.atan2(sourceTransformComponent.getPosition().x - targetPosition.x, sourceTransformComponent.getPosition().z - targetPosition.z);
                 SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = commandBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-                ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                 playerSpatialResource.getSpatialStructure().collect(targetPosition, particlesViewDistance, results);
                 Ref<EntityStore> particleSource = damageCanBePredicted ? sourceRef : null;
                 for (Object particle : worldParticles) {
@@ -1332,13 +1351,13 @@ public class DamageSystems {
                 SpawnModelParticles packet = new SpawnModelParticles(targetNetworkId, modelParticlesProtocol);
                 SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(PLAYER_SPATIAL_RESOURCE_TYPE);
                 SpatialStructure<Ref<EntityStore>> spatialStructure = spatialResource.getSpatialStructure();
-                ObjectList results = SpatialResource.getThreadLocalReferenceList();
+                List results = SpatialResource.getThreadLocalReferenceList();
                 spatialStructure.ordered(targetPosition, particlesViewDistance, results);
-                for (Ref ref : results) {
-                    if (damageCanBePredicted && ref.equals(sourceRef)) {
+                for (Ref targetRef : results) {
+                    if (damageCanBePredicted && targetRef.equals(sourceRef)) {
                         return;
                     }
-                    PlayerRef playerRefComponent = commandBuffer.getComponent(ref, PlayerRef.getComponentType());
+                    PlayerRef playerRefComponent = commandBuffer.getComponent(targetRef, PlayerRef.getComponentType());
                     if (playerRefComponent == null) continue;
                     playerRefComponent.getPacketHandler().write((ToClientPacket)packet);
                 }

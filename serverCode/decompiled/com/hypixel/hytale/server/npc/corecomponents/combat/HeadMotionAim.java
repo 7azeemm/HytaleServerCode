@@ -198,7 +198,7 @@ implements DebugSupport.DebugFlagsChangeListener {
             World world = ref.getStore().getExternalData().getWorld();
             DebugUtils.addSphere(world, this.targetPosition, color, 0.5, 0.1f);
             if (this.startPosition.distanceTo(this.targetPosition) > 1.0E-4) {
-                DebugUtils.addArrow(world, this.startPosition, this.targetPosition.clone().subtract(this.startPosition).setLength(1.0), color, 0.1f, true);
+                DebugUtils.addArrow(world, this.startPosition, this.targetPosition.clone().subtract(this.startPosition).setLength(1.0), color, 0.1f, DebugUtils.FLAG_FADE);
             }
         }
         desiredSteering.clearTranslation();

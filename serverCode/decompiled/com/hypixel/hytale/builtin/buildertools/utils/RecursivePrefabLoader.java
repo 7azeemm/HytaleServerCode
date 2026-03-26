@@ -7,13 +7,12 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
-import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerState;
+import com.hypixel.hytale.server.core.modules.prefabspawner.PrefabSpawnerBlock;
 import com.hypixel.hytale.server.core.prefab.PrefabLoadException;
 import com.hypixel.hytale.server.core.prefab.PrefabRotation;
 import com.hypixel.hytale.server.core.prefab.PrefabWeights;
 import com.hypixel.hytale.server.core.prefab.selection.buffer.PrefabLoader;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.io.IOException;
@@ -36,7 +35,7 @@ implements BiFunction<String, Random, T> {
     protected final Function<String, T> prefabsLoader;
     protected final Set<Path> visitedFiles = new HashSet<Path>();
     @Nullable
-    protected final ComponentType<ChunkStore, PrefabSpawnerState> prefabComponentType = BlockStateModule.get().getComponentType(PrefabSpawnerState.class);
+    protected final ComponentType<ChunkStore, PrefabSpawnerBlock> prefabComponentType = PrefabSpawnerBlock.getComponentType();
     private int depthTracker = 0;
 
     public RecursivePrefabLoader(Path rootPrefabsDir, Function<String, T> prefabsLoader) {
@@ -164,7 +163,7 @@ implements BiFunction<String, Random, T> {
                 if (state == null) {
                     return;
                 }
-                PrefabSpawnerState spawner = (PrefabSpawnerState)state.getComponent(this.prefabComponentType);
+                PrefabSpawnerBlock spawner = (PrefabSpawnerBlock)state.getComponent(this.prefabComponentType);
                 if (spawner == null) {
                     return;
                 }

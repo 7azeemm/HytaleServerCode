@@ -214,7 +214,7 @@ implements IEventBus {
     @Nonnull
     public <KeyType, EventType extends IEvent<KeyType>> IEventDispatcher<EventType, EventType> dispatchFor(@Nonnull Class<? super EventType> eventClass, KeyType key) {
         SyncEventBusRegistry registry = (SyncEventBusRegistry)this.registryMap.get(eventClass);
-        if (registry == null) {
+        if (registry == null || !registry.isAlive()) {
             return SyncEventBusRegistry.NO_OP;
         }
         return registry.dispatchFor(key);
@@ -224,7 +224,7 @@ implements IEventBus {
     @Nonnull
     public <KeyType, EventType extends IAsyncEvent<KeyType>> IEventDispatcher<EventType, CompletableFuture<EventType>> dispatchForAsync(@Nonnull Class<? super EventType> eventClass, KeyType key) {
         AsyncEventBusRegistry registry = (AsyncEventBusRegistry)this.registryMap.get(eventClass);
-        if (registry == null) {
+        if (registry == null || !registry.isAlive()) {
             return AsyncEventBusRegistry.NO_OP;
         }
         return registry.dispatchFor(key);

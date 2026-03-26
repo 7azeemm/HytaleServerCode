@@ -25,7 +25,7 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bouncycastle.util.Arrays;
@@ -171,7 +171,6 @@ implements NetworkSerializable<com.hypixel.hytale.protocol.DamageEffects> {
     }
 
     public void spawnAtEntity(@Nonnull CommandBuffer<EntityStore> commandBuffer, @Nonnull Ref<EntityStore> ref) {
-        PlayerRef playerRef;
         TransformComponent transformComponent = commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transformComponent == null) {
             return;
@@ -179,15 +178,17 @@ implements NetworkSerializable<com.hypixel.hytale.protocol.DamageEffects> {
         Vector3d position = transformComponent.getPosition();
         if (this.worldParticles != null) {
             SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = commandBuffer.getResource(EntityModule.get().getPlayerSpatialResourceType());
-            ObjectList<Ref<EntityStore>> playerRefs = SpatialResource.getThreadLocalReferenceList();
+            List<Ref<EntityStore>> playerRefs = SpatialResource.getThreadLocalReferenceList();
             playerSpatialResource.getSpatialStructure().collect(position, this.viewDistance, playerRefs);
             ParticleUtil.spawnParticleEffects(this.worldParticles, position, null, playerRefs, commandBuffer);
         }
+        PlayerRef playerRef = commandBuffer.getComponent(ref, PlayerRef.getComponentType());
         if (this.worldSoundEventIndex != 0) {
-            SoundUtil.playSoundEvent3d(ref, this.worldSoundEventIndex, position, commandBuffer);
+            boolean ignoreSource = playerRef != null;
+            SoundUtil.playSoundEvent3d(ref, this.worldSoundEventIndex, position, ignoreSource, commandBuffer);
         }
-        if (this.playerSoundEventIndex != 0 && (playerRef = commandBuffer.getComponent(ref, PlayerRef.getComponentType())) != null) {
-            SoundUtil.playSoundEvent2dToPlayer(playerRef, this.playerSoundEventIndex, SoundCategory.SFX);
+        if (playerRef != null && (this.playerSoundEventIndex != 0 || this.worldSoundEventIndex != 0)) {
+            SoundUtil.playLocalPlayerSoundEvent(playerRef, this.playerSoundEventIndex, this.worldSoundEventIndex, SoundCategory.SFX);
         }
     }
 

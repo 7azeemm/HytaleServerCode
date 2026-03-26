@@ -4,7 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.curves;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.curves.CurveAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.framework.math.InterpolatedCurve;
+import com.hypixel.hytale.builtin.hytalegenerator.math.InterpolatedCurve;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;

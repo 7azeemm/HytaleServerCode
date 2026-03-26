@@ -21,6 +21,7 @@ import com.hypixel.hytale.server.npc.commands.NPCBenchmarkCommand;
 import com.hypixel.hytale.server.npc.commands.NPCBlackboardCommand;
 import com.hypixel.hytale.server.npc.commands.NPCCleanCommand;
 import com.hypixel.hytale.server.npc.commands.NPCDebugCommand;
+import com.hypixel.hytale.server.npc.commands.NPCDescriptorsCommand;
 import com.hypixel.hytale.server.npc.commands.NPCDumpCommand;
 import com.hypixel.hytale.server.npc.commands.NPCFreezeCommand;
 import com.hypixel.hytale.server.npc.commands.NPCGiveCommand;
@@ -103,6 +104,7 @@ extends AbstractCommandCollection {
         this.addSubCommand(new NPCTestCommand());
         this.addSubCommand(new NPCThawCommand());
         this.addSubCommand(new NPCMessageCommand());
+        this.addSubCommand(new NPCDescriptorsCommand());
     }
 }
 

@@ -18,6 +18,7 @@ import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolShowAnchor;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.BlockEntity;
 import com.hypixel.hytale.server.core.io.PacketHandler;
+import com.hypixel.hytale.server.core.modules.entity.DespawnComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.EntityScaleComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.Intangible;
 import com.hypixel.hytale.server.core.modules.time.TimeResource;
@@ -32,7 +33,7 @@ import javax.annotation.Nullable;
 public class PrefabEditingMetadata {
     private static final float PREFAB_ANCHOR_ENTITY_SCALE = 2.1f;
     @Nonnull
-    public static final BuilderCodec<PrefabEditingMetadata> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(PrefabEditingMetadata.class, PrefabEditingMetadata::new).append(new KeyedCodec("Path", Codec.PATH), (o, path) -> {
+    public static final BuilderCodec<PrefabEditingMetadata> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(PrefabEditingMetadata.class, PrefabEditingMetadata::new).append(new KeyedCodec("Path", Codec.PATH), (o, path) -> {
         o.prefabPath = path;
     }, o -> o.prefabPath).add()).append(new KeyedCodec<Vector3i>("MinPoint", new Vector3iArrayCodec()), (o, minPoint) -> {
         o.minPoint = minPoint;
@@ -46,7 +47,9 @@ public class PrefabEditingMetadata {
         o.anchorEntityUuid = anchorEntityUuid;
     }, o -> o.anchorEntityUuid).add()).append(new KeyedCodec<Vector3i>("AnchorEntityPosition", new Vector3iArrayCodec(), false), (o, anchorEntityPosition) -> {
         o.anchorEntityPosition = anchorEntityPosition;
-    }, o -> o.anchorEntityPosition).add()).append(new KeyedCodec("Uuid", Codec.UUID_STRING), (o, uuid) -> {
+    }, o -> o.anchorEntityPosition).add()).append(new KeyedCodec<Vector3i>("OriginalFileAnchor", new Vector3iArrayCodec(), false), (o, originalFileAnchor) -> {
+        o.originalFileAnchor = originalFileAnchor;
+    }, o -> o.originalFileAnchor).add()).append(new KeyedCodec("Uuid", Codec.UUID_STRING), (o, uuid) -> {
         o.uuid = uuid;
     }, o -> o.uuid).add()).append(new KeyedCodec<Boolean>("Dirty", Codec.BOOLEAN, true), (o, dirty) -> {
         o.dirty = dirty;
@@ -95,6 +98,7 @@ public class PrefabEditingMetadata {
         }
         TimeResource timeResource = store.getResource(TimeResource.getResourceType());
         Holder<EntityStore> blockEntityHolder = BlockEntity.assembleDefaultBlockEntity(timeResource, "Editor_Anchor", position.toVector3d().add(0.5, 0.0, 0.5));
+        blockEntityHolder.removeComponent(DespawnComponent.getComponentType());
         blockEntityHolder.addComponent(Intangible.getComponentType(), Intangible.INSTANCE);
         blockEntityHolder.addComponent(PrefabAnchor.getComponentType(), PrefabAnchor.INSTANCE);
         blockEntityHolder.addComponent(EntityScaleComponent.getComponentType(), new EntityScaleComponent(2.1f));
@@ -115,6 +119,9 @@ public class PrefabEditingMetadata {
     }
 
     public void recreateAnchorEntity(@Nonnull World world) {
+        if (this.originalFileAnchor == null && this.anchorPoint != null && this.pastePosition != null) {
+            this.originalFileAnchor = new Vector3i(this.anchorPoint.x - this.pastePosition.x, this.anchorPoint.y - this.pastePosition.y, this.anchorPoint.z - this.pastePosition.z);
+        }
         if (this.anchorEntityPosition != null) {
             this.createAnchorEntityAt(this.anchorEntityPosition, world);
         }

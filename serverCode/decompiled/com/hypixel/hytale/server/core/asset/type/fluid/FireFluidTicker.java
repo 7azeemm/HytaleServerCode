@@ -20,6 +20,7 @@ import com.hypixel.hytale.server.core.asset.type.soundevent.config.SoundEvent;
 import com.hypixel.hytale.server.core.asset.type.tagpattern.config.TagPattern;
 import com.hypixel.hytale.server.core.universe.world.SoundUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -135,10 +136,31 @@ extends FluidTicker {
     private boolean tryBurn(@Nonnull World world, @Nonnull FluidTicker.Accessor accessor, @Nonnull FluidSection fluidSection, BlockSection blockSection, @Nonnull FlammabilityConfig config, int blockX, int blockY, int blockZ) {
         int soundEvent;
         int resultingBlockIndex = config.getResultingBlockIndex();
-        if (resultingBlockIndex != Integer.MIN_VALUE) {
-            int originalRotation = blockSection.getRotationIndex(blockX, blockY, blockZ);
-            int originalFiller = blockSection.getFiller(blockX, blockY, blockZ);
-            blockSection.set(blockX, blockY, blockZ, resultingBlockIndex, originalRotation, originalFiller);
+        String resultingBlockState = config.getResultingState();
+        if (resultingBlockIndex != Integer.MIN_VALUE || resultingBlockState != null) {
+            world.execute(() -> {
+                WorldChunk chunk = world.getChunkIfInMemory(ChunkUtil.indexChunkFromBlock(blockX, blockZ));
+                if (chunk != null) {
+                    int originalRotation = blockSection.getRotationIndex(blockX, blockY, blockZ);
+                    int originalFiller = blockSection.getFiller(blockX, blockY, blockZ);
+                    if (resultingBlockIndex != Integer.MIN_VALUE && (resultingBlockState == null || resultingBlockIndex != 0)) {
+                        BlockType resultingBlockType = BlockType.getAssetMap().getAsset(resultingBlockIndex);
+                        chunk.setBlock(blockX, blockY, blockZ, resultingBlockIndex, resultingBlockType, originalRotation, originalFiller, 0);
+                    }
+                    if (resultingBlockState != null) {
+                        BlockType existingBlock = chunk.getBlockType(blockX, blockY, blockZ);
+                        if (existingBlock == null) {
+                            return;
+                        }
+                        BlockType newBlockType = existingBlock.getBlockForState(resultingBlockState);
+                        if (newBlockType == null) {
+                            return;
+                        }
+                        int newBlockIndex = BlockType.getAssetMap().getIndex(newBlockType.getId());
+                        chunk.setBlock(blockX, blockY, blockZ, newBlockIndex, newBlockType, originalRotation, originalFiller, 0);
+                    }
+                }
+            });
             FireFluidTicker.setTickingSurrounding(accessor, blockSection, blockX, blockY, blockZ);
         }
         if ((soundEvent = config.getSoundEventIndex()) != Integer.MIN_VALUE) {
@@ -177,7 +199,7 @@ extends FluidTicker {
     }
 
     public static class FlammabilityConfig {
-        public static final BuilderCodec<FlammabilityConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(FlammabilityConfig.class, FlammabilityConfig::new).appendInherited(new KeyedCodec<String>("TagPattern", TagPattern.CHILD_ASSET_CODEC), (o, v) -> {
+        public static final BuilderCodec<FlammabilityConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(FlammabilityConfig.class, FlammabilityConfig::new).appendInherited(new KeyedCodec<String>("TagPattern", TagPattern.CHILD_ASSET_CODEC), (o, v) -> {
             o.tagPatternId = v;
         }, o -> o.tagPatternId, (o, p) -> {
             o.tagPatternId = p.tagPatternId;
@@ -197,7 +219,11 @@ extends FluidTicker {
             o.resultingBlock = v;
         }, o -> o.resultingBlock, (o, p) -> {
             o.resultingBlock = p.resultingBlock;
-        }).documentation("The block to place after burning, if any").add()).appendInherited(new KeyedCodec<String>("SoundEvent", Codec.STRING), (o, v) -> {
+        }).documentation("The block to place after burning, if any").add()).appendInherited(new KeyedCodec<String>("ResultingState", Codec.STRING), (o, v) -> {
+            o.resultingState = v;
+        }, o -> o.resultingState, (o, p) -> {
+            o.resultingState = p.resultingState;
+        }).documentation("The block state to attempt to change to after burning, if any").add()).appendInherited(new KeyedCodec<String>("SoundEvent", Codec.STRING), (o, v) -> {
             o.soundEvent = v;
         }, o -> o.soundEvent, (o, p) -> {
             o.soundEvent = p.soundEvent;
@@ -209,6 +235,8 @@ extends FluidTicker {
         private byte burnLevel = 1;
         private float burnChance = 0.1f;
         private String resultingBlock = "Empty";
+        @Nullable
+        private String resultingState;
         private int resultingBlockIndex = Integer.MIN_VALUE;
         private String soundEvent;
         private int soundEventIndex = Integer.MIN_VALUE;
@@ -238,6 +266,11 @@ extends FluidTicker {
                 this.resultingBlockIndex = BlockType.getBlockIdOrUnknown(this.resultingBlock, "Unknown block type %s", this.resultingBlock);
             }
             return this.resultingBlockIndex;
+        }
+
+        @Nullable
+        public String getResultingState() {
+            return this.resultingState;
         }
 
         public int getSoundEventIndex() {

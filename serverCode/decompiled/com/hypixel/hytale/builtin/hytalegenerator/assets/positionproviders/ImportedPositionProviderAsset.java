@@ -5,6 +5,7 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders;
 
 import com.hypixel.hytale.builtin.hytalegenerator.LoggerUtil;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.positionproviders.PositionProviderAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.EmptyPositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -22,12 +23,12 @@ extends PositionProviderAsset {
     @Override
     public PositionProvider build(@Nonnull PositionProviderAsset.Argument argument) {
         if (super.skip()) {
-            return PositionProvider.noPositionProvider();
+            return EmptyPositionProvider.INSTANCE;
         }
         PositionProviderAsset asset = ImportedPositionProviderAsset.getExportedAsset(this.name);
         if (asset == null) {
             LoggerUtil.getLogger().warning("Couldn't find Positions asset exported with name: '" + this.name + "'.");
-            return PositionProvider.noPositionProvider();
+            return EmptyPositionProvider.INSTANCE;
         }
         PositionProvider out = asset.build(argument);
         return out;

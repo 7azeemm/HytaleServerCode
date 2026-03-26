@@ -6,6 +6,8 @@ package com.hypixel.hytale.server.worldgen.loader.container;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.hypixel.hytale.builtin.worldgen.modifier.event.ModifyEvent;
+import com.hypixel.hytale.builtin.worldgen.modifier.event.ModifyEvents;
 import com.hypixel.hytale.common.map.IWeightedMap;
 import com.hypixel.hytale.common.map.WeightedMap;
 import com.hypixel.hytale.procedurallib.condition.ConstantBlockFluidCondition;
@@ -20,8 +22,10 @@ import com.hypixel.hytale.procedurallib.json.NoiseMaskConditionJsonLoader;
 import com.hypixel.hytale.procedurallib.json.SeedString;
 import com.hypixel.hytale.server.worldgen.SeedStringResource;
 import com.hypixel.hytale.server.worldgen.container.CoverContainer;
+import com.hypixel.hytale.server.worldgen.loader.context.BiomeFileContext;
 import com.hypixel.hytale.server.worldgen.loader.util.ResolvedBlockArrayJsonLoader;
 import com.hypixel.hytale.server.worldgen.util.BlockFluidEntry;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import com.hypixel.hytale.server.worldgen.util.ResolvedBlockArray;
 import com.hypixel.hytale.server.worldgen.util.condition.HashSetBlockFluidCondition;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -31,28 +35,33 @@ import javax.annotation.Nonnull;
 
 public class CoverContainerJsonLoader
 extends JsonLoader<SeedStringResource, CoverContainer> {
-    public CoverContainerJsonLoader(SeedString<SeedStringResource> seed, Path dataFolder, JsonElement json) {
+    @Nonnull
+    protected final BiomeFileContext biomeContext;
+
+    public CoverContainerJsonLoader(SeedString<SeedStringResource> seed, Path dataFolder, JsonElement json, @Nonnull BiomeFileContext biomeContext) {
         super(seed, dataFolder, json);
+        this.biomeContext = biomeContext;
     }
 
     @Override
     @Nonnull
     public CoverContainer load() {
-        CoverContainer.CoverContainerEntry[] coverContainerEntries;
-        if (this.json == null || this.json.isJsonNull()) {
-            coverContainerEntries = new CoverContainer.CoverContainerEntry[]{};
-        } else if (this.json.isJsonArray()) {
-            JsonArray coversArray = this.json.getAsJsonArray();
-            coverContainerEntries = new CoverContainer.CoverContainerEntry[coversArray.size()];
-            for (int i = 0; i < coverContainerEntries.length; ++i) {
-                JsonObject coversObject = coversArray.get(i).getAsJsonObject();
-                coverContainerEntries[i] = new CoverContainerEntryJsonLoader(this.seed.append("-" + i), this.dataFolder, (JsonElement)coversObject).load();
+        try (ListPool.Resource<CoverContainer.CoverContainerEntry> entries = CoverContainer.ENTY_POOL.acquire();){
+            if (this.json != null && this.json.isJsonArray()) {
+                JsonArray coversArray = this.json.getAsJsonArray();
+                for (int i = 0; i < coversArray.size(); ++i) {
+                    JsonObject coversObject = coversArray.get(i).getAsJsonObject();
+                    entries.add(new CoverContainerEntryJsonLoader(this.seed.append("-" + i), this.dataFolder, (JsonElement)coversObject).load());
+                }
+            } else if (this.json != null && this.json.isJsonObject()) {
+                JsonObject coversObject = this.json.getAsJsonObject();
+                entries.add(new CoverContainerEntryJsonLoader(this.seed.append("-0"), this.dataFolder, (JsonElement)coversObject).load());
             }
-        } else {
-            JsonObject coversObject = this.json.getAsJsonObject();
-            coverContainerEntries = new CoverContainer.CoverContainerEntry[]{new CoverContainerEntryJsonLoader(this.seed.append("-0"), this.dataFolder, (JsonElement)coversObject).load()};
+            ModifyEvent.SeedGenerator seed = new ModifyEvent.SeedGenerator(this.seed);
+            ModifyEvent.dispatch(ModifyEvents.BiomeCovers.class, new ModifyEvents.BiomeCovers(this.biomeContext, entries, content -> new CoverContainerEntryJsonLoader(seed.next(), this.dataFolder, this.getOrLoad(content)).load()));
+            CoverContainer coverContainer = new CoverContainer(entries.toArray());
+            return coverContainer;
         }
-        return new CoverContainer(coverContainerEntries);
     }
 
     public static class CoverContainerEntryJsonLoader

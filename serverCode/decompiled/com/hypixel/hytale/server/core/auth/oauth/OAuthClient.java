@@ -9,10 +9,12 @@ import com.google.gson.JsonParser;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.auth.AuthConfig;
+import com.hypixel.hytale.server.core.auth.HttpResponseException;
 import com.hypixel.hytale.server.core.auth.oauth.OAuthBrowserFlow;
 import com.hypixel.hytale.server.core.auth.oauth.OAuthDeviceFlow;
 import com.hypixel.hytale.server.core.util.ServiceHttpClientFactory;
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -165,16 +167,28 @@ public class OAuthClient {
     }
 
     @Nullable
-    public TokenResponse refreshTokens(@Nonnull String refreshToken) {
+    public TokenResponse refreshTokens(@Nonnull String refreshToken) throws IOException, InterruptedException {
         try {
             String body = "grant_type=refresh_token&client_id=" + URLEncoder.encode("hytale-server", StandardCharsets.UTF_8) + "&refresh_token=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8);
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://oauth.accounts.hytale.com/oauth2/token")).header("Content-Type", "application/x-www-form-urlencoded").header("User-Agent", AuthConfig.USER_AGENT).POST(HttpRequest.BodyPublishers.ofString(body)).build();
             HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
-                LOGGER.at(Level.WARNING).log("Token refresh failed: HTTP %d - %s", response.statusCode(), (Object)response.body());
+            int statusCode = response.statusCode();
+            if (statusCode != 200) {
+                LOGGER.at(Level.WARNING).log("Token refresh failed: HTTP %d - %s", statusCode, (Object)response.body());
+                if (!AuthConfig.isRejectedStatusCode(statusCode)) {
+                    throw new HttpResponseException(statusCode, response.body());
+                }
                 return null;
             }
             return this.parseTokenResponse(response.body());
+        }
+        catch (IOException e) {
+            ((HytaleLogger.Api)LOGGER.at(Level.WARNING).withCause(e)).log("Token refresh failed (IO error)");
+            throw e;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
         }
         catch (Exception e) {
             ((HytaleLogger.Api)LOGGER.at(Level.WARNING).withCause(e)).log("Token refresh failed");

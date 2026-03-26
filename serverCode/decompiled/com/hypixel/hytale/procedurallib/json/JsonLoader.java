@@ -24,6 +24,8 @@ extends Loader<K, T> {
     public static final JsonResourceLoader<JsonElement> JSON_LOADER = new JsonResourceLoader<JsonElement>(JsonElement.class, e -> !e.isJsonNull(), Function.identity());
     public static final JsonResourceLoader<JsonArray> JSON_ARR_LOADER = new JsonResourceLoader<JsonArray>(JsonArray.class, JsonElement::isJsonArray, JsonElement::getAsJsonArray);
     public static final JsonResourceLoader<JsonObject> JSON_OBJ_LOADER = new JsonResourceLoader<JsonObject>(JsonObject.class, JsonElement::isJsonObject, JsonElement::getAsJsonObject);
+    protected static final JsonObject EMPTY_OBJECT = new JsonObject();
+    protected static final JsonArray EMPTY_ARRAY = new JsonArray();
     @Nullable
     protected final JsonElement json;
 

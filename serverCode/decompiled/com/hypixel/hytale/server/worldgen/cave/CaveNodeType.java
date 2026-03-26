@@ -17,12 +17,15 @@ import com.hypixel.hytale.server.worldgen.cave.prefab.CavePrefabContainer;
 import com.hypixel.hytale.server.worldgen.cave.shape.CaveNodeShape;
 import com.hypixel.hytale.server.worldgen.cave.shape.CaveNodeShapeEnum;
 import com.hypixel.hytale.server.worldgen.util.BlockFluidEntry;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import java.util.Random;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class CaveNodeType {
     public static final CaveNodeType[] EMPTY_ARRAY = new CaveNodeType[0];
+    public static final ListPool<CaveNodeCoverEntry> COVER_POOL = new ListPool<CaveNodeCoverEntry>(10, CaveNodeCoverEntry.EMPTY_ARRAY);
+    public static final ListPool<CaveNodeChildEntry> CHILD_POOL = new ListPool<CaveNodeChildEntry>(10, CaveNodeChildEntry.EMPTY_ARRAY);
     @Nonnull
     private final String name;
     @Nullable

@@ -8,6 +8,7 @@ import com.hypixel.hytale.codec.ExtraInfo;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.map.ObjectMapCodec;
+import com.hypixel.hytale.codec.codecs.set.SetCodec;
 import com.hypixel.hytale.codec.lookup.MapKeyMapCodec;
 import com.hypixel.hytale.codec.schema.metadata.NoDefaultValue;
 import com.hypixel.hytale.codec.util.RawJsonReader;
@@ -26,6 +27,7 @@ import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.asset.type.weather.config.Weather;
 import com.hypixel.hytale.server.core.codec.ProtocolCodecs;
 import com.hypixel.hytale.server.core.codec.ShapeCodecs;
+import com.hypixel.hytale.server.core.config.WorldWorldMapConfig;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
 import com.hypixel.hytale.server.core.universe.world.ClientEffectWorldSettings;
 import com.hypixel.hytale.server.core.universe.world.spawn.GlobalSpawnProvider;
@@ -41,7 +43,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,7 +59,7 @@ public class WorldConfig {
     public static final int INITIAL_GAME_DAY_START_HOUR = 5;
     public static final int INITIAL_GAME_DAY_START_MINS = 30;
     public static final MapKeyMapCodec<Object> PLUGIN_CODEC = new MapKeyMapCodec(false);
-    public static final BuilderCodec<WorldConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(WorldConfig.class, () -> new WorldConfig(null)).versioned()).codecVersion(4)).documentation("Configuration for a single world. Settings in here only affect the world this configuration belongs to.\n\nInstances share this configuration but ignore certain parameters (e.g. *UUID*). In this case the configuration willbe cloned before loading the instance.")).append(new KeyedCodec<UUID>("UUID", Codec.UUID_BINARY), (o, s) -> {
+    public static final BuilderCodec<WorldConfig> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(WorldConfig.class, () -> new WorldConfig(null)).versioned()).codecVersion(4)).documentation("Configuration for a single world. Settings in here only affect the world this configuration belongs to.\n\nInstances share this configuration but ignore certain parameters (e.g. *UUID*). In this case the configuration willbe cloned before loading the instance.")).append(new KeyedCodec<UUID>("UUID", Codec.UUID_BINARY), (o, s) -> {
         o.uuid = s;
     }, o -> o.uuid).documentation("The unique identifier for this world.\n\nInstances will ignore this and replace it with a freshly generated UUID when spawning the instance.").add()).append(new KeyedCodec<String>("DisplayName", Codec.STRING), (o, s) -> {
         o.displayName = s;
@@ -69,7 +73,9 @@ public class WorldConfig {
         o.worldGenProvider = i;
     }, o -> o.worldGenProvider).documentation("Sets the world generator that will be used by the world.").add()).append(new KeyedCodec<IWorldMapProvider>("WorldMap", IWorldMapProvider.CODEC), (o, i) -> {
         o.worldMapProvider = i;
-    }, o -> o.worldMapProvider).add()).append(new KeyedCodec("ChunkStorage", IChunkStorageProvider.CODEC), (o, i) -> {
+    }, o -> o.worldMapProvider).add()).append(new KeyedCodec<WorldWorldMapConfig>("WorldMapConfig", WorldWorldMapConfig.CODEC), (o, i) -> {
+        o.worldMapConfig = i;
+    }, o -> o.worldMapConfig).documentation("Optional per-world overrides for world map configuration and limits.").add()).append(new KeyedCodec("ChunkStorage", IChunkStorageProvider.CODEC), (o, i) -> {
         o.chunkStorageProvider = i;
     }, o -> o.chunkStorageProvider).documentation("Sets the storage system that will be used by the world to store chunks.").add()).append(new KeyedCodec<ChunkConfig>("ChunkConfig", ChunkConfig.CODEC), (o, i) -> {
         o.chunkConfig = i;
@@ -123,7 +129,9 @@ public class WorldConfig {
         o.deleteOnUniverseStart = i;
     }, o -> o.deleteOnUniverseStart).documentation("Whether this world should be deleted when loaded from Universe start. By default this is when going through the world folders in the universe directory.").add()).append(new KeyedCodec<Boolean>("DeleteOnRemove", Codec.BOOLEAN), (o, i) -> {
         o.deleteOnRemove = i;
-    }, o -> o.deleteOnRemove).documentation("Whether this world should be deleted once its been removed from the server").add()).append(new KeyedCodec<BsonDocument>("Instance", Codec.BSON_DOCUMENT), (o, i, e) -> o.pluginConfig.put((Class<Object>)PLUGIN_CODEC.getKeyForId("Instance"), PLUGIN_CODEC.decodeById("Instance", (BsonValue)i, (ExtraInfo)e)), (o, e) -> null).setVersionRange(0, 2).documentation("Instance specific configuration.").addValidator(Validators.deprecated()).add()).append(new KeyedCodec<IResourceStorageProvider>("ResourceStorage", IResourceStorageProvider.CODEC), (o, i) -> {
+    }, o -> o.deleteOnRemove).documentation("Whether this world should be deleted once its been removed from the server").add()).append(new KeyedCodec<BsonDocument>("Instance", Codec.BSON_DOCUMENT), (o, i, e) -> o.pluginConfig.put((Class<Object>)PLUGIN_CODEC.getKeyForId("Instance"), PLUGIN_CODEC.decodeById("Instance", (BsonValue)i, (ExtraInfo)e)), (o, e) -> null).setVersionRange(0, 2).documentation("Instance specific configuration.").addValidator(Validators.deprecated()).add()).append(new KeyedCodec("DisabledFluidTickers", new SetCodec<String, HashSet>(Codec.STRING, HashSet::new, false)), (o, i) -> {
+        o.disabledFluidTickers = i;
+    }, o -> o.disabledFluidTickers).documentation("A set of fluid tag strings (e.g. \"Fluid=Water\", \"Fire=Fire\") whose tickers should be disabled in this world. Fluids matching any of these tags will not tick.").add()).append(new KeyedCodec<IResourceStorageProvider>("ResourceStorage", IResourceStorageProvider.CODEC), (o, i) -> {
         o.resourceStorageProvider = i;
     }, o -> o.resourceStorageProvider).documentation("Sets the storage system that will be used to store resources.").add()).appendInherited(new KeyedCodec<Object>("Plugin", PLUGIN_CODEC), (o, i) -> {
         if (o.pluginConfig.isEmpty()) {
@@ -137,7 +145,7 @@ public class WorldConfig {
         o.pluginConfig = p.pluginConfig;
     }).addValidator(Validators.nonNull()).add()).build();
     @Nonnull
-    private transient AtomicBoolean hasChanged = new AtomicBoolean();
+    private final transient AtomicBoolean hasChanged = new AtomicBoolean();
     private UUID uuid = UUID.randomUUID();
     private String displayName;
     private long seed = System.currentTimeMillis();
@@ -145,6 +153,8 @@ public class WorldConfig {
     private ISpawnProvider spawnProvider = null;
     private IWorldGenProvider worldGenProvider = IWorldGenProvider.CODEC.getDefault();
     private IWorldMapProvider worldMapProvider = IWorldMapProvider.CODEC.getDefault();
+    @Nullable
+    private WorldWorldMapConfig worldMapConfig;
     private IChunkStorageProvider<?> chunkStorageProvider = IChunkStorageProvider.CODEC.getDefault();
     @Nonnull
     private ChunkConfig chunkConfig = new ChunkConfig();
@@ -176,6 +186,8 @@ public class WorldConfig {
     private boolean isObjectiveMarkersEnabled = true;
     private boolean deleteOnUniverseStart = false;
     private boolean deleteOnRemove = false;
+    @Nonnull
+    private Set<String> disabledFluidTickers = Collections.emptySet();
     private IResourceStorageProvider resourceStorageProvider = IResourceStorageProvider.CODEC.getDefault();
     protected MapKeyMapCodec.TypeMap<Object> pluginConfig = new MapKeyMapCodec.TypeMap<Object>(PLUGIN_CODEC);
     @Nullable
@@ -275,6 +287,16 @@ public class WorldConfig {
         this.worldMapProvider = worldMapProvider;
     }
 
+    @Nullable
+    public WorldWorldMapConfig getWorldMapConfig() {
+        return this.worldMapConfig;
+    }
+
+    public void setWorldMapConfig(@Nullable WorldWorldMapConfig worldMapConfig) {
+        this.worldMapConfig = worldMapConfig;
+        this.markChanged();
+    }
+
     public IChunkStorageProvider<?> getChunkStorageProvider() {
         return this.chunkStorageProvider;
     }
@@ -312,12 +334,16 @@ public class WorldConfig {
         return this.isPvpEnabled;
     }
 
+    public void setPvpEnabled(boolean pvpEnabled) {
+        this.isPvpEnabled = pvpEnabled;
+    }
+
     public boolean isFallDamageEnabled() {
         return this.isFallDamageEnabled;
     }
 
-    public void setPvpEnabled(boolean pvpEnabled) {
-        this.isPvpEnabled = pvpEnabled;
+    public void setFallDamageEnabled(boolean fallDamageEnabled) {
+        this.isFallDamageEnabled = fallDamageEnabled;
     }
 
     public boolean isGameTimePaused() {
@@ -465,6 +491,15 @@ public class WorldConfig {
 
     public void setObjectiveMarkersEnabled(boolean objectiveMarkersEnabled) {
         this.isObjectiveMarkersEnabled = objectiveMarkersEnabled;
+    }
+
+    @Nonnull
+    public Set<String> getDisabledFluidTickers() {
+        return this.disabledFluidTickers;
+    }
+
+    public void setDisabledFluidTickers(@Nonnull Set<String> disabledFluidTickers) {
+        this.disabledFluidTickers = disabledFluidTickers;
     }
 
     public IResourceStorageProvider getResourceStorageProvider() {

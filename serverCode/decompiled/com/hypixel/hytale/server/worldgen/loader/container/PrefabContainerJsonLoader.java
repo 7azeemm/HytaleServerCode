@@ -5,6 +5,8 @@ package com.hypixel.hytale.server.worldgen.loader.container;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.hypixel.hytale.builtin.worldgen.modifier.event.ModifyEvent;
+import com.hypixel.hytale.builtin.worldgen.modifier.event.ModifyEvents;
 import com.hypixel.hytale.common.map.IWeightedMap;
 import com.hypixel.hytale.procedurallib.json.JsonLoader;
 import com.hypixel.hytale.procedurallib.json.SeedString;
@@ -12,20 +14,27 @@ import com.hypixel.hytale.server.core.asset.type.environment.config.Environment;
 import com.hypixel.hytale.server.worldgen.SeedStringResource;
 import com.hypixel.hytale.server.worldgen.container.PrefabContainer;
 import com.hypixel.hytale.server.worldgen.loader.WorldGenPrefabSupplier;
+import com.hypixel.hytale.server.worldgen.loader.context.BiomeFileContext;
 import com.hypixel.hytale.server.worldgen.loader.context.FileLoadingContext;
+import com.hypixel.hytale.server.worldgen.loader.context.ZoneFileContext;
 import com.hypixel.hytale.server.worldgen.loader.prefab.PrefabPatternGeneratorJsonLoader;
 import com.hypixel.hytale.server.worldgen.loader.prefab.WeightedPrefabMapJsonLoader;
 import com.hypixel.hytale.server.worldgen.prefab.PrefabPatternGenerator;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import java.nio.file.Path;
 import javax.annotation.Nonnull;
 
 public class PrefabContainerJsonLoader
 extends JsonLoader<SeedStringResource, PrefabContainer> {
-    private final FileLoadingContext context;
+    @Nonnull
+    protected final BiomeFileContext biomeContext;
+    @Nonnull
+    protected final FileLoadingContext fileContext;
 
-    public PrefabContainerJsonLoader(@Nonnull SeedString<SeedStringResource> seed, Path dataFolder, JsonElement json, FileLoadingContext context) {
+    public PrefabContainerJsonLoader(@Nonnull SeedString<SeedStringResource> seed, Path dataFolder, JsonElement json, @Nonnull BiomeFileContext biomeContext) {
         super(seed.append(".PrefabContainer"), dataFolder, json);
-        this.context = context;
+        this.biomeContext = biomeContext;
+        this.fileContext = (FileLoadingContext)((ZoneFileContext)biomeContext.getParentContext()).getParentContext();
     }
 
     @Override
@@ -36,21 +45,22 @@ extends JsonLoader<SeedStringResource, PrefabContainer> {
 
     @Nonnull
     protected PrefabContainer.PrefabContainerEntry[] loadEntries() {
-        if (this.has("Entries")) {
-            JsonArray entryArray = this.get("Entries").getAsJsonArray();
-            PrefabContainer.PrefabContainerEntry[] entries = new PrefabContainer.PrefabContainerEntry[entryArray.size()];
-            for (int i = 0; i < entries.length; ++i) {
+        JsonArray prefabArray = this.mustGetArray("Entries", EMPTY_ARRAY);
+        try (ListPool.Resource<PrefabContainer.PrefabContainerEntry> entries = PrefabContainer.ENTRY_POOL.acquire();){
+            for (int i = 0; i < prefabArray.size(); ++i) {
                 try {
-                    entries[i] = new PrefabContainerEntryJsonLoader(this.seed.append("-" + i), this.dataFolder, entryArray.get(i), this.context).load();
+                    entries.add(new PrefabContainerEntryJsonLoader(this.seed.append("-" + i), this.dataFolder, prefabArray.get(i), this.fileContext).load());
                     continue;
                 }
                 catch (Throwable e) {
                     throw new Error(String.format("Failed to load prefab container entry #%s.", i), e);
                 }
             }
-            return entries;
+            ModifyEvent.SeedGenerator seed = new ModifyEvent.SeedGenerator(this.seed);
+            ModifyEvent.dispatch(ModifyEvents.BiomePrefabs.class, new ModifyEvents.BiomePrefabs(this.biomeContext, entries, content -> new PrefabContainerEntryJsonLoader(seed.next(), this.dataFolder, this.getOrLoad(content), this.fileContext).load()));
+            PrefabContainer.PrefabContainerEntry[] prefabContainerEntryArray = entries.toArray();
+            return prefabContainerEntryArray;
         }
-        return new PrefabContainer.PrefabContainerEntry[0];
     }
 
     public static interface Constants {

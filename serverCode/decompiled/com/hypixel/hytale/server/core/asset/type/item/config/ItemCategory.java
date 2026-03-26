@@ -12,6 +12,7 @@ import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
+import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.codec.codecs.EnumCodec;
 import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
 import com.hypixel.hytale.codec.validation.ValidatorCache;
@@ -28,21 +29,23 @@ import javax.annotation.Nonnull;
 public class ItemCategory
 implements JsonAssetWithMap<String, DefaultAssetMap<String, ItemCategory>>,
 NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
-    private static final AssetBuilderCodec.Builder<String, ItemCategory> CODEC_BUILDER = (AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(ItemCategory.class, ItemCategory::new, Codec.STRING, (itemCategory, k) -> {
+    private static final AssetBuilderCodec.Builder<String, ItemCategory> CODEC_BUILDER = (AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(ItemCategory.class, ItemCategory::new, Codec.STRING, (itemCategory, k) -> {
         itemCategory.id = k;
     }, itemCategory -> itemCategory.id, (asset, data) -> {
         asset.data = data;
-    }, asset -> asset.data).addField(new KeyedCodec<String>("Id", Codec.STRING), (itemCategory, s) -> {
+    }, asset -> asset.data).append(new KeyedCodec<String>("Id", Codec.STRING), (itemCategory, s) -> {
         itemCategory.id = s;
-    }, itemCategory -> itemCategory.id)).addField(new KeyedCodec<String>("Name", Codec.STRING), (itemCategory, s) -> {
+    }, itemCategory -> itemCategory.id).add()).append(new KeyedCodec<String>("Name", Codec.STRING), (itemCategory, s) -> {
         itemCategory.name = s;
-    }, itemCategory -> itemCategory.name)).append(new KeyedCodec<String>("Icon", Codec.STRING), (itemCategory, s) -> {
+    }, itemCategory -> itemCategory.name).add()).append(new KeyedCodec<String>("Icon", Codec.STRING), (itemCategory, s) -> {
         itemCategory.icon = s;
     }, itemCategory -> itemCategory.icon).addValidator(CommonAssetValidator.ICON_ITEM_CATEGORIES).add()).append(new KeyedCodec<ItemGridInfoDisplayMode>("InfoDisplayMode", new EnumCodec<ItemGridInfoDisplayMode>(ItemGridInfoDisplayMode.class), false, true), (itemCategory, s) -> {
         itemCategory.infoDisplayMode = s;
-    }, itemCategory -> itemCategory.infoDisplayMode).addValidator(Validators.nonNull()).add()).addField(new KeyedCodec<Integer>("Order", Codec.INTEGER), (itemCategory, s) -> {
+    }, itemCategory -> itemCategory.infoDisplayMode).addValidator(Validators.nonNull()).add()).append(new KeyedCodec<Integer>("Order", Codec.INTEGER), (itemCategory, s) -> {
         itemCategory.order = s;
-    }, itemCategory -> itemCategory.order)).afterDecode(itemCategory -> {
+    }, itemCategory -> itemCategory.order).add()).append(new KeyedCodec<T[]>("SubCategories", new ArrayCodec<SubCategoryDefinition>(SubCategoryDefinition.CODEC, SubCategoryDefinition[]::new)), (itemCategory, l) -> {
+        itemCategory.subCategories = l;
+    }, itemCategory -> itemCategory.subCategories).add()).afterDecode(itemCategory -> {
         if (itemCategory.children != null) {
             Arrays.sort(itemCategory.children, Comparator.comparingInt(value -> value.order));
         }
@@ -58,6 +61,7 @@ NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
     @Nonnull
     protected ItemGridInfoDisplayMode infoDisplayMode = ItemGridInfoDisplayMode.Tooltip;
     protected ItemCategory[] children;
+    protected SubCategoryDefinition[] subCategories;
     private SoftReference<com.hypixel.hytale.protocol.ItemCategory> cachedPacket;
 
     public static AssetStore<String, ItemCategory, DefaultAssetMap<String, ItemCategory>> getAssetStore() {
@@ -71,12 +75,13 @@ NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
         return ItemCategory.getAssetStore().getAssetMap();
     }
 
-    public ItemCategory(String id, String name, String icon, ItemGridInfoDisplayMode infoDisplayMode, ItemCategory[] children) {
+    public ItemCategory(String id, String name, String icon, ItemGridInfoDisplayMode infoDisplayMode, ItemCategory[] children, SubCategoryDefinition[] subCategories) {
         this.id = id;
         this.name = name;
         this.icon = icon;
         this.infoDisplayMode = infoDisplayMode;
         this.children = children;
+        this.subCategories = subCategories;
     }
 
     protected ItemCategory() {
@@ -98,6 +103,17 @@ NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
         packet.infoDisplayMode = this.infoDisplayMode;
         if (this.children != null && this.children.length > 0) {
             packet.children = ArrayUtil.copyAndMutate(this.children, ItemCategory::toPacket, com.hypixel.hytale.protocol.ItemCategory[]::new);
+        }
+        if (this.subCategories != null && this.subCategories.length > 0) {
+            packet.subCategories = new com.hypixel.hytale.protocol.SubCategoryDefinition[this.subCategories.length];
+            for (int i = 0; i < this.subCategories.length; ++i) {
+                com.hypixel.hytale.protocol.SubCategoryDefinition def = new com.hypixel.hytale.protocol.SubCategoryDefinition();
+                def.id = this.subCategories[i].id;
+                def.name = this.subCategories[i].name;
+                def.description = this.subCategories[i].description;
+                def.order = this.subCategories[i].order;
+                packet.subCategories[i] = def;
+            }
         }
         this.cachedPacket = new SoftReference<com.hypixel.hytale.protocol.ItemCategory>(packet);
         return packet;
@@ -128,9 +144,13 @@ NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
         return this.children;
     }
 
+    public SubCategoryDefinition[] getSubCategories() {
+        return this.subCategories;
+    }
+
     @Nonnull
     public String toString() {
-        return "ItemCategory{id='" + this.id + "', name='" + this.name + "', icon='" + this.icon + "', order=" + this.order + ", infoDisplayMode='" + String.valueOf((Object)this.infoDisplayMode) + "', children=" + Arrays.toString(this.children) + "}";
+        return "ItemCategory{id='" + this.id + "', name='" + this.name + "', icon='" + this.icon + "', order=" + this.order + ", infoDisplayMode='" + String.valueOf((Object)this.infoDisplayMode) + "', children=" + Arrays.toString(this.children) + ", subCategories" + Arrays.toString(this.subCategories) + "}";
     }
 
     static {
@@ -138,6 +158,22 @@ NetworkSerializable<com.hypixel.hytale.protocol.ItemCategory> {
             itemCategory.children = l;
         }, itemCategory -> itemCategory.children);
         VALIDATOR_CACHE = new ValidatorCache(new AssetKeyValidator(ItemCategory::getAssetStore));
+    }
+
+    public static class SubCategoryDefinition {
+        public static final Codec<SubCategoryDefinition> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(SubCategoryDefinition.class, SubCategoryDefinition::new).append(new KeyedCodec<String>("Id", Codec.STRING), (s, v) -> {
+            s.id = v;
+        }, s -> s.id).add()).append(new KeyedCodec<String>("Name", Codec.STRING), (s, v) -> {
+            s.name = v;
+        }, s -> s.name).add()).append(new KeyedCodec<String>("Description", Codec.STRING), (s, v) -> {
+            s.description = v;
+        }, s -> s.description).add()).append(new KeyedCodec<Integer>("Order", Codec.INTEGER), (s, v) -> {
+            s.order = v;
+        }, s -> s.order).add()).build();
+        protected String id;
+        protected String name;
+        protected String description;
+        protected int order;
     }
 }
 

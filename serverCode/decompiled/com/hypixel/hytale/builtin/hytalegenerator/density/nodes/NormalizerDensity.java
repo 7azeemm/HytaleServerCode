@@ -4,7 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.density.nodes;
 
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
-import com.hypixel.hytale.builtin.hytalegenerator.framework.math.Normalizer;
+import com.hypixel.hytale.builtin.hytalegenerator.math.Normalizer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 

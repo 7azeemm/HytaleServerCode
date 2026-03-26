@@ -20,11 +20,16 @@ extends IChunkBounds {
     }
 
     default public int randomY(@Nonnull Random random) {
-        return random.nextInt(this.getHighBoundY() - this.getLowBoundY()) + this.getLowBoundY();
+        return IChunkBounds.getRandomOffset(this.getLowBoundY(), this.getHighBoundY(), random);
     }
 
     default public double fractionY(double d) {
         return (double)(this.getHighBoundY() - this.getLowBoundY()) * d + (double)this.getLowBoundY();
+    }
+
+    @Override
+    default public boolean isValid() {
+        return IChunkBounds.super.isValid() && this.getHighBoundY() > this.getLowBoundY();
     }
 }
 

@@ -63,11 +63,9 @@ implements ItemContainerWindow {
             return;
         }
         SortItemsAction sortAction = (SortItemsAction)action;
-        SortType sortType = SortType.fromPacket(sortAction.sortType);
         Player playerComponent = store.getComponent(ref, Player.getComponentType());
         assert (playerComponent != null);
-        playerComponent.getInventory().setSortType(sortType);
-        this.itemContainer.sortItems(sortType);
+        this.itemContainer.sortItems(SortType.TYPE);
         this.invalidate();
     }
 }

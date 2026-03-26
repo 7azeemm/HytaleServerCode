@@ -4,17 +4,10 @@
 package com.hypixel.hytale.server.core.modules;
 
 import com.hypixel.hytale.assetstore.event.LoadedAssetsEvent;
-import com.hypixel.hytale.codec.KeyedCodec;
-import com.hypixel.hytale.codec.builder.BuilderCodec;
-import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
-import com.hypixel.hytale.codec.store.StoredCodec;
 import com.hypixel.hytale.common.plugin.PluginManifest;
 import com.hypixel.hytale.component.AddReason;
-import com.hypixel.hytale.component.Archetype;
-import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Holder;
-import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.dependency.Dependency;
@@ -22,8 +15,6 @@ import com.hypixel.hytale.component.dependency.Order;
 import com.hypixel.hytale.component.dependency.RootDependency;
 import com.hypixel.hytale.component.dependency.SystemDependency;
 import com.hypixel.hytale.component.query.Query;
-import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.modules.migrations.ChunkColumnMigrationSystem;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
@@ -39,12 +30,9 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.ChunkSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.blockpositions.BlockPositionProvider;
 import com.hypixel.hytale.server.core.universe.world.chunk.systems.ChunkSystems;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.worldmap.WorldMapManager;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Set;
-import java.util.logging.Level;
 import javax.annotation.Nonnull;
 
 public class LegacyModule
@@ -97,8 +85,6 @@ extends JavaPlugin {
         this.getChunkStoreRegistry().registerSystem(new BlockComponentChunk.BlockComponentChunkLoadingSystem());
         this.getChunkStoreRegistry().registerSystem(new BlockComponentChunk.LoadBlockComponentPacketSystem(this.blockComponentChunkComponentType));
         this.getChunkStoreRegistry().registerSystem(new BlockComponentChunk.UnloadBlockComponentPacketSystem(this.blockComponentChunkComponentType));
-        ComponentType<ChunkStore, LegacyBlockStateChunk> legacyBlockStateComponentType = this.getChunkStoreRegistry().registerComponent(LegacyBlockStateChunk.class, "BlockStateChunk", LegacyBlockStateChunk.CODEC, true);
-        this.getChunkStoreRegistry().registerSystem(new MigrateLegacyBlockStateChunkSystem(legacyBlockStateComponentType, this.blockComponentChunkComponentType));
         this.getEventRegistry().register(LoadedAssetsEvent.class, GameplayConfig.class, event -> WorldMapManager.sendSettingsToAllWorlds());
     }
 
@@ -181,82 +167,6 @@ extends JavaPlugin {
         @Nonnull
         public Set<Dependency<ChunkStore>> getDependencies() {
             return this.DEPENDENCIES;
-        }
-    }
-
-    private static class LegacyBlockStateChunk
-    implements Component<ChunkStore> {
-        public static final BuilderCodec<LegacyBlockStateChunk> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(LegacyBlockStateChunk.class, LegacyBlockStateChunk::new).addField(new KeyedCodec<T[]>("States", new ArrayCodec<Holder<ChunkStore>>(new StoredCodec<Holder<ChunkStore>>(ChunkStore.HOLDER_CODEC_KEY), Holder[]::new)), (entityChunk, array) -> {
-            entityChunk.holders = array;
-        }, entityChunk -> {
-            throw new UnsupportedOperationException("Serialise is not allowed for BlockStateChunk");
-        })).build();
-        public Holder<ChunkStore>[] holders;
-
-        public LegacyBlockStateChunk() {
-        }
-
-        public LegacyBlockStateChunk(Holder<ChunkStore>[] holders) {
-            this.holders = holders;
-        }
-
-        @Override
-        @Nonnull
-        public Component<ChunkStore> clone() {
-            Holder[] newHolders = new Holder[this.holders.length];
-            for (int i = 0; i < this.holders.length; ++i) {
-                newHolders[i] = this.holders[i].clone();
-            }
-            return new LegacyBlockStateChunk(newHolders);
-        }
-    }
-
-    private static class MigrateLegacyBlockStateChunkSystem
-    extends ChunkColumnMigrationSystem {
-        private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
-        private final ComponentType<ChunkStore, LegacyBlockStateChunk> legacyComponentType;
-        private final ComponentType<ChunkStore, BlockComponentChunk> componentType;
-        private final Archetype<ChunkStore> archetype;
-
-        public MigrateLegacyBlockStateChunkSystem(ComponentType<ChunkStore, LegacyBlockStateChunk> legacyComponentType, ComponentType<ChunkStore, BlockComponentChunk> componentType) {
-            this.legacyComponentType = legacyComponentType;
-            this.componentType = componentType;
-            this.archetype = Archetype.of(legacyComponentType, WorldChunk.getComponentType());
-        }
-
-        @Override
-        public Query<ChunkStore> getQuery() {
-            return this.archetype;
-        }
-
-        @Override
-        public void onEntityAdd(@Nonnull Holder<ChunkStore> holder, @Nonnull AddReason reason, @Nonnull Store<ChunkStore> store) {
-            LegacyBlockStateChunk component = holder.getComponent(this.legacyComponentType);
-            assert (component != null);
-            holder.removeComponent(this.legacyComponentType);
-            Int2ObjectOpenHashMap<Holder<ChunkStore>> holders = new Int2ObjectOpenHashMap<Holder<ChunkStore>>();
-            for (Holder<ChunkStore> blockComponentHolder : component.holders) {
-                BlockState blockState = BlockState.getBlockState(blockComponentHolder);
-                Vector3i position = blockState.__internal_getPosition();
-                if (position == null) {
-                    LOGGER.at(Level.SEVERE).log("Skipping migration for BlockState with null position!", blockComponentHolder);
-                    continue;
-                }
-                holders.put(blockState.getIndex(), blockComponentHolder);
-            }
-            BlockComponentChunk blockComponentChunk = new BlockComponentChunk(holders, new Int2ObjectOpenHashMap<Ref<ChunkStore>>());
-            holder.addComponent(this.componentType, blockComponentChunk);
-            holder.getComponent(WorldChunk.getComponentType()).setBlockComponentChunk(blockComponentChunk);
-        }
-
-        @Override
-        public void onEntityRemoved(@Nonnull Holder<ChunkStore> holder, @Nonnull RemoveReason reason, @Nonnull Store<ChunkStore> store) {
-        }
-
-        @Override
-        @Nonnull
-        public Set<Dependency<ChunkStore>> getDependencies() {
-            return RootDependency.firstSet();
         }
     }
 }

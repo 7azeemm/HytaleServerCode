@@ -14,9 +14,9 @@ import javax.annotation.Nonnull;
 
 public class BoolArg
 extends ToolArg<Boolean> {
-    public static final BuilderCodec<BoolArg> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(BoolArg.class, BoolArg::new, ToolArg.DEFAULT_CODEC).addField(new KeyedCodec<Boolean>("Default", Codec.BOOLEAN), (boolArg, d) -> {
+    public static final BuilderCodec<BoolArg> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(BoolArg.class, BoolArg::new, ToolArg.DEFAULT_CODEC).append(new KeyedCodec<Boolean>("Default", Codec.BOOLEAN), (boolArg, d) -> {
         boolArg.value = d;
-    }, boolArg -> (Boolean)boolArg.value)).build();
+    }, boolArg -> (Boolean)boolArg.value).add()).build();
 
     public BoolArg() {
     }

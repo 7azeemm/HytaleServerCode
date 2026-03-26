@@ -12,6 +12,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -46,7 +47,11 @@ public class HotbarManager {
             return;
         }
         this.currentlyLoadingHotbar = true;
-        this.savedHotbars[hotbarIndex] = playerComponent.getInventory().getHotbar().clone();
+        InventoryComponent.Hotbar hotbarComponent = componentAccessor.getComponent(playerRef, InventoryComponent.Hotbar.getComponentType());
+        if (hotbarComponent == null) {
+            return;
+        }
+        this.savedHotbars[hotbarIndex] = hotbarComponent.getInventory().clone();
         this.currentHotbar = hotbarIndex;
         this.currentlyLoadingHotbar = false;
     }
@@ -65,7 +70,11 @@ public class HotbarManager {
             return;
         }
         this.currentlyLoadingHotbar = true;
-        ItemContainer hotbar = playerComponent.getInventory().getHotbar();
+        InventoryComponent.Hotbar hotbarComponent = componentAccessor.getComponent(playerRef, InventoryComponent.Hotbar.getComponentType());
+        if (hotbarComponent == null) {
+            return;
+        }
+        ItemContainer hotbar = hotbarComponent.getInventory();
         hotbar.removeAllItemStacks();
         if (this.savedHotbars[hotbarIndex] != null) {
             ItemContainer savedHotbar = this.savedHotbars[hotbarIndex].clone();

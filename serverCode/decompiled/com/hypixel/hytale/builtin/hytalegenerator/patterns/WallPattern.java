@@ -3,7 +3,7 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.patterns;
 
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3i;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.codecs.EnumCodec;
@@ -21,7 +21,8 @@ extends Pattern {
     @Nonnull
     private final List<WallDirection> directions;
     private final boolean matchAll;
-    private final SpaceSize readSpaceSize;
+    @Nonnull
+    private final Bounds3i bounds_voxelGrid;
     @Nonnull
     private final Vector3i rWallPosition;
     @Nonnull
@@ -34,20 +35,28 @@ extends Pattern {
         this.matchAll = matchAll;
         this.rWallPosition = new Vector3i();
         this.rWallContext = new Pattern.Context();
-        SpaceSize originSpace = originPattern.readSpace();
-        SpaceSize wallSpace = wallPattern.readSpace();
-        SpaceSize totalSpace = originSpace;
+        this.bounds_voxelGrid = originPattern.getBounds_voxelGrid().clone();
+        Bounds3i wallBounds_voxelGrid = wallPattern.getBounds_voxelGrid().clone();
         for (WallDirection d : this.directions) {
-            SpaceSize directionedWallSpace = switch (d.ordinal()) {
-                default -> throw new MatchException(null, null);
-                case 2 -> wallSpace.clone().moveBy(new Vector3i(1, 0, 0));
-                case 3 -> wallSpace.clone().moveBy(new Vector3i(-1, 0, 0));
-                case 0 -> wallSpace.clone().moveBy(new Vector3i(0, 0, -1));
-                case 1 -> wallSpace.clone().moveBy(new Vector3i(0, 0, 1));
-            };
-            totalSpace = SpaceSize.merge(totalSpace, directionedWallSpace);
+            switch (d.ordinal()) {
+                case 2: {
+                    wallBounds_voxelGrid.clone().offset(new Vector3i(1, 0, 0));
+                    break;
+                }
+                case 3: {
+                    wallBounds_voxelGrid.clone().offset(new Vector3i(-1, 0, 0));
+                    break;
+                }
+                case 0: {
+                    wallBounds_voxelGrid.clone().offset(new Vector3i(0, 0, -1));
+                    break;
+                }
+                case 1: {
+                    wallBounds_voxelGrid.clone().offset(new Vector3i(0, 0, 1));
+                }
+            }
+            this.bounds_voxelGrid.encompass(wallBounds_voxelGrid);
         }
-        this.readSpaceSize = totalSpace;
     }
 
     @Override
@@ -89,8 +98,8 @@ extends Pattern {
 
     @Override
     @Nonnull
-    public SpaceSize readSpace() {
-        return this.readSpaceSize.clone();
+    public Bounds3i getBounds_voxelGrid() {
+        return this.bounds_voxelGrid;
     }
 
     public static enum WallDirection {

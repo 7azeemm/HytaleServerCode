@@ -278,6 +278,8 @@ implements Component<ChunkStore> {
         }
         ObjectArrayList<CoopResident> residentsToRemove = new ObjectArrayList<CoopResident>();
         for (CoopResident resident : this.residents) {
+            CapturedNPCMetadata metadata;
+            NPCEntity npcComponent;
             boolean deployed = resident.getDeployedToWorld();
             PersistentRef entityUuid = resident.getPersistentRef();
             if (!deployed && entityUuid == null) continue;
@@ -299,6 +301,10 @@ implements Component<ChunkStore> {
             if (!this.getCoopAcceptsNPC(resident.metadata.getNpcNameKey())) {
                 residentsToRemove.add(resident);
                 continue;
+            }
+            ComponentType<EntityStore, NPCEntity> npcComponentType = NPCEntity.getComponentType();
+            if (npcComponentType != null && resident.persistentRef != null && (npcComponent = store.getComponent(entityRef, npcComponentType)) != null && !resident.getMetadata().getNpcNameKey().equals(npcComponent.getRoleName()) && (metadata = FarmingUtil.generateCapturedNPCMetadata(store, entityRef, npcComponent.getRoleName())) != null) {
+                resident.metadata = metadata;
             }
             coopResidentComponent.setMarkedForDespawn(true);
             resident.setPersistentRef(null);

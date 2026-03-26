@@ -16,11 +16,11 @@ import javax.annotation.Nonnull;
 public class BlockArg
 extends ToolArg<BlockPattern> {
     public static final BlockArg[] EMPTY_ARRAY = new BlockArg[0];
-    public static final BuilderCodec<BlockArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(BlockArg.class, BlockArg::new, ToolArg.DEFAULT_CODEC).addField(new KeyedCodec<BlockPattern>("Default", BlockPattern.CODEC), (blockArg, d) -> {
+    public static final BuilderCodec<BlockArg> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(BlockArg.class, BlockArg::new, ToolArg.DEFAULT_CODEC).append(new KeyedCodec<BlockPattern>("Default", BlockPattern.CODEC), (blockArg, d) -> {
         blockArg.value = d;
-    }, blockArg -> (BlockPattern)blockArg.value)).addField(new KeyedCodec<Boolean>("AllowPattern", Codec.BOOLEAN), (blockArg, d) -> {
+    }, blockArg -> (BlockPattern)blockArg.value).add()).append(new KeyedCodec<Boolean>("AllowPattern", Codec.BOOLEAN), (blockArg, d) -> {
         blockArg.allowPattern = d;
-    }, blockArg -> blockArg.allowPattern)).build();
+    }, blockArg -> blockArg.allowPattern).add()).build();
     protected boolean allowPattern;
 
     public BlockArg() {

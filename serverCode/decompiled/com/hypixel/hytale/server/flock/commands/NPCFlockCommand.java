@@ -24,7 +24,7 @@ import com.hypixel.hytale.server.flock.FlockPlugin;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import com.hypixel.hytale.server.npc.util.NPCPhysicsMath;
-import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
@@ -56,18 +56,18 @@ extends AbstractCommandCollection {
         double y = position.getY();
         double z = position.getZ();
         SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(NPCPlugin.get().getNpcSpatialResource());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         spatialResource.getSpatialStructure().collect(position, 8.0, results);
         ComponentType<EntityStore, NPCEntity> npcComponentType = NPCEntity.getComponentType();
         assert (npcComponentType != null);
         int count = 0;
-        for (Ref ref : results) {
-            NPCEntity targetNpcComponent = store.getComponent(ref, npcComponentType);
+        for (Ref targetRef : results) {
+            NPCEntity targetNpcComponent = store.getComponent(targetRef, npcComponentType);
             assert (targetNpcComponent != null);
-            TransformComponent entityTransformComponent = store.getComponent(ref, transformComponentType);
+            TransformComponent entityTransformComponent = store.getComponent(targetRef, transformComponentType);
             assert (entityTransformComponent != null);
             Vector3d entityPosition = entityTransformComponent.getPosition();
-            if (!(Math.abs(entityPosition.getY() - y) < 2.0) || !NPCPhysicsMath.inViewSector(x, z, lookYaw, 0.5235988f, entityPosition.getX(), entityPosition.getZ()) || !predicate.test(ref, targetNpcComponent)) continue;
+            if (!(Math.abs(entityPosition.getY() - y) < 2.0) || !NPCPhysicsMath.inViewSector(x, z, lookYaw, 0.5235988f, entityPosition.getX(), entityPosition.getZ()) || !predicate.test(targetRef, targetNpcComponent)) continue;
             ++count;
         }
         return count;
@@ -86,13 +86,13 @@ extends AbstractCommandCollection {
         double y = position.getY();
         double z = position.getZ();
         SpatialResource<Ref<EntityStore>, EntityStore> spatialResource = store.getResource(NPCPlugin.get().getNpcSpatialResource());
-        ObjectList results = SpatialResource.getThreadLocalReferenceList();
+        List results = SpatialResource.getThreadLocalReferenceList();
         spatialResource.getSpatialStructure().ordered(position, 8.0, results);
-        for (Ref ref : results) {
-            TransformComponent entityTransformComponent = store.getComponent(ref, transformComponentType);
+        for (Ref entityRef : results) {
+            TransformComponent entityTransformComponent = store.getComponent(entityRef, transformComponentType);
             assert (entityTransformComponent != null);
             Vector3d entityPosition = entityTransformComponent.getPosition();
-            if (!(Math.abs(entityPosition.getY() - y) < 2.0) || !NPCPhysicsMath.inViewSector(x, z, lookYaw, 0.5235988f, entityPosition.getX(), entityPosition.getZ()) || !predicate.test(ref)) continue;
+            if (!(Math.abs(entityPosition.getY() - y) < 2.0) || !NPCPhysicsMath.inViewSector(x, z, lookYaw, 0.5235988f, entityPosition.getX(), entityPosition.getZ()) || !predicate.test(entityRef)) continue;
             return true;
         }
         return false;

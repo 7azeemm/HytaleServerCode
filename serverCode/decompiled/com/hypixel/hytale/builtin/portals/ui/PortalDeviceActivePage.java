@@ -54,6 +54,12 @@ extends InteractiveCustomUIPage<Data> {
             return;
         }
         commandBuilder.append("Pages/PortalDeviceActive.ui");
+        if (state == Error.PORTAL_LOADING) {
+            commandBuilder.set("#Error.Visible", true);
+            commandBuilder.set("#ErrorTitle.Visible", false);
+            commandBuilder.set("#ErrorLabel.Text", Message.translation("server.customUI.portalDevice.loading"));
+            return;
+        }
         if (!(state instanceof PortalIsOpen)) {
             commandBuilder.set("#Error.Visible", true);
             commandBuilder.set("#ErrorLabel.Text", Message.translation("server.customUI.portalDevice.unknownError").param("state", state.toString()));
@@ -118,6 +124,9 @@ extends InteractiveCustomUIPage<Data> {
         if (portalDevice == null) {
             return Error.INVALID_BLOCK;
         }
+        if (portalDevice.isLoadingWorld()) {
+            return Error.PORTAL_LOADING;
+        }
         World destinationWorld = portalDevice.getDestinationWorld();
         if (destinationWorld == null) {
             return Error.INVALID_WORLD;
@@ -153,7 +162,8 @@ extends InteractiveCustomUIPage<Data> {
         INVALID_BLOCK,
         INVALID_WORLD,
         DESTINATION_NOT_FRAGMENT,
-        INACTIVE_PORTAL;
+        INACTIVE_PORTAL,
+        PORTAL_LOADING;
 
     }
 

@@ -6,6 +6,7 @@ package com.hypixel.hytale.storage;
 import com.github.luben.zstd.Zstd;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.metrics.MetricsRegistry;
+import com.hypixel.hytale.sneakythrow.SneakyThrow;
 import com.hypixel.hytale.storage.IndexedStorageFile_v0;
 import com.hypixel.hytale.unsafe.UnsafeUtil;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -41,7 +42,7 @@ implements Closeable {
         catch (IOException e) {
             return -1L;
         }
-    }, Codec.LONG).register("CompressionLevel", file -> file.getCompressionLevel(), Codec.INTEGER).register("BlobCount", file -> file.getBlobCount(), Codec.INTEGER).register("UsedBlobCount", file -> file.keys().size(), Codec.INTEGER).register("SegmentSize", file -> file.segmentSize(), Codec.INTEGER).register("SegmentCount", file -> file.segmentCount(), Codec.INTEGER);
+    }, Codec.LONG).register("CompressionLevel", file -> file.getCompressionLevel(), Codec.INTEGER).register("BlobCount", file -> file.getBlobCount(), Codec.INTEGER).register("UsedBlobCount", SneakyThrow.sneakyFunction(file -> file.keys().size()), Codec.INTEGER).register("SegmentSize", file -> file.segmentSize(), Codec.INTEGER).register("SegmentCount", file -> file.segmentCount(), Codec.INTEGER);
     public static final String MAGIC_STRING = "HytaleIndexedStorage";
     public static final int VERSION = 1;
     public static final int DEFAULT_BLOB_COUNT = 1024;
@@ -74,6 +75,7 @@ implements Closeable {
     private int blobCount;
     private int segmentSize;
     private StampedLock[] indexLocks;
+    @Nullable
     private MappedByteBuffer mappedBlobIndexes;
     private final StampedLock segmentLocksLock = new StampedLock();
     private StampedLock[] segmentLocks = EMPTY_STAMPED_LOCKS;
@@ -244,7 +246,43 @@ implements Closeable {
         for (int i = 0; i < this.blobCount; ++i) {
             this.indexLocks[i] = new StampedLock();
         }
-        this.mappedBlobIndexes = this.fileChannel.map(FileChannel.MapMode.READ_WRITE, HEADER_LENGTH, (long)this.blobCount * 4L);
+        try {
+            this.mappedBlobIndexes = this.fileChannel.map(FileChannel.MapMode.READ_WRITE, HEADER_LENGTH, (long)this.blobCount * 4L);
+        }
+        catch (UnsupportedOperationException e) {
+            this.mappedBlobIndexes = null;
+        }
+    }
+
+    protected int getBlobIndex(int blobIndex) throws IOException {
+        int indexPos = blobIndex * 4;
+        if (this.mappedBlobIndexes == null) {
+            ByteBuffer buf = IndexedStorageFile.getTempBuffer(4);
+            if (this.fileChannel.read(buf, HEADER_LENGTH + indexPos) != 4) {
+                throw new IllegalStateException();
+            }
+            return buf.getInt(0);
+        }
+        return this.mappedBlobIndexes.getInt(indexPos);
+    }
+
+    protected void putBlobIndex(int blobIndex, int segmentIndex) throws IOException {
+        int indexPos = blobIndex * 4;
+        if (this.mappedBlobIndexes == null) {
+            ByteBuffer buf = IndexedStorageFile.getTempBuffer(4);
+            buf.putInt(0, segmentIndex);
+            if (this.fileChannel.write(buf, HEADER_LENGTH + indexPos) != 4) {
+                throw new IllegalStateException();
+            }
+            if (this.flushOnWrite) {
+                this.fileChannel.force(false);
+            }
+            return;
+        }
+        this.mappedBlobIndexes.putInt(indexPos, segmentIndex);
+        if (this.flushOnWrite) {
+            this.mappedBlobIndexes.force(indexPos, 4);
+        }
     }
 
     /*
@@ -256,10 +294,9 @@ implements Closeable {
             for (int blobIndex = 0; blobIndex < this.blobCount; ++blobIndex) {
                 int compressedLength;
                 int firstSegmentIndex;
-                int indexPos = blobIndex * 4;
                 long segmentStamp = this.indexLocks[blobIndex].readLock();
                 try {
-                    firstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+                    firstSegmentIndex = this.getBlobIndex(blobIndex);
                     if (firstSegmentIndex == 0) {
                         compressedLength = 0;
                     } else {
@@ -316,13 +353,12 @@ implements Closeable {
      * WARNING - Removed try catching itself - possible behaviour change.
      */
     @Nonnull
-    public IntList keys() {
+    public IntList keys() throws IOException {
         IntArrayList list = new IntArrayList(this.blobCount);
         for (int blobIndex = 0; blobIndex < this.blobCount; ++blobIndex) {
-            int indexPos = blobIndex * 4;
             StampedLock lock = this.indexLocks[blobIndex];
             long stamp = lock.tryOptimisticRead();
-            int segmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+            int segmentIndex = this.getBlobIndex(blobIndex);
             if (lock.validate(stamp)) {
                 if (segmentIndex == 0) continue;
                 list.add(blobIndex);
@@ -330,7 +366,7 @@ implements Closeable {
             }
             stamp = lock.readLock();
             try {
-                if (this.mappedBlobIndexes.getInt(indexPos) == 0) continue;
+                if (this.getBlobIndex(blobIndex) == 0) continue;
                 list.add(blobIndex);
                 continue;
             }
@@ -348,10 +384,9 @@ implements Closeable {
         if (blobIndex < 0 || blobIndex >= this.blobCount) {
             throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
         }
-        int indexPos = blobIndex * 4;
         long stamp = this.indexLocks[blobIndex].readLock();
         try {
-            int firstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+            int firstSegmentIndex = this.getBlobIndex(blobIndex);
             if (firstSegmentIndex == 0) {
                 int n = 0;
                 return n;
@@ -372,10 +407,9 @@ implements Closeable {
         if (blobIndex < 0 || blobIndex >= this.blobCount) {
             throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
         }
-        int indexPos = blobIndex * 4;
         long stamp = this.indexLocks[blobIndex].readLock();
         try {
-            int firstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+            int firstSegmentIndex = this.getBlobIndex(blobIndex);
             if (firstSegmentIndex == 0) {
                 int n = 0;
                 return n;
@@ -399,10 +433,9 @@ implements Closeable {
         if (blobIndex < 0 || blobIndex >= this.blobCount) {
             throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
         }
-        int indexPos = blobIndex * 4;
         long stamp = this.indexLocks[blobIndex].readLock();
         try {
-            int firstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+            int firstSegmentIndex = this.getBlobIndex(blobIndex);
             if (firstSegmentIndex == 0) {
                 ByteBuffer byteBuffer = null;
                 return byteBuffer;
@@ -428,10 +461,9 @@ implements Closeable {
         if (blobIndex < 0 || blobIndex >= this.blobCount) {
             throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
         }
-        int indexPos = blobIndex * 4;
         long stamp = this.indexLocks[blobIndex].readLock();
         try {
-            int firstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+            int firstSegmentIndex = this.getBlobIndex(blobIndex);
             if (firstSegmentIndex == 0) {
                 return;
             }
@@ -493,7 +525,7 @@ implements Closeable {
      * WARNING - Removed try catching itself - possible behaviour change.
      */
     public void writeBlob(int blobIndex, @Nonnull ByteBuffer src) throws IOException {
-        block17: {
+        block16: {
             int compressedLength;
             if (blobIndex < 0 || blobIndex >= this.blobCount) {
                 throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
@@ -521,11 +553,10 @@ implements Closeable {
             dest.putInt(COMPRESSED_LENGTH_OFFSET, compressedLength);
             dest.limit(dest.position());
             dest.position(0);
-            int indexPos = blobIndex * 4;
             long stamp = this.indexLocks[blobIndex].writeLock();
             try {
                 int oldSegmentLength = 0;
-                int oldFirstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
+                int oldFirstSegmentIndex = this.getBlobIndex(blobIndex);
                 if (oldFirstSegmentIndex != 0) {
                     ByteBuffer blobHeaderBuffer = this.readBlobHeader(oldFirstSegmentIndex);
                     int oldCompressedLength = blobHeaderBuffer.getInt(COMPRESSED_LENGTH_OFFSET);
@@ -535,11 +566,8 @@ implements Closeable {
                 if (this.flushOnWrite) {
                     this.fileChannel.force(false);
                 }
-                this.mappedBlobIndexes.putInt(indexPos, firstSegmentIndex);
-                if (this.flushOnWrite) {
-                    this.mappedBlobIndexes.force(indexPos, 4);
-                }
-                if (oldSegmentLength <= 0) break block17;
+                this.putBlobIndex(blobIndex, firstSegmentIndex);
+                if (oldSegmentLength <= 0) break block16;
                 long usedSegmentsStamp = this.usedSegmentsLock.writeLock();
                 try {
                     this.usedSegments.clear(oldFirstSegmentIndex, oldFirstSegmentIndex + oldSegmentLength);
@@ -558,22 +586,18 @@ implements Closeable {
      * WARNING - Removed try catching itself - possible behaviour change.
      */
     public void removeBlob(int blobIndex) throws IOException {
-        block8: {
+        block7: {
             if (blobIndex < 0 || blobIndex >= this.blobCount) {
                 throw new IndexOutOfBoundsException("Index out of range: " + blobIndex + " blobCount: " + this.blobCount);
             }
-            int indexPos = blobIndex * 4;
             long stamp = this.indexLocks[blobIndex].writeLock();
             try {
-                int oldFirstSegmentIndex = this.mappedBlobIndexes.getInt(indexPos);
-                if (oldFirstSegmentIndex == 0) break block8;
+                int oldFirstSegmentIndex = this.getBlobIndex(blobIndex);
+                if (oldFirstSegmentIndex == 0) break block7;
                 ByteBuffer blobHeaderBuffer = this.readBlobHeader(oldFirstSegmentIndex);
                 int oldCompressedLength = blobHeaderBuffer.getInt(COMPRESSED_LENGTH_OFFSET);
                 int oldSegmentLength = this.requiredSegments(BLOB_HEADER_LENGTH + oldCompressedLength);
-                this.mappedBlobIndexes.putInt(indexPos, 0);
-                if (this.flushOnWrite) {
-                    this.mappedBlobIndexes.force(indexPos, 4);
-                }
+                this.putBlobIndex(blobIndex, 0);
                 long usedSegmentsStamp = this.usedSegmentsLock.writeLock();
                 try {
                     this.usedSegments.clear(oldFirstSegmentIndex, oldFirstSegmentIndex + oldSegmentLength);
@@ -725,13 +749,15 @@ implements Closeable {
 
     public void force(boolean metaData) throws IOException {
         this.fileChannel.force(metaData);
-        this.mappedBlobIndexes.force();
+        if (this.mappedBlobIndexes != null) {
+            this.mappedBlobIndexes.force();
+        }
     }
 
     @Override
     public void close() throws IOException {
         this.fileChannel.close();
-        if (UnsafeUtil.UNSAFE != null) {
+        if (UnsafeUtil.UNSAFE != null && this.mappedBlobIndexes != null) {
             UnsafeUtil.UNSAFE.invokeCleaner(this.mappedBlobIndexes);
         }
         this.mappedBlobIndexes = null;

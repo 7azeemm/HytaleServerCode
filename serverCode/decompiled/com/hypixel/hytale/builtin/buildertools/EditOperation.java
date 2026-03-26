@@ -3,14 +3,26 @@
  */
 package com.hypixel.hytale.builtin.buildertools;
 
+import com.hypixel.hytale.builtin.buildertools.snapshot.EntityTransformSnapshot;
 import com.hypixel.hytale.builtin.buildertools.utils.Material;
+import com.hypixel.hytale.component.ComponentAccessor;
+import com.hypixel.hytale.component.Holder;
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.RemoveReason;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.util.MathUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.prefab.selection.mask.BlockMask;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.LocalCachedChunkAccessor;
 import com.hypixel.hytale.server.core.universe.world.accessor.OverridableChunkAccessor;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class EditOperation {
@@ -21,12 +33,17 @@ public class EditOperation {
     private final BlockSelection before;
     @Nonnull
     private final BlockSelection after;
+    @Nonnull
+    private final World world;
     private final Vector3i min;
     private final Vector3i max;
+    private final List<Ref<EntityStore>> spawnedEntityRefs = new ReferenceArrayList<Ref<EntityStore>>();
+    private final List<EntityTransformSnapshot> movedEntitySnapshots = new ArrayList<EntityTransformSnapshot>();
 
     public EditOperation(@Nonnull World world, int x, int y, int z, int editRange, Vector3i min, Vector3i max, BlockMask blockMask) {
         this.blockMask = blockMask;
         this.accessor = LocalCachedChunkAccessor.atWorldCoords(world, x, z, editRange);
+        this.world = world;
         this.min = min;
         this.max = max;
         this.before = new BlockSelection();
@@ -117,6 +134,56 @@ public class EditOperation {
             return this.setFluid(x, y, z, material.getFluidId(), material.getFluidLevel());
         }
         return this.setBlock(x, y, z, material.getBlockId(), material.getRotation());
+    }
+
+    public boolean setTint(int x, int z, int color, double opacity) {
+        if (!this.before.hasTintAtWorldPos(x, z)) {
+            long chunkIdx = ChunkUtil.indexChunkFromBlock(x, z);
+            Object chunk = this.world.getNonTickingChunk(chunkIdx);
+            int beforeColor = ((WorldChunk)chunk).getBlockChunk().getTint(x, z);
+            int r = (int)MathUtil.lerp((double)(beforeColor >> 16 & 0xFF), (double)(color >> 16 & 0xFF), 1.0 - opacity);
+            int g = (int)MathUtil.lerp((double)(beforeColor >> 8 & 0xFF), (double)(color >> 8 & 0xFF), 1.0 - opacity);
+            int b = (int)MathUtil.lerp((double)(beforeColor & 0xFF), (double)(color & 0xFF), 1.0 - opacity);
+            int merged = r << 16 | g << 8 | b;
+            this.before.addTintAtWorldPos(x, z, beforeColor);
+            this.after.addTintAtWorldPos(x, z, merged);
+            return true;
+        }
+        return false;
+    }
+
+    public int getTint(int x, int z) {
+        long chunkIdx = ChunkUtil.indexChunkFromBlock(x, z);
+        Object chunk = this.world.getNonTickingChunk(chunkIdx);
+        if (chunk == null) {
+            return 0;
+        }
+        if (((WorldChunk)chunk).getBlockChunk() == null) {
+            return 0;
+        }
+        return ((WorldChunk)chunk).getBlockChunk().getTint(x, z);
+    }
+
+    public void removeEntity(Ref<EntityStore> entityRef, Holder<EntityStore> entityStoreHolder) {
+        this.before.addEntityFromWorld((Holder<EntityStore>)entityStoreHolder.clone());
+        Store<EntityStore> entityStore = this.world.getEntityStore().getStore();
+        this.world.execute(() -> entityStore.removeEntity(entityRef, RemoveReason.UNLOAD));
+    }
+
+    public void trackSpawnedEntity(Ref<EntityStore> ref) {
+        this.spawnedEntityRefs.add(ref);
+    }
+
+    public List<Ref<EntityStore>> getSpawnedEntityRefs() {
+        return this.spawnedEntityRefs;
+    }
+
+    public void trackMovedEntity(Ref<EntityStore> entityRef, ComponentAccessor<EntityStore> componentAccessor) {
+        this.movedEntitySnapshots.add(new EntityTransformSnapshot(entityRef, componentAccessor));
+    }
+
+    public List<EntityTransformSnapshot> getMovedEntitySnapshots() {
+        return this.movedEntitySnapshots;
     }
 }
 

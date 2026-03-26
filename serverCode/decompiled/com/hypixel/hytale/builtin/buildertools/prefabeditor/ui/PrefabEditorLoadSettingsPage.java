@@ -5,6 +5,7 @@ package com.hypixel.hytale.builtin.buildertools.prefabeditor.ui;
 
 import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.BuilderToolsUserData;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditSessionManager;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabEditorCreationSettings;
 import com.hypixel.hytale.builtin.buildertools.prefabeditor.PrefabLoadingState;
@@ -36,6 +37,9 @@ import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.ui.DropdownEntryInfo;
 import com.hypixel.hytale.server.core.ui.LocalizableString;
 import com.hypixel.hytale.server.core.ui.Value;
+import com.hypixel.hytale.server.core.ui.browser.AssetPackSaveBrowser;
+import com.hypixel.hytale.server.core.ui.browser.AssetPackSaveBrowserConfig;
+import com.hypixel.hytale.server.core.ui.browser.AssetPackSaveBrowserEventData;
 import com.hypixel.hytale.server.core.ui.browser.FileListProvider;
 import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
@@ -60,6 +64,7 @@ extends InteractiveCustomUIPage<PageData> {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     private static final Value<String> BUTTON_HIGHLIGHTED = Value.ref("Pages/BasicTextButton.ui", "SelectedLabelStyle");
     private static final String ASSETS_ROOT_KEY = "Assets";
+    private final AssetPackSaveBrowser packBrowser = new AssetPackSaveBrowser(AssetPackSaveBrowserConfig.defaults());
     private final List<DropdownEntryInfo> savedConfigsDropdown = new ObjectArrayList<DropdownEntryInfo>();
     private volatile boolean isLoading;
     private volatile boolean loadingCancelled;
@@ -85,6 +90,10 @@ extends InteractiveCustomUIPage<PageData> {
     @Override
     public void build(@Nonnull Ref<EntityStore> ref, @Nonnull UICommandBuilder commandBuilder, @Nonnull UIEventBuilder eventBuilder, @Nonnull Store<EntityStore> store) {
         commandBuilder.append("Pages/PrefabEditorSettings.ui");
+        Player playerComponent = store.getComponent(ref, Player.getComponentType());
+        if (playerComponent != null) {
+            this.packBrowser.setSelectedPackKey(BuilderToolsUserData.get(playerComponent).getLastSavePack());
+        }
         this.savedConfigsDropdown.add(new DropdownEntryInfo(LocalizableString.fromMessageId("server.commands.editprefab.ui.savedConfigs.noneSelected"), ""));
         for (String string : PrefabEditorCreationSettings.getAssetMap().getAssetMap().keySet()) {
             this.savedConfigsDropdown.add(new DropdownEntryInfo(LocalizableString.fromString(string), string));
@@ -143,6 +152,13 @@ extends InteractiveCustomUIPage<PageData> {
         eventBuilder.addEventBinding(CustomUIEventBindingType.Activating, "#SaveConfigPage #CancelButton", new EventData().append("Action", Action.CancelSavePropertiesDialog.name()));
         eventBuilder.addEventBinding(CustomUIEventBindingType.ValueChanged, "#SaveConfigPage #SaveName #Input", new EventData().append("Action", Action.SavePropertiesNameChanged.name()).append("@ConfigName", "#SaveConfigPage #SaveName #Input.Value"));
         eventBuilder.addEventBinding(CustomUIEventBindingType.Activating, "#SaveConfigPage #SavePropertiesButton", new EventData().append("Action", Action.SavePropertiesConfig.name()).append("@ConfigName", "#SaveConfigPage #SaveName #Input.Value").append("@RootDir", "#MainPage #RootDir #Input.Value").append("@PrefabPaths", "#MainPage #PrefabPaths #Input.Value").append("@Recursive", "#MainPage #Recursive #CheckBox.Value").append("@Children", "#MainPage #Children #CheckBox.Value").append("@Entities", "#MainPage #Entities #CheckBox.Value").append("@EnableWorldTicking", "#MainPage #EnableWorldTicking #CheckBox.Value").append("@DesiredYLevel", "#MainPage #DesiredYLevel #Input.Value").append("@BlocksBetweenPrefabs", "#MainPage #BlocksBetweenPrefabs #Input.Value").append("@WorldGenType", "#MainPage #WorldGenType #Input.Value").append("@Environment", "#MainPage #Environment #Input.Value").append("@GrassTint", "#MainPage #GrassTint #Input.Color").append("@PasteAxis", "#MainPage #PasteAxis #Input.Value").append("@NumAirBeforeGround", "#MainPage #NumAirBeforeGround #Input.Value").append("@AlignmentMethod", "#MainPage #AlignmentMethod #Input.Value").append("@RowSplitMode", "#MainPage #RowSplitMode #Input.Value"));
+        commandBuilder.set("#PackBrowserPage.Visible", false);
+        commandBuilder.set("#CreatePackPage.Visible", false);
+        if (this.packBrowser.hasSelectedPack()) {
+            commandBuilder.set("#SaveConfigPage #SelectedPackLabel.Text", this.packBrowser.getSelectedPackDisplayName());
+        }
+        this.packBrowser.buildEventBindings(eventBuilder, "#SaveConfigPage #BrowsePackButton");
+        this.packBrowser.buildUI(commandBuilder, eventBuilder);
         eventBuilder.addEventBinding(CustomUIEventBindingType.Activating, "#LoadingPage #CancelButton", new EventData().append("Action", Action.CancelLoading.name()));
         eventBuilder.addEventBinding(CustomUIEventBindingType.Activating, "#MainPage #PrefabPaths #BrowseButton", new EventData().append("Action", Action.OpenBrowser.name()));
         eventBuilder.addEventBinding(CustomUIEventBindingType.ValueChanged, "#BrowserPage #BrowserContent #RootSelector", new EventData().append("Action", Action.BrowserRootChanged.name()).append("@BrowserRoot", "#BrowserPage #BrowserContent #RootSelector.Value"), false);
@@ -160,6 +176,17 @@ extends InteractiveCustomUIPage<PageData> {
         assert (playerComponent != null);
         PlayerRef playerRefComponent = store.getComponent(ref, PlayerRef.getComponentType());
         assert (playerRefComponent != null);
+        AssetPackSaveBrowser.ActionResult packResult = this.packBrowser.handleAction(data.uiAction != null ? data.uiAction.name() : null, data.packBrowserData, "#SaveConfigPage #SelectedPackLabel");
+        if (packResult != null) {
+            if (packResult.errorKey() != null) {
+                this.playerRef.sendMessage(Message.translation(packResult.errorKey()));
+            }
+            if (packResult.packConfirmed() && this.packBrowser.hasSelectedPack()) {
+                BuilderToolsUserData.get(playerComponent).setLastSavePack(this.packBrowser.getSelectedPack().getName());
+            }
+            this.sendUpdate(packResult.commandBuilder(), packResult.eventBuilder(), false);
+            return;
+        }
         switch (data.uiAction.ordinal()) {
             case 0: {
                 if (this.isLoading || this.isShuttingDown) {
@@ -222,7 +249,14 @@ extends InteractiveCustomUIPage<PageData> {
                 break;
             }
             case 3: {
-                PrefabEditorCreationSettings.save(data.configName, data.toCreationSettings()).thenRun(() -> {
+                AssetPack targetPack = this.packBrowser.getSelectedPack();
+                if (targetPack == null) {
+                    this.playerRef.sendMessage(Message.translation("server.customUI.assetPackBrowser.packRequired"));
+                    return;
+                }
+                BuilderToolsUserData.get(playerComponent).setLastSavePack(targetPack.getName());
+                CompletableFuture<Void> saveFuture = PrefabEditorCreationSettings.save(data.configName, data.toCreationSettings(), targetPack);
+                saveFuture.thenRun(() -> {
                     UICommandBuilder builder = new UICommandBuilder();
                     builder.set("#MainPage.Visible", true);
                     builder.set("#SaveConfigPage.Visible", false);
@@ -427,6 +461,7 @@ extends InteractiveCustomUIPage<PageData> {
                 commandBuilder.set("#BrowserPage.Visible", false);
                 commandBuilder.set("#MainPage.Visible", true);
                 this.sendUpdate(commandBuilder);
+                break;
             }
         }
     }
@@ -726,7 +761,7 @@ extends InteractiveCustomUIPage<PageData> {
         public static final String BROWSER_FILE = "File";
         public static final String BROWSER_ROOT = "@BrowserRoot";
         public static final String BROWSER_SEARCH = "@BrowserSearch";
-        public static final BuilderCodec<PageData> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(PageData.class, PageData::new).append(new KeyedCodec<Action>("Action", new EnumCodec<Action>(Action.class, EnumCodec.EnumStyle.LEGACY)), (o, uiAction) -> {
+        public static final BuilderCodec<PageData> CODEC = ((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)((BuilderCodec.Builder)BuilderCodec.builder(PageData.class, PageData::new).append(new KeyedCodec<Action>("Action", new EnumCodec<Action>(Action.class, EnumCodec.EnumStyle.LEGACY)), (o, uiAction) -> {
             o.uiAction = uiAction;
         }, o -> o.uiAction).add()).append(new KeyedCodec<String>("@ConfigName", Codec.STRING), (o, configName) -> {
             o.configName = configName;
@@ -766,7 +801,25 @@ extends InteractiveCustomUIPage<PageData> {
             o.browserRootStr = browserRootStr;
         }, o -> o.browserRootStr).add()).append(new KeyedCodec<String>("@BrowserSearch", Codec.STRING), (o, browserSearchStr) -> {
             o.browserSearchStr = browserSearchStr;
-        }, o -> o.browserSearchStr).add()).build();
+        }, o -> o.browserSearchStr).add()).append(new KeyedCodec<String>("Pack", Codec.STRING), (o, s) -> {
+            o.packBrowserData.pack = s;
+        }, o -> o.packBrowserData.pack).add()).append(new KeyedCodec<String>("@PackSearch", Codec.STRING), (o, s) -> {
+            o.packBrowserData.search = s;
+        }, o -> o.packBrowserData.search).add()).append(new KeyedCodec<String>("@CreateName", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createName = s;
+        }, o -> o.packBrowserData.createName).add()).append(new KeyedCodec<String>("@CreateGroup", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createGroup = s;
+        }, o -> o.packBrowserData.createGroup).add()).append(new KeyedCodec<String>("@CreateDescription", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createDescription = s;
+        }, o -> o.packBrowserData.createDescription).add()).append(new KeyedCodec<String>("@CreateVersion", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createVersion = s;
+        }, o -> o.packBrowserData.createVersion).add()).append(new KeyedCodec<String>("@CreateWebsite", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createWebsite = s;
+        }, o -> o.packBrowserData.createWebsite).add()).append(new KeyedCodec<String>("@CreateAuthorName", Codec.STRING), (o, s) -> {
+            o.packBrowserData.createAuthorName = s;
+        }, o -> o.packBrowserData.createAuthorName).add()).append(new KeyedCodec<String>("ValidateCreate", Codec.STRING), (o, s) -> {
+            o.packBrowserData.validateCreate = s;
+        }, o -> o.packBrowserData.validateCreate).add()).build();
         public String configName;
         public Action uiAction;
         public PrefabRootDirectory prefabRootDirectory = PrefabRootDirectory.ASSET;
@@ -787,6 +840,7 @@ extends InteractiveCustomUIPage<PageData> {
         public String browserFile;
         public String browserRootStr;
         public String browserSearchStr;
+        public final AssetPackSaveBrowserEventData packBrowserData = new AssetPackSaveBrowserEventData();
 
         @Nonnull
         public PrefabEditorCreationSettings toCreationSettings() {
@@ -813,7 +867,15 @@ extends InteractiveCustomUIPage<PageData> {
         BrowserSearch,
         AddFolderToList,
         ConfirmBrowser,
-        CancelBrowser;
+        CancelBrowser,
+        OpenPackBrowser,
+        ConfirmPackBrowser,
+        CancelPackBrowser,
+        OpenCreatePack,
+        CreatePack,
+        CancelCreatePack,
+        PackSearch,
+        PackSelect;
 
     }
 }

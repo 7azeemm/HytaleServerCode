@@ -21,8 +21,8 @@ import com.hypixel.hytale.server.spawning.world.manager.WorldSpawnWrapper;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import java.util.HashSet;
-import java.util.Set;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -39,12 +39,12 @@ public class WorldEnvironmentSpawnData {
     @Nonnull
     private final Int2ObjectMap<WorldNPCSpawnStat> npcStatMap;
     @Nonnull
-    private final Set<Ref<ChunkStore>> chunkRefSet;
+    private final List<Ref<ChunkStore>> chunkRefList;
 
     public WorldEnvironmentSpawnData(int environmentIndex, double density) {
         this.environmentIndex = environmentIndex;
         this.npcStatMap = new Int2ObjectOpenHashMap<WorldNPCSpawnStat>();
-        this.chunkRefSet = new HashSet<Ref<ChunkStore>>();
+        this.chunkRefList = new ReferenceArrayList<Ref<ChunkStore>>();
         this.density = density;
         this.fullyPopulated = true;
     }
@@ -99,8 +99,8 @@ public class WorldEnvironmentSpawnData {
     }
 
     @Nonnull
-    public Set<Ref<ChunkStore>> getChunkRefSet() {
-        return this.chunkRefSet;
+    public List<Ref<ChunkStore>> getChunkRefList() {
+        return this.chunkRefList;
     }
 
     public void adjustSegmentCount(int delta) {
@@ -115,7 +115,7 @@ public class WorldEnvironmentSpawnData {
     public void setDensity(double density, @Nonnull Store<ChunkStore> store) {
         this.density = density;
         this.expectedNPCs = (double)this.segmentCount * density / 1024.0;
-        for (Ref<ChunkStore> chunkRef : this.chunkRefSet) {
+        for (Ref<ChunkStore> chunkRef : this.chunkRefList) {
             store.getComponent(chunkRef, ChunkSpawnData.getComponentType()).getEnvironmentSpawnData(this.environmentIndex).updateDensity(density);
         }
     }
@@ -198,13 +198,13 @@ public class WorldEnvironmentSpawnData {
 
     public void removeChunk(@Nonnull Ref<ChunkStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         WorldTimeResource worldTimeResource = componentAccessor.getResource(WorldTimeResource.getResourceType());
-        this.chunkRefSet.remove(ref);
+        this.chunkRefList.remove(ref);
         this.updateExpectedNPCs(worldTimeResource.getMoonPhase());
     }
 
     public void addChunk(@Nonnull Ref<ChunkStore> ref, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
         WorldTimeResource worldTimeResource = componentAccessor.getResource(WorldTimeResource.getResourceType());
-        this.chunkRefSet.add(ref);
+        this.chunkRefList.add(ref);
         this.fullyPopulated = false;
         this.updateExpectedNPCs(worldTimeResource.getMoonPhase());
         this.resetUnspawnable();

@@ -37,8 +37,8 @@ import com.hypixel.hytale.server.core.entity.ItemUtils;
 import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent;
 import com.hypixel.hytale.server.core.event.events.ecs.DamageBlockEvent;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
-import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.blockhealth.BlockHealth;
 import com.hypixel.hytale.server.core.modules.blockhealth.BlockHealthChunk;
 import com.hypixel.hytale.server.core.modules.blockhealth.BlockHealthModule;
@@ -60,7 +60,6 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import java.util.List;
 import java.util.Objects;
@@ -85,7 +84,7 @@ public class BlockHarvestUtils {
         if (gatherType == null) {
             return null;
         }
-        if (item != null && (item.getWeapon() != null || item.getBuilderToolData() != null)) {
+        if (item != null && (item.getWeapon() != null || item.getBuilderTool() != null)) {
             return null;
         }
         int requiredQuality = breaking.getQuality();
@@ -152,7 +151,7 @@ public class BlockHarvestUtils {
     }
 
     public static boolean performBlockDamage(@Nullable LivingEntity entity, @Nullable Ref<EntityStore> ref, @Nonnull Vector3i targetBlockPos, @Nullable ItemStack itemStack, @Nullable ItemTool tool, @Nullable String toolId, boolean matchTool, float damageScale, int setBlockSettings, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<EntityStore> entityStore, @Nonnull ComponentAccessor<ChunkStore> chunkStore) {
-        byte activeHotbarSlot;
+        InventoryComponent.Hotbar hotbarComponent;
         int soundEventIndex;
         BlockSoundSet soundSet;
         Ref<ChunkStore> chunkSectionRef;
@@ -222,7 +221,7 @@ public class BlockHarvestUtils {
             tool = heldItem.getTool();
         }
         float specPower = (itemToolSpec = BlockHarvestUtils.getSpecPowerDamageBlock(heldItem, targetBlockType, tool)) != null ? itemToolSpec.getPower() : 0.0f;
-        boolean bl = canApplyItemStackPenalties = entity != null && entity.canApplyItemStackPenalties(ref, entityStore);
+        boolean bl = canApplyItemStackPenalties = ref != null && ItemUtils.canApplyItemStackPenalties(ref, entityStore);
         if (specPower != 0.0f && heldItem != null && heldItem.getTool() != null && itemStack.isBroken() && canApplyItemStackPenalties) {
             BrokenPenalties brokenPenalties = gameplayConfig.getItemDurabilityConfig().getBrokenPenalties();
             specPower *= 1.0f - (float)brokenPenalties.getTool(0.0);
@@ -249,7 +248,7 @@ public class BlockHarvestUtils {
                     String particleSystemId;
                     GatheringEffectsConfig unbreakableBlockConfig = gameplayConfig.getGatheringConfig().getUnbreakableBlockConfig();
                     if ((setBlockSettings & 4) == 0 && (particleSystemId = unbreakableBlockConfig.getParticleSystemId()) != null) {
-                        ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                        List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                         playerSpatialResource.getSpatialStructure().collect(targetBlockCenterPos, 75.0, results);
                         ParticleUtil.spawnParticleEffect(particleSystemId, targetBlockCenterPos, results, entityStore);
                     }
@@ -360,7 +359,7 @@ public class BlockHarvestUtils {
                 int soundEventIndex4;
                 String particleSystemId;
                 if ((setBlockSettings & 4) == 0 && (particleSystemId = incorrectToolConfig.getParticleSystemId()) != null) {
-                    ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+                    List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
                     playerSpatialResource.getSpatialStructure().collect(targetBlockCenterPos, 75.0, results);
                     ParticleUtil.spawnParticleEffect(particleSystemId, targetBlockCenterPos, results, entityStore);
                 }
@@ -369,10 +368,9 @@ public class BlockHarvestUtils {
                 }
             }
         }
-        if (entity != null && ref != null && entity.canDecreaseItemStackDurability(ref, entityStore) && itemStack != null && !itemStack.isUnbreakable() && (activeHotbarSlot = entity.getInventory().getActiveHotbarSlot()) != -1) {
+        if (entity != null && ref != null && ItemUtils.canDecreaseItemStackDurability(ref, entityStore) && itemStack != null && !itemStack.isUnbreakable() && (hotbarComponent = entityStore.getComponent(ref, InventoryComponent.Hotbar.getComponentType())) != null && hotbarComponent.getActiveSlot() != -1) {
             double durability = BlockHarvestUtils.calculateDurabilityUse(heldItem, targetBlockType);
-            ItemContainer hotbar = entity.getInventory().getHotbar();
-            entity.updateItemStackDurability(ref, itemStack, hotbar, activeHotbarSlot, -durability, entityStore);
+            entity.updateItemStackDurability(ref, itemStack, hotbarComponent.getInventory(), hotbarComponent.getActiveSlot(), -durability, entityStore);
         }
         return brokeBlock;
     }
@@ -382,17 +380,20 @@ public class BlockHarvestUtils {
     }
 
     public static void performBlockBreak(@Nullable Ref<EntityStore> ref, @Nullable ItemStack heldItemStack, @Nonnull Vector3i targetBlock, int setBlockSettings, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<EntityStore> entityStore, @Nonnull ComponentAccessor<ChunkStore> chunkStore) {
-        World world = chunkStore.getExternalData().getWorld();
         int targetBlockX = targetBlock.getX();
         int targetBlockY = targetBlock.getY();
         int targetBlockZ = targetBlock.getZ();
         WorldChunk worldChunkComponent = chunkStore.getComponent(chunkReference, WorldChunk.getComponentType());
         assert (worldChunkComponent != null);
-        int targetBlockTypeIndex = worldChunkComponent.getBlock(targetBlockX, targetBlockY, targetBlockZ);
-        BlockType targetBlockTypeAsset = BlockType.getAssetMap().getAsset(targetBlockTypeIndex);
+        int targetBlockTypeId = worldChunkComponent.getBlock(targetBlockX, targetBlockY, targetBlockZ);
+        if (targetBlockTypeId == 0) {
+            return;
+        }
+        BlockType targetBlockTypeAsset = BlockType.getAssetMap().getAsset(targetBlockTypeId);
         if (targetBlockTypeAsset == null) {
             return;
         }
+        World world = chunkStore.getExternalData().getWorld();
         Vector3i affectedBlock = targetBlock;
         if (!targetBlockTypeAsset.isUnknown()) {
             BlockType originBlock;
@@ -412,6 +413,9 @@ public class BlockHarvestUtils {
     }
 
     public static void performBlockBreak(@Nonnull World world, @Nonnull Vector3i blockPosition, @Nonnull BlockType targetBlockTypeKey, @Nullable ItemStack heldItemStack, int dropQuantity, @Nullable String dropItemId, @Nullable String dropListId, int setBlockSettings, @Nullable Ref<EntityStore> ref, @Nonnull Ref<ChunkStore> chunkReference, @Nonnull ComponentAccessor<EntityStore> entityStore, @Nonnull ComponentAccessor<ChunkStore> chunkStore) {
+        if (targetBlockTypeKey == BlockType.EMPTY) {
+            return;
+        }
         World targetWorld = world;
         Vector3i targetBlockPosition = blockPosition;
         Ref<ChunkStore> targetChunkReference = chunkReference;

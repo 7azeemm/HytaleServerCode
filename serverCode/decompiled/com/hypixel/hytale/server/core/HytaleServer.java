@@ -5,6 +5,8 @@ package com.hypixel.hytale.server.core;
 
 import com.hypixel.hytale.assetstore.AssetPack;
 import com.hypixel.hytale.codec.Codec;
+import com.hypixel.hytale.codec.EmptyExtraInfo;
+import com.hypixel.hytale.codec.ExtraInfo;
 import com.hypixel.hytale.common.plugin.PluginManifest;
 import com.hypixel.hytale.common.thread.HytaleForkJoinThreadFactory;
 import com.hypixel.hytale.common.util.FormatUtil;
@@ -23,6 +25,7 @@ import com.hypixel.hytale.metrics.MetricsRegistry;
 import com.hypixel.hytale.plugin.early.EarlyPluginLoader;
 import com.hypixel.hytale.server.core.Constants;
 import com.hypixel.hytale.server.core.HytaleServerConfig;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.ShutdownReason;
 import com.hypixel.hytale.server.core.asset.AssetModule;
@@ -42,10 +45,12 @@ import com.hypixel.hytale.server.core.plugin.PluginBase;
 import com.hypixel.hytale.server.core.plugin.PluginClassLoader;
 import com.hypixel.hytale.server.core.plugin.PluginManager;
 import com.hypixel.hytale.server.core.plugin.PluginState;
+import com.hypixel.hytale.server.core.schema.SchemaGenerator;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.datastore.DataStoreProvider;
 import com.hypixel.hytale.server.core.universe.datastore.DiskDataStoreProvider;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.WorldConfig;
 import com.hypixel.hytale.server.core.update.UpdateModule;
 import com.hypixel.hytale.server.core.util.concurrent.ThreadUtil;
 import io.netty.handler.codec.quic.Quic;
@@ -298,12 +303,23 @@ public class HytaleServer {
                 List<String> reasons = loadAssetEvent.getReasons();
                 String join = String.join((CharSequence)"\n", reasons);
                 LOGGER.at(Level.SEVERE).log("Asset validation FAILED with %d reason(s):\n%s", reasons.size(), (Object)join);
-                this.shutdownServer(ShutdownReason.VALIDATE_ERROR.withMessage(join));
+                Message reasonMessage = Message.translation("client.disconnection.shutdownReason.validateError.detail").param("detail", join);
+                this.shutdownServer(ShutdownReason.VALIDATE_ERROR.withMessage(reasonMessage));
                 return;
             }
             if (Options.getOptionSet().has(Options.SHUTDOWN_AFTER_VALIDATE)) {
                 LOGGER.at(Level.INFO).log("Asset validation passed");
                 this.shutdownServer(ShutdownReason.SHUTDOWN);
+                return;
+            }
+            SchemaGenerator.registerConfig("HytaleServerConfig", HytaleServerConfig.CODEC, "Config", List.of("/config.json"));
+            SchemaGenerator.registerConfig("WorldConfig", WorldConfig.CODEC, "Config", List.of("/worlds/*/config.json"));
+            boolean generateAssets = Options.getOptionSet().has(Options.GENERATE_ASSET_SCHEMA);
+            boolean generateConfigs = Options.getOptionSet().has(Options.GENERATE_CONFIG_SCHEMA);
+            if (generateAssets || generateConfigs) {
+                SchemaGenerator.generate(generateAssets ? Options.getOptionSet().valueOf(Options.GENERATE_ASSET_SCHEMA) : null, generateConfigs ? Options.getOptionSet().valueOf(Options.GENERATE_CONFIG_SCHEMA) : null);
+                Message reasonMessage = Message.translation("client.disconnection.shutdownReason.shutdown.schemaGenerated");
+                this.shutdownServer(ShutdownReason.SHUTDOWN.withMessage(reasonMessage));
                 return;
             }
             this.pluginsProgress = 0;
@@ -325,10 +341,13 @@ public class HytaleServer {
             while (t.getCause() != null) {
                 t = t.getCause();
             }
-            this.shutdownServer(ShutdownReason.CRASH.withMessage("Failed to start server! " + t.getMessage()));
+            this.shutdownServer(ShutdownReason.CRASH.withMessage(Message.translation("client.disconnection.shutdownReason.crash.startFailed").param("detail", t.getMessage())));
         }
         if (this.hytaleServerConfig.consumeHasChanged()) {
             HytaleServerConfig.save(this.hytaleServerConfig).join();
+        }
+        if (this.isShuttingDown()) {
+            return;
         }
         SCHEDULED_EXECUTOR.scheduleWithFixedDelay(() -> {
             try {
@@ -382,8 +401,9 @@ public class HytaleServer {
         if (this.shutdown.getAndSet(reason) != null) {
             return;
         }
-        if (reason.getMessage() != null) {
-            this.sendSingleplayerSignal("-=|Shutdown|" + reason.getMessage().replace("\n", "\\n"));
+        if (reason.getFormattedMessage() != null) {
+            String json = Message.CODEC.encode(new Message(reason.getFormattedMessage()), (ExtraInfo)EmptyExtraInfo.EMPTY).toString();
+            this.sendSingleplayerSignal("-=|Shutdown|" + json);
         }
         Thread shutdownThread = new Thread(() -> this.shutdown0(reason), "ShutdownThread");
         shutdownThread.setDaemon(false);
@@ -438,7 +458,7 @@ public class HytaleServer {
     public void sendSingleplayerProgress() {
         List<PluginBase> plugins = this.pluginManager.getPlugins();
         if (this.shutdown.get() != null) {
-            this.sendSingleplayerSignal("-=|Shutdown Modules|" + MathUtil.round((double)(plugins.size() - this.pluginsProgress) / (double)plugins.size(), 2) * 100.0);
+            this.sendSingleplayerSignal("-=|Shutdown Modules|" + (plugins.isEmpty() ? 100.0 : MathUtil.round((double)(plugins.size() - this.pluginsProgress) / (double)plugins.size(), 2) * 100.0));
         } else if (this.pluginManager.getState() == PluginState.SETUP) {
             this.sendSingleplayerSignal("-=|Setup|" + MathUtil.round((double)this.pluginsProgress / (double)plugins.size(), 2) * 100.0);
         } else if (this.pluginManager.getState() == PluginState.START) {
@@ -482,15 +502,14 @@ public class HytaleServer {
         }
     }
 
-    public void reportSingleplayerStatus(String message) {
-        if (Constants.SINGLEPLAYER) {
-            HytaleLoggerBackend.rawLog("-=|" + message + "|0");
-        }
+    public void reportSingleplayerStatus(@Nonnull Message message) {
+        this.reportSingleplayerStatus(message, 0.0);
     }
 
-    public void reportSingleplayerStatus(String message, double progress) {
+    public void reportSingleplayerStatus(@Nonnull Message message, double progress) {
         if (Constants.SINGLEPLAYER) {
-            HytaleLoggerBackend.rawLog("-=|" + message + "|" + progress);
+            String json = Message.CODEC.encode(message, (ExtraInfo)EmptyExtraInfo.EMPTY).toString();
+            HytaleLoggerBackend.rawLog("-=|" + json + "|" + progress);
         }
     }
 

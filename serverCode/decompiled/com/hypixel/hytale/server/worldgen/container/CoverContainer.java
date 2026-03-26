@@ -8,11 +8,13 @@ import com.hypixel.hytale.procedurallib.condition.IBlockFluidCondition;
 import com.hypixel.hytale.procedurallib.condition.ICoordinateCondition;
 import com.hypixel.hytale.procedurallib.condition.ICoordinateRndCondition;
 import com.hypixel.hytale.server.worldgen.util.BlockFluidEntry;
+import com.hypixel.hytale.server.worldgen.util.ListPool;
 import java.util.Random;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class CoverContainer {
+    public static final ListPool<CoverContainerEntry> ENTY_POOL = new ListPool<CoverContainerEntry>(10, new CoverContainerEntry[0]);
     protected final CoverContainerEntry[] entries;
 
     public CoverContainer(CoverContainerEntry[] entries) {

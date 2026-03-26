@@ -128,12 +128,14 @@ extends JavaPlugin {
 
     @Override
     protected void start() {
-        try {
-            Path path = Constants.UNIVERSE_PATH.resolve(MEMORIES_JSON_PATH);
-            this.recordedMemories = Files.exists(path, new LinkOption[0]) ? RawJsonReader.readSync(path, RecordedMemories.CODEC, this.getLogger()) : new RecordedMemories();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        Path path = Constants.UNIVERSE_PATH.resolve(MEMORIES_JSON_PATH);
+        if (Files.exists(path, new LinkOption[0])) {
+            this.recordedMemories = RawJsonReader.readSyncWithBak(path, RecordedMemories.CODEC, this.getLogger());
+            if (this.recordedMemories == null) {
+                this.recordedMemories = new RecordedMemories();
+            }
+        } else {
+            this.recordedMemories = new RecordedMemories();
         }
         this.hasInitializedMemories = true;
         this.onAssetsLoad();

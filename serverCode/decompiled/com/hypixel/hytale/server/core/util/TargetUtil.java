@@ -30,7 +30,6 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.IntPredicate;
@@ -149,7 +148,7 @@ public final class TargetUtil {
 
     @Nonnull
     public static List<Ref<EntityStore>> getAllEntitiesInSphere(@Nonnull Vector3d position, double radius, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+        List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
         SpatialResource<Ref<EntityStore>, EntityStore> entitySpatialResource = componentAccessor.getResource(EntityModule.get().getEntitySpatialResourceType());
         entitySpatialResource.getSpatialStructure().collect(position, (float)radius, results);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = componentAccessor.getResource(EntityModule.get().getPlayerSpatialResourceType());
@@ -159,7 +158,7 @@ public final class TargetUtil {
 
     @Nonnull
     public static List<Ref<EntityStore>> getAllEntitiesInCylinder(@Nonnull Vector3d position, double radius, double height, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+        List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
         SpatialResource<Ref<EntityStore>, EntityStore> entitySpatialResource = componentAccessor.getResource(EntityModule.get().getEntitySpatialResourceType());
         entitySpatialResource.getSpatialStructure().collectCylinder(position, radius, height, results);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = componentAccessor.getResource(EntityModule.get().getPlayerSpatialResourceType());
@@ -169,7 +168,7 @@ public final class TargetUtil {
 
     @Nonnull
     public static List<Ref<EntityStore>> getAllEntitiesInBox(@Nonnull Vector3d min, @Nonnull Vector3d max, @Nonnull ComponentAccessor<EntityStore> componentAccessor) {
-        ObjectList<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
+        List<Ref<EntityStore>> results = SpatialResource.getThreadLocalReferenceList();
         SpatialResource<Ref<EntityStore>, EntityStore> entitySpatialResource = componentAccessor.getResource(EntityModule.get().getEntitySpatialResourceType());
         entitySpatialResource.getSpatialStructure().collectBox(min, max, results);
         SpatialResource<Ref<EntityStore>, EntityStore> playerSpatialResource = componentAccessor.getResource(EntityModule.get().getPlayerSpatialResourceType());

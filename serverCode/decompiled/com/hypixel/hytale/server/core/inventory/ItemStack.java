@@ -376,7 +376,7 @@ implements NetworkSerializable<ItemWithAllMetadata> {
     }
 
     public static class Metadata {
-        public static final String BLOCK_STATE = "BlockState";
+        public static final String BLOCK_HOLDER = "BlockHolder";
     }
 }
 

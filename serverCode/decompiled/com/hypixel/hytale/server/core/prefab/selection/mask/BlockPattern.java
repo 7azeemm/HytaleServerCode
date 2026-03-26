@@ -35,6 +35,7 @@ public class BlockPattern {
     private final transient String toString0;
     private IWeightedMap<Integer> resolvedWeightedMap;
     private IWeightedMap<BlockEntry> resolvedWeightedMapBtk;
+    private boolean hasInvalidBlocks;
 
     public BlockPattern(IWeightedMap<String> weightedMap) {
         this.weightedMap = weightedMap;
@@ -55,6 +56,13 @@ public class BlockPattern {
         this.weightedMap.forEachEntry((blockName, weight) -> {
             BlockTypeListAsset blockTypeListAsset;
             int blockId = BlockPattern.parseBlock(blockName);
+            if (blockId == 0) {
+                String baseName;
+                String string = baseName = blockName.contains("|") ? blockName.substring(0, blockName.indexOf(124)) : blockName;
+                if (!baseName.equalsIgnoreCase("Empty")) {
+                    this.hasInvalidBlocks = true;
+                }
+            }
             BlockEntry key = BlockPattern.tryParseBlockTypeKey(blockName);
             BlockType blockType = BlockType.getAssetMap().getAsset(blockId);
             if (blockType != null && blockType.getBlockListAssetId() != null && (blockTypeListAsset = BlockTypeListAsset.getAssetMap().getAsset(blockType.getBlockListAssetId())) != null && blockTypeListAsset.getBlockPattern() != null) {
@@ -79,6 +87,11 @@ public class BlockPattern {
 
     public boolean isEmpty() {
         return this.weightedMap.size() == 0;
+    }
+
+    public boolean hasInvalidBlocks() {
+        this.resolve();
+        return this.hasInvalidBlocks;
     }
 
     public int nextBlock(Random random) {

@@ -60,7 +60,7 @@ extends AbstractWorldCommand {
                 String name = Environment.getAssetMap().getAsset(environmentIndex).getId();
                 Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
                 double[] chunkExpected = new double[]{0.0};
-                worldEnvironmentSpawnData.getChunkRefSet().forEach(ref -> {
+                worldEnvironmentSpawnData.getChunkRefList().forEach(ref -> {
                     ChunkEnvironmentSpawnData chunkEnvironmentSpawnData = chunkStore.getComponent((Ref<ChunkStore>)ref, ChunkSpawnData.getComponentType()).getEnvironmentSpawnData(environmentIndex);
                     chunkExpected[0] = chunkExpected[0] + chunkEnvironmentSpawnData.getExpectedNPCs();
                 });

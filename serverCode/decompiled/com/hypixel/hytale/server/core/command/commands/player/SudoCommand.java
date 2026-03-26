@@ -9,7 +9,6 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.NameMatching;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.CommandManager;
-import com.hypixel.hytale.server.core.command.system.CommandUtil;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
@@ -28,25 +27,19 @@ extends CommandBase {
     private static final Message MESSAGE_COMMANDS_SU_INVALID_USAGE = Message.translation("server.commands.sudo.invalidusage");
     @Nonnull
     private final RequiredArg<String> playerArg = this.withRequiredArg("player", "server.commands.sudo.player.desc", ArgTypes.STRING);
+    @Nonnull
+    private final RequiredArg<String> commandArg = this.withRequiredArg("command", "server.commands.sudo.command.desc", ArgTypes.GREEDY_STRING);
 
     public SudoCommand() {
         super("sudo", "server.commands.sudo.desc");
         this.addAliases("su");
-        this.setAllowsExtraArguments(true);
     }
 
     @Override
     protected void executeSync(@Nonnull CommandContext context) {
         List<PlayerRef> players;
         String playerName = (String)this.playerArg.get(context);
-        String inputString = context.getInputString();
-        String rawArgs = CommandUtil.stripCommandName(inputString);
-        int commandIndex = rawArgs.indexOf(32);
-        if (commandIndex == -1) {
-            context.sendMessage(MESSAGE_COMMANDS_SU_INVALID_USAGE);
-            return;
-        }
-        String commandToExecute = rawArgs.substring(commandIndex + 1).trim();
+        String commandToExecute = (String)this.commandArg.get(context);
         if (commandToExecute.isEmpty()) {
             context.sendMessage(MESSAGE_COMMANDS_SU_INVALID_USAGE);
             return;

@@ -11,6 +11,6 @@
   "Dependencies": {},
   "OptionalDependencies": {},
   "DisabledByDefault": false,
-  "IncludesAssetPack": true,
+  "IncludesAssetPack": false,
   "Main": "com.example.exampleplugin.ExamplePlugin"
 }

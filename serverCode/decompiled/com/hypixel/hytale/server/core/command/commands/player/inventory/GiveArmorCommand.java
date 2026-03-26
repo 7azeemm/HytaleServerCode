@@ -14,7 +14,7 @@ import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalAr
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncCommand;
-import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -23,8 +23,10 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceList;
+import it.unimi.dsi.fastutil.objects.ReferenceLists;
 import java.awt.Color;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -50,11 +52,11 @@ extends AbstractAsyncCommand {
     @Override
     @Nonnull
     protected CompletableFuture<Void> executeAsync(@Nonnull CommandContext context) {
-        List<Ref<EntityStore>> targets;
+        ReferenceList<Ref<EntityStore>> targets;
         if (this.playerArg.provided(context)) {
             String playerInput = (String)this.playerArg.get(context);
             if ("*".equals(playerInput)) {
-                targets = new ObjectArrayList<Ref<EntityStore>>();
+                targets = new ReferenceArrayList<Ref<EntityStore>>();
                 for (PlayerRef player : Universe.get().getPlayers()) {
                     targets.add(player.getReference());
                 }
@@ -64,14 +66,14 @@ extends AbstractAsyncCommand {
                     context.sendMessage(Message.translation("server.commands.errors.noSuchPlayer").param("username", playerInput));
                     return CompletableFuture.completedFuture(null);
                 }
-                targets = Collections.singletonList(player.getReference());
+                targets = ReferenceLists.singleton(player.getReference());
             }
         } else {
             if (!context.isPlayer()) {
                 context.sendMessage(Message.translation("server.commands.errors.playerOrArg").param("option", "player"));
                 return CompletableFuture.completedFuture(null);
             }
-            targets = Collections.singletonList(context.senderAsPlayerRef());
+            targets = ReferenceLists.singleton(context.senderAsPlayerRef());
         }
         if (targets.isEmpty()) {
             context.sendMessage(Message.translation("server.commands.errors.noSuchPlayer").param("username", "*"));
@@ -88,7 +90,7 @@ extends AbstractAsyncCommand {
             if (ref == null || !ref.isValid()) continue;
             Store store = ref.getStore();
             World world = ((EntityStore)store.getExternalData()).getWorld();
-            playersByWorld.computeIfAbsent(world, k -> new ObjectArrayList()).add(ref);
+            playersByWorld.computeIfAbsent(world, k -> new ReferenceArrayList()).add(ref);
         }
         ObjectArrayList<CompletableFuture<Void>> futures = new ObjectArrayList<CompletableFuture<Void>>();
         boolean bl = this.setFlag.provided(context);
@@ -98,9 +100,9 @@ extends AbstractAsyncCommand {
             CompletableFuture<Void> future = this.runAsync(context, () -> {
                 for (Ref playerRef : worldPlayers) {
                     Store<EntityStore> store;
-                    Player targetPlayerComponent;
-                    if (playerRef == null || !playerRef.isValid() || (targetPlayerComponent = (store = playerRef.getStore()).getComponent(playerRef, Player.getComponentType())) == null) continue;
-                    ItemContainer armorInventory = targetPlayerComponent.getInventory().getArmor();
+                    InventoryComponent.Armor armorComponent;
+                    if (playerRef == null || !playerRef.isValid() || (armorComponent = (store = playerRef.getStore()).getComponent(playerRef, InventoryComponent.Armor.getComponentType())) == null) continue;
+                    ItemContainer armorInventory = armorComponent.getInventory();
                     if (shouldClear) {
                         armorInventory.clear();
                     }

@@ -12,7 +12,6 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.flock.FlockMembership;
 import com.hypixel.hytale.server.npc.decisionmaker.core.EvaluationContext;
 import com.hypixel.hytale.server.npc.decisionmaker.core.conditions.base.ScaledCurveCondition;
-import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import javax.annotation.Nonnull;
 
 public class FlockSizeCondition
@@ -24,7 +23,6 @@ extends ScaledCurveCondition {
 
     @Override
     protected double getInput(int selfIndex, @Nonnull ArchetypeChunk<EntityStore> archetypeChunk, Ref<EntityStore> target, @Nonnull CommandBuffer<EntityStore> commandBuffer, EvaluationContext context) {
-        NPCEntity self = archetypeChunk.getComponent(selfIndex, NPCEntity.getComponentType());
         FlockMembership membership = archetypeChunk.getComponent(selfIndex, FlockMembership.getComponentType());
         if (membership == null) {
             return 1.0;

@@ -29,6 +29,9 @@ extends EntityFilterBase {
 
     @Override
     public boolean matchesEntity(@Nonnull Ref<EntityStore> ref, @Nonnull Ref<EntityStore> targetRef, @Nonnull Role role, @Nonnull Store<EntityStore> store) {
+        if (this.viewCone == 0.0f) {
+            return true;
+        }
         TransformComponent transformComponent = store.getComponent(ref, TRANSFORM_COMPONENT_TYPE);
         assert (transformComponent != null);
         Vector3d position = transformComponent.getPosition();

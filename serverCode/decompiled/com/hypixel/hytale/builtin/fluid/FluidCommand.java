@@ -82,7 +82,7 @@ extends AbstractCommandCollection {
                 playerRef.sendMessage(Message.translation("server.commands.set.maxFluidLevelClamped").param("level", fluid.getMaxFluidLevel()));
             }
             Integer finalLevel = level;
-            chunkStore.getChunkSectionReferenceAsync(ChunkUtil.chunkCoordinate(pos.x), ChunkUtil.chunkCoordinate(pos.y), ChunkUtil.chunkCoordinate(pos.z)).thenAcceptAsync(section -> {
+            chunkStore.getChunkSectionReferenceAtBlockAsync(pos.x, pos.y, pos.z).thenAcceptAsync(section -> {
                 Store<ChunkStore> sectionStore = section.getStore();
                 FluidSection fluidSection = sectionStore.getComponent((Ref<ChunkStore>)section, FluidSection.getComponentType());
                 if (fluidSection == null) {
@@ -123,7 +123,7 @@ extends AbstractCommandCollection {
             }
             ChunkStore chunkStore = world.getChunkStore();
             Vector3i pos = offset == null ? blockTarget : offset.getBlockPosition(blockTarget.toVector3d(), chunkStore);
-            chunkStore.getChunkSectionReferenceAsync(ChunkUtil.chunkCoordinate(pos.x), ChunkUtil.chunkCoordinate(pos.y), ChunkUtil.chunkCoordinate(pos.z)).thenAcceptAsync(section -> {
+            chunkStore.getChunkSectionReferenceAtBlockAsync(pos.x, pos.y, pos.z).thenAcceptAsync(section -> {
                 Store<ChunkStore> sectionStore = section.getStore();
                 FluidSection fluidSection = sectionStore.getComponent((Ref<ChunkStore>)section, FluidSection.getComponentType());
                 if (fluidSection == null) {

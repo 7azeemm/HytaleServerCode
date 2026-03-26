@@ -27,7 +27,9 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.metrics.MetricProvider;
 import com.hypixel.hytale.metrics.MetricResults;
 import com.hypixel.hytale.metrics.MetricsRegistry;
+import com.hypixel.hytale.protocol.Direction;
 import com.hypixel.hytale.protocol.Opacity;
+import com.hypixel.hytale.protocol.packets.buildertools.ClipboardEntityChange;
 import com.hypixel.hytale.protocol.packets.interface_.BlockChange;
 import com.hypixel.hytale.protocol.packets.interface_.EditorBlocksChange;
 import com.hypixel.hytale.protocol.packets.interface_.EditorSelection;
@@ -36,18 +38,21 @@ import com.hypixel.hytale.server.core.asset.type.blockhitbox.BlockBoundingBoxes;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.StateData;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.VariantRotation;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.asset.type.fluid.FluidTicker;
 import com.hypixel.hytale.server.core.blocktype.component.BlockPhysics;
 import com.hypixel.hytale.server.core.command.system.CommandSender;
+import com.hypixel.hytale.server.core.entity.entities.BlockEntity;
 import com.hypixel.hytale.server.core.io.NetworkSerializable;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
+import com.hypixel.hytale.server.core.modules.entity.component.EntityScaleComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.FromPrefab;
 import com.hypixel.hytale.server.core.modules.entity.component.HeadRotation;
+import com.hypixel.hytale.server.core.modules.entity.component.ModelComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.prefab.event.PrefabPlaceEntityEvent;
 import com.hypixel.hytale.server.core.prefab.selection.mask.BlockMask;
 import com.hypixel.hytale.server.core.prefab.selection.standard.FeedbackConsumer;
@@ -58,11 +63,13 @@ import com.hypixel.hytale.server.core.universe.world.chunk.ChunkColumn;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
 import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
+import it.unimi.dsi.fastutil.longs.Long2IntMaps;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -80,7 +87,6 @@ import java.util.function.IntUnaryOperator;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.bson.BsonDocument;
 
 public class BlockSelection
 implements NetworkSerializable<EditorBlocksChange>,
@@ -105,6 +111,8 @@ MetricProvider {
     private final Long2ObjectMap<FluidHolder> fluids;
     @Nonnull
     private final List<Holder<EntityStore>> entities;
+    @Nonnull
+    private final Long2IntMap tints;
     private final ReentrantReadWriteLock blocksLock = new ReentrantReadWriteLock();
     private final ReentrantReadWriteLock entitiesLock = new ReentrantReadWriteLock();
 
@@ -112,12 +120,14 @@ MetricProvider {
         this.blocks = new Long2ObjectOpenHashMap<BlockHolder>();
         this.fluids = new Long2ObjectOpenHashMap<FluidHolder>();
         this.entities = new ObjectArrayList<Holder<EntityStore>>();
+        this.tints = new Long2IntOpenHashMap();
     }
 
     public BlockSelection(int initialBlockCapacity, int initialEntityCapacity) {
         this.blocks = new Long2ObjectOpenHashMap<BlockHolder>(initialBlockCapacity);
         this.fluids = new Long2ObjectOpenHashMap<FluidHolder>(initialBlockCapacity);
         this.entities = new ObjectArrayList<Holder<EntityStore>>(initialEntityCapacity);
+        this.tints = new Long2IntOpenHashMap();
     }
 
     public BlockSelection(@Nonnull BlockSelection other) {
@@ -127,6 +137,7 @@ MetricProvider {
         this.blocks = new Long2ObjectOpenHashMap<BlockHolder>(other.getBlockCount());
         this.fluids = new Long2ObjectOpenHashMap<FluidHolder>(other.getFluidCount());
         this.entities = new ObjectArrayList<Holder<EntityStore>>(other.getEntityCount());
+        this.tints = new Long2IntOpenHashMap();
         this.copyPropertiesFrom(other);
         this.add(other);
     }
@@ -184,6 +195,17 @@ MetricProvider {
         this.blocksLock.readLock().lock();
         try {
             int n = this.fluids.size();
+            return n;
+        }
+        finally {
+            this.blocksLock.readLock().unlock();
+        }
+    }
+
+    public int getTintCount() {
+        this.blocksLock.readLock().lock();
+        try {
+            int n = this.tints.size();
             return n;
         }
         finally {
@@ -449,6 +471,38 @@ MetricProvider {
         }
     }
 
+    public void addTintAtLocalPos(int x, int z, int color) {
+        this.tints.put(BlockUtil.pack(x, 0, z), color);
+    }
+
+    public void addTintAtWorldPos(int worldX, int worldZ, int color) {
+        this.tints.put(BlockUtil.pack(worldX - this.x, 0, worldZ - this.z), color);
+    }
+
+    public int getTintAtWorldPos(int worldX, int worldZ) {
+        return this.tints.getOrDefault(BlockUtil.pack(worldX - this.x, 0, worldZ - this.z), -1);
+    }
+
+    public boolean hasTintAtWorldPos(int worldX, int worldZ) {
+        return this.tints.containsKey(BlockUtil.pack(worldX - this.x, 0, worldZ - this.z));
+    }
+
+    public void forEachTint(@Nonnull TintIterator iterator) {
+        this.blocksLock.readLock().lock();
+        try {
+            Long2IntMaps.fastForEach(this.tints, e -> {
+                long packed = e.getLongKey();
+                int color = e.getIntValue();
+                int x1 = BlockUtil.unpackX(packed);
+                int z1 = BlockUtil.unpackZ(packed);
+                iterator.accept(x1, z1, color);
+            });
+        }
+        finally {
+            this.blocksLock.readLock().unlock();
+        }
+    }
+
     public void forEachFluid(@Nonnull FluidIterator iterator) {
         this.blocksLock.readLock().lock();
         try {
@@ -550,26 +604,12 @@ MetricProvider {
             this.blocks.replaceAll((k, b) -> {
                 Holder<ChunkStore> holder = b.holder();
                 if (holder == null && b.filler == 0) {
-                    StateData state;
                     BlockType blockType = BlockType.getAssetMap().getAsset(b.blockId);
                     if (blockType == null) {
                         return b;
                     }
                     if (blockType.getBlockEntity() != null) {
                         holder = blockType.getBlockEntity().clone();
-                    }
-                    if ((state = blockType.getState()) != null && state.getId() != null) {
-                        Vector3i position = new Vector3i(BlockUtil.unpackX(k), BlockUtil.unpackY(k), BlockUtil.unpackZ(k));
-                        Object codec = BlockState.CODEC.getCodecFor(state.getId());
-                        if (codec == null) {
-                            return b;
-                        }
-                        BlockState blockState = (BlockState)codec.decode(new BsonDocument());
-                        if (blockState == null) {
-                            return b;
-                        }
-                        blockState.setPosition(null, position);
-                        holder = blockState.toHolder();
                     }
                 }
                 if (holder != null && b.filler != 0) {
@@ -720,11 +760,19 @@ MetricProvider {
                 this.placeBlockNoReturn(feedbackKey, feedback, feedbackConsumer, outerWorld, blockMask, dirtyChunks, assetMap, totalBlocks, counter.incrementAndGet(), chunkIndex, chunk, blockX, blockY, blockZ, newBlockId, blockHolder.rotation(), blockHolder.filler(), (Holder<ChunkStore>)(holder != null ? holder.clone() : null), componentAccessor);
             });
             outerWorld.getBlockBulkRelative(this.fluids, xConvert, yConvert, zConvert, (world, fluidStore, chunkIndex, chunk, blockX, blockY, blockZ, localX, localY, localZ) -> this.placeFluidNoReturn(feedbackKey, feedback, feedbackConsumer, outerWorld, blockMask, dirtyChunks, assetMap, totalBlocks, counter.incrementAndGet(), chunkIndex, chunk, blockX, blockY, blockZ, fluidStore.fluidId, fluidStore.fluidLevel, componentAccessor));
+            this.forEachTint((x, z, newColor) -> {
+                int worldX = this.x + x;
+                int worldZ = this.z + z;
+                long chunkIdx = ChunkUtil.indexChunkFromBlock(worldX, worldZ);
+                Object chunk = outerWorld.getNonTickingChunk(chunkIdx);
+                ((WorldChunk)chunk).getBlockChunk().setTint(worldX, worldZ, newColor);
+                dirtyChunks.add(chunkIdx);
+            });
         }
         finally {
             this.blocksLock.readLock().unlock();
         }
-        dirtyChunks.forEach(value -> outerWorld.getChunkLighting().invalidateLightInChunk(outerWorld.getChunkIfInMemory(value)));
+        dirtyChunks.forEach(value -> outerWorld.getChunkLighting().invalidateLightInChunk(outerWorld.getChunkStore(), ChunkUtil.xOfChunkIndex(value), ChunkUtil.zOfChunkIndex(value)));
         this.placeEntities(outerWorld, position);
         dirtyChunks.forEach(value -> outerWorld.getNotificationHandler().updateChunk(value));
     }
@@ -738,9 +786,9 @@ MetricProvider {
             return;
         }
         BlockChunk blockChunk = chunk.getBlockChunk();
+        BlockType newBlockType = assetMap.getAsset(newBlockId);
         if (blockChunk.setBlock(blockX, blockY, blockZ, newBlockId, newRotation, newFiller)) {
             short height;
-            BlockType newBlockType = assetMap.getAsset(newBlockId);
             if (newBlockType != null && FluidTicker.isFullySolid(newBlockType)) {
                 this.clearFluidAtPosition(outerWorld, chunk, blockX, blockY, blockZ);
             }
@@ -752,7 +800,7 @@ MetricProvider {
                 }
             }
         }
-        chunk.setState(blockX, blockY, blockZ, holder);
+        chunk.setState(blockX, blockY, blockZ, newBlockType, newRotation, holder);
         dirtyChunks.add(chunkIndex);
         feedbackConsumer.accept(feedbackKey, totalBlocks, counter, feedback, componentAccessor);
     }
@@ -827,11 +875,21 @@ MetricProvider {
             });
             IndexedLookupTableAssetMap<String, Fluid> fluidMap = Fluid.getAssetMap();
             outerWorld.getBlockBulkRelative(this.fluids, xConvert, yConvert, zConvert, (world, fluidStore, chunkIndex, chunk, blockX, blockY, blockZ, localX, localY, localZ) -> this.placeFluid(feedback, outerWorld, before, dirtyChunks, fluidMap, chunkIndex, chunk, blockX, blockY, blockZ, localX, localY, localZ, fluidStore.fluidId, fluidStore.fluidLevel));
+            this.forEachTint((x, z, newColor) -> {
+                int worldX = this.x + x;
+                int worldZ = this.z + z;
+                long chunkIdx = ChunkUtil.indexChunkFromBlock(worldX, worldZ);
+                Object chunk = outerWorld.getNonTickingChunk(chunkIdx);
+                int beforeColor = ((WorldChunk)chunk).getBlockChunk().getTint(worldX, worldZ);
+                before.addTintAtWorldPos(worldX, worldZ, beforeColor);
+                ((WorldChunk)chunk).getBlockChunk().setTint(worldX, worldZ, newColor);
+                dirtyChunks.add(chunkIdx);
+            });
         }
         finally {
             this.blocksLock.readLock().unlock();
         }
-        dirtyChunks.forEach(value -> outerWorld.getChunkLighting().invalidateLightInChunk(outerWorld.getChunkIfInMemory(value)));
+        dirtyChunks.forEach(value -> outerWorld.getChunkLighting().invalidateLightInChunk(outerWorld.getChunkStore(), ChunkUtil.xOfChunkIndex(value), ChunkUtil.zOfChunkIndex(value)));
         this.placeEntities(outerWorld, position, entityConsumer);
         dirtyChunks.forEach(value -> outerWorld.getNotificationHandler().updateChunk(value));
         return before;
@@ -855,9 +913,9 @@ MetricProvider {
         int rotation = blockSection.getRotationIndex(blockX, blockY, blockZ);
         before.addBlockAtLocalPos(localX, localY, localZ, oldBlockId, rotation, filler, supportValue, chunk.getBlockComponentHolder(blockX, blockY, blockZ));
         BlockChunk blockChunk = chunk.getBlockChunk();
+        BlockType newBlockType = assetMap.getAsset(newBlockId);
         if (blockChunk.setBlock(blockX, blockY, blockZ, newBlockId, newRotation, newFiller)) {
             short height;
-            BlockType newBlockType = assetMap.getAsset(newBlockId);
             if (newBlockType != null && FluidTicker.isFullySolid(newBlockType)) {
                 this.clearFluidAtPosition(outerWorld, chunk, blockX, blockY, blockZ);
             }
@@ -879,7 +937,7 @@ MetricProvider {
                 }
             }
         }
-        chunk.setState(blockX, blockY, blockZ, holder);
+        chunk.setState(blockX, blockY, blockZ, newBlockType, newRotation, holder);
         dirtyChunks.add(chunkIndex);
     }
 
@@ -945,48 +1003,38 @@ MetricProvider {
         Vector3i mutable = new Vector3i(0, 0, 0);
         Rotation rotation = Rotation.ofDegrees(angle);
         this.forEachBlock((x1, y1, z1, block) -> {
-            RotationTuple rotatedRotation;
             mutable.assign(x1 - this.anchorX, y1 - this.anchorY, z1 - this.anchorZ);
             axis.rotate(mutable, angle);
             int blockId = block.blockId;
             Holder<ChunkStore> holder = block.holder;
             RotationTuple blockRotation = RotationTuple.get(block.rotation);
-            switch (axis) {
-                default: {
-                    throw new MatchException(null, null);
-                }
-                case X: {
-                    RotationTuple rotationTuple = RotationTuple.of(blockRotation.yaw(), blockRotation.pitch().add(rotation), blockRotation.roll());
-                    break;
-                }
-                case Y: {
-                    RotationTuple rotationTuple = RotationTuple.of(blockRotation.yaw().add(rotation), blockRotation.pitch(), blockRotation.roll());
-                    break;
-                }
-                case Z: {
-                    RotationTuple rotationTuple = rotatedRotation = RotationTuple.of(blockRotation.yaw(), blockRotation.pitch(), blockRotation.roll().add(rotation));
-                }
-            }
-            if (rotatedRotation == null) {
-                rotatedRotation = blockRotation;
-            }
+            RotationTuple rotatedRotation = blockRotation.composeOnAxis(axis, rotation);
             int rotatedFiller = BlockRotationUtil.getRotatedFiller(block.filler, axis, rotation);
             selection.addBlock0(mutable.getX() + this.anchorX, mutable.getY() + this.anchorY, mutable.getZ() + this.anchorZ, blockId, rotatedRotation.index(), rotatedFiller, block.supportValue(), (Holder<ChunkStore>)(holder != null ? holder.clone() : null));
         });
+        Matrix4d axisRot = new Matrix4d().setRotateAxis(Math.toRadians(angle), axis.getDirection().getX(), axis.getDirection().getY(), axis.getDirection().getZ());
         this.forEachEntity(entityHolder -> {
             Object copy = entityHolder.clone();
             TransformComponent transformComponent = ((Holder)copy).getComponent(TransformComponent.getComponentType());
             assert (transformComponent != null);
             Vector3d position = transformComponent.getPosition();
             HeadRotation headRotationComponent = ((Holder)copy).getComponent(HeadRotation.getComponentType());
-            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(0.5, 0.0, 0.5);
+            boolean isBlockEntity = ((Holder)copy).getComponent(BlockEntity.getComponentType()) != null;
+            Vector3d offset = isBlockEntity ? new Vector3d(0.5, 0.0, 0.5) : new Vector3d(0.5, 0.5, 0.5);
+            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(offset);
             axis.rotate(position, angle);
-            position.add(this.anchorX, this.anchorY, this.anchorZ).add(0.5, 0.0, 0.5);
-            transformComponent.getRotation().addRotationOnAxis(axis, angle);
+            position.add(this.anchorX, this.anchorY, this.anchorZ).add(offset);
+            BlockSelection.composeAxisRotation(axisRot, transformComponent.getRotation());
             if (headRotationComponent != null) {
-                headRotationComponent.getRotation().addRotationOnAxis(axis, angle);
+                BlockSelection.composeAxisRotation(axisRot, headRotationComponent.getRotation());
             }
             selection.addEntity0((Holder<EntityStore>)copy);
+        });
+        Vector3i fluidMutable = new Vector3i(0, 0, 0);
+        this.forEachFluid((x1, y1, z1, fluidId, fluidLevel) -> {
+            fluidMutable.assign(x1 - this.anchorX, y1 - this.anchorY, z1 - this.anchorZ);
+            axis.rotate(fluidMutable, angle);
+            selection.addFluid0(fluidMutable.getX() + this.anchorX, fluidMutable.getY() + this.anchorY, fluidMutable.getZ() + this.anchorZ, fluidId, fluidLevel);
         });
         return selection;
     }
@@ -999,51 +1047,109 @@ MetricProvider {
         Rotation rotation = Rotation.ofDegrees(angle);
         Vector3f finalOriginOfRotation = originOfRotation.clone().subtract(this.x, this.y, this.z);
         this.forEachBlock((x1, y1, z1, block) -> {
-            RotationTuple rotatedRotation;
             mutable.assign((float)x1 - finalOriginOfRotation.x, (float)y1 - finalOriginOfRotation.y, (float)z1 - finalOriginOfRotation.z);
             axis.rotate(mutable, angle);
             int blockId = block.blockId;
             Holder<ChunkStore> holder = block.holder;
             int supportValue = block.supportValue();
             RotationTuple blockRotation = RotationTuple.get(block.rotation);
-            switch (axis) {
-                default: {
-                    throw new MatchException(null, null);
-                }
-                case X: {
-                    RotationTuple rotationTuple = RotationTuple.of(blockRotation.yaw(), blockRotation.pitch().add(rotation), blockRotation.roll());
-                    break;
-                }
-                case Y: {
-                    RotationTuple rotationTuple = RotationTuple.of(blockRotation.yaw().add(rotation), blockRotation.pitch(), blockRotation.roll());
-                    break;
-                }
-                case Z: {
-                    RotationTuple rotationTuple = rotatedRotation = RotationTuple.of(blockRotation.yaw(), blockRotation.pitch(), blockRotation.roll().add(rotation));
-                }
-            }
-            if (rotatedRotation == null) {
-                rotatedRotation = blockRotation;
-            }
+            RotationTuple rotatedRotation = blockRotation.composeOnAxis(axis, rotation);
             int rotatedFiller = BlockRotationUtil.getRotatedFiller(block.filler, axis, rotation);
-            selection.addBlock0((int)(mutable.getX() + (double)finalOriginOfRotation.x), (int)(mutable.getY() + (double)finalOriginOfRotation.z), (int)(mutable.getZ() + (double)finalOriginOfRotation.z), blockId, rotatedRotation.index(), rotatedFiller, supportValue, (Holder<ChunkStore>)(holder != null ? holder.clone() : null));
+            selection.addBlock0((int)(mutable.getX() + (double)finalOriginOfRotation.x), (int)(mutable.getY() + (double)finalOriginOfRotation.y), (int)(mutable.getZ() + (double)finalOriginOfRotation.z), blockId, rotatedRotation.index(), rotatedFiller, supportValue, (Holder<ChunkStore>)(holder != null ? holder.clone() : null));
         });
+        Matrix4d axisRot2 = new Matrix4d().setRotateAxis(Math.toRadians(angle), axis.getDirection().getX(), axis.getDirection().getY(), axis.getDirection().getZ());
         this.forEachEntity(entityHolder -> {
             Object copy = entityHolder.clone();
             TransformComponent transformComponent = ((Holder)copy).getComponent(TransformComponent.getComponentType());
             assert (transformComponent != null);
             Vector3d position = transformComponent.getPosition();
             HeadRotation headRotationComponent = ((Holder)copy).getComponent(HeadRotation.getComponentType());
-            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(0.5, 0.0, 0.5);
+            boolean isBlockEntity = entityHolder.getComponent(BlockEntity.getComponentType()) != null;
+            Vector3d offset = isBlockEntity ? new Vector3d(0.5, 0.0, 0.5) : new Vector3d(0.5, 0.5, 0.5);
+            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(offset);
             axis.rotate(position, angle);
-            position.add(this.anchorX, this.anchorY, this.anchorZ).add(0.5, 0.0, 0.5);
-            transformComponent.getRotation().addRotationOnAxis(axis, angle);
+            position.add(this.anchorX, this.anchorY, this.anchorZ).add(offset);
+            BlockSelection.composeAxisRotation(axisRot2, transformComponent.getRotation());
             if (headRotationComponent != null) {
-                headRotationComponent.getRotation().addRotationOnAxis(axis, angle);
+                BlockSelection.composeAxisRotation(axisRot2, headRotationComponent.getRotation());
             }
             selection.addEntity0((Holder<EntityStore>)copy);
         });
+        Vector3d fluidMutable2 = new Vector3d(0.0, 0.0, 0.0);
+        this.forEachFluid((x1, y1, z1, fluidId, fluidLevel) -> {
+            fluidMutable2.assign((float)x1 - finalOriginOfRotation.x, (float)y1 - finalOriginOfRotation.y, (float)z1 - finalOriginOfRotation.z);
+            axis.rotate(fluidMutable2, angle);
+            selection.addFluid0((int)(fluidMutable2.getX() + (double)finalOriginOfRotation.x), (int)(fluidMutable2.getY() + (double)finalOriginOfRotation.y), (int)(fluidMutable2.getZ() + (double)finalOriginOfRotation.z), fluidId, fluidLevel);
+        });
         return selection;
+    }
+
+    private static void composeAxisRotation(@Nonnull Matrix4d axisRotation, @Nonnull Vector3f euler) {
+        double newRoll;
+        double newYaw;
+        double cy = Math.cos((double)euler.getYaw() * 0.5);
+        double sy = Math.sin((double)euler.getYaw() * 0.5);
+        double cp = Math.cos((double)euler.getPitch() * 0.5);
+        double sp = Math.sin((double)euler.getPitch() * 0.5);
+        double cr = Math.cos((double)euler.getRoll() * 0.5);
+        double sr = Math.sin((double)euler.getRoll() * 0.5);
+        double qw = cr * cp * cy + sr * sp * sy;
+        double qx = cr * sp * cy + sr * cp * sy;
+        double qy = cr * cp * sy - sr * sp * cy;
+        double qz = sr * cp * cy - cr * sp * sy;
+        double[] rotQuat = BlockSelection.matrixToQuaternion(axisRotation);
+        double rqw = rotQuat[0] * qw - rotQuat[1] * qx - rotQuat[2] * qy - rotQuat[3] * qz;
+        double rqx = rotQuat[0] * qx + rotQuat[1] * qw + rotQuat[2] * qz - rotQuat[3] * qy;
+        double rqy = rotQuat[0] * qy - rotQuat[1] * qz + rotQuat[2] * qw + rotQuat[3] * qx;
+        double rqz = rotQuat[0] * qz + rotQuat[1] * qy - rotQuat[2] * qx + rotQuat[3] * qw;
+        double sinPitch = 2.0 * (rqw * rqx - rqy * rqz);
+        sinPitch = Math.max(-1.0, Math.min(1.0, sinPitch));
+        double newPitch = Math.asin(sinPitch);
+        if (Math.abs(sinPitch) < 0.9999) {
+            newYaw = Math.atan2(2.0 * (rqw * rqy + rqx * rqz), 1.0 - 2.0 * (rqx * rqx + rqy * rqy));
+            newRoll = Math.atan2(2.0 * (rqw * rqz + rqx * rqy), 1.0 - 2.0 * (rqx * rqx + rqz * rqz));
+        } else {
+            newYaw = Math.atan2(-2.0 * (rqx * rqz - rqw * rqy), 1.0 - 2.0 * (rqy * rqy + rqz * rqz));
+            newRoll = 0.0;
+        }
+        euler.setPitch((float)newPitch);
+        euler.setYaw((float)newYaw);
+        euler.setRoll((float)newRoll);
+    }
+
+    private static double[] matrixToQuaternion(Matrix4d m) {
+        double qz;
+        double qy;
+        double qx;
+        double qw;
+        double[] d = m.getData();
+        double trace = d[0] + d[5] + d[10];
+        if (trace > 0.0) {
+            double s = 0.5 / Math.sqrt(trace + 1.0);
+            qw = 0.25 / s;
+            qx = (d[9] - d[6]) * s;
+            qy = (d[2] - d[8]) * s;
+            qz = (d[4] - d[1]) * s;
+        } else if (d[0] > d[5] && d[0] > d[10]) {
+            double s = 2.0 * Math.sqrt(1.0 + d[0] - d[5] - d[10]);
+            qw = (d[9] - d[6]) / s;
+            qx = 0.25 * s;
+            qy = (d[1] + d[4]) / s;
+            qz = (d[2] + d[8]) / s;
+        } else if (d[5] > d[10]) {
+            double s = 2.0 * Math.sqrt(1.0 + d[5] - d[0] - d[10]);
+            qw = (d[2] - d[8]) / s;
+            qx = (d[1] + d[4]) / s;
+            qy = 0.25 * s;
+            qz = (d[6] + d[9]) / s;
+        } else {
+            double s = 2.0 * Math.sqrt(1.0 + d[10] - d[0] - d[5]);
+            qw = (d[4] - d[1]) / s;
+            qx = (d[2] + d[8]) / s;
+            qy = (d[6] + d[9]) / s;
+            qz = 0.25 * s;
+        }
+        return new double[]{qw, qx, qy, qz};
     }
 
     /*
@@ -1171,27 +1277,20 @@ MetricProvider {
         finally {
             this.blocksLock.readLock().unlock();
         }
-        float yawRadF = (float)yawRad;
-        float pitchRadF = (float)pitchRad;
-        float rollRadF = (float)rollRad;
         this.forEachEntity(entityHolder -> {
             Object copy = entityHolder.clone();
             TransformComponent transformComponent = ((Holder)copy).getComponent(TransformComponent.getComponentType());
             assert (transformComponent != null);
             Vector3d position = transformComponent.getPosition();
             HeadRotation headRotationComp = ((Holder)copy).getComponent(HeadRotation.getComponentType());
-            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(0.5, 0.0, 0.5);
+            boolean isBlockEntity = entityHolder.getComponent(BlockEntity.getComponentType()) != null;
+            Vector3d offset = isBlockEntity ? new Vector3d(0.5, 0.0, 0.5) : new Vector3d(0.5, 0.5, 0.5);
+            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(offset);
             rotation.multiplyDirection(position);
-            position.add(this.anchorX, this.anchorY, this.anchorZ).add(0.5, 0.0, 0.5);
-            Vector3f bodyRotation = transformComponent.getRotation();
-            bodyRotation.addPitch(pitchRadF);
-            bodyRotation.addYaw(yawRadF);
-            bodyRotation.addRoll(rollRadF);
+            position.add(this.anchorX, this.anchorY, this.anchorZ).add(offset);
+            BlockSelection.composeAxisRotation(rotation, transformComponent.getRotation());
             if (headRotationComp != null) {
-                Vector3f headRot = headRotationComp.getRotation();
-                headRot.addPitch(pitchRadF);
-                headRot.addYaw(yawRadF);
-                headRot.addRoll(rollRadF);
+                BlockSelection.composeAxisRotation(rotation, headRotationComp.getRotation());
             }
             selection.addEntity0((Holder<EntityStore>)copy);
         });
@@ -1218,8 +1317,8 @@ MetricProvider {
                 return;
             }
             RotationTuple blockRotation = RotationTuple.get(block.rotation);
-            RotationTuple rotatedRotation = BlockRotationUtil.getFlipped(blockRotation, blockType.getFlipType(), axis, variantRotation);
-            if (rotatedRotation != null) {
+            RotationTuple rotatedRotation = BlockRotationUtil.getFlipped(blockRotation, blockType.getFlipType(), axis);
+            if (rotatedRotation == null) {
                 rotatedRotation = blockRotation;
             }
             int rotatedFiller = BlockRotationUtil.getFlippedFiller(filler, axis);
@@ -1234,9 +1333,11 @@ MetricProvider {
             assert (transformComponent != null);
             Vector3d position = transformComponent.getPosition();
             Vector3f bodyRotation = transformComponent.getRotation();
-            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(0.5, 0.0, 0.5);
+            boolean isBlockEntity = entityHolder.getComponent(BlockEntity.getComponentType()) != null;
+            Vector3d offset = isBlockEntity ? new Vector3d(0.5, 0.0, 0.5) : new Vector3d(0.5, 0.5, 0.5);
+            position.subtract(this.anchorX, this.anchorY, this.anchorZ).subtract(offset);
             axis.flip(position);
-            position.add(this.anchorX, this.anchorY, this.anchorZ).add(0.5, 0.0, 0.5);
+            position.add(this.anchorX, this.anchorY, this.anchorZ).add(offset);
             axis.flipRotation(bodyRotation);
             axis.flipRotation(headRotation);
             selection.addEntity0((Holder<EntityStore>)copy);
@@ -1277,6 +1378,7 @@ MetricProvider {
         try {
             Long2ObjectMaps.fastForEach(this.blocks, entry -> selection.blocks.put(entry.getLongKey(), ((BlockHolder)entry.getValue()).cloneBlockHolder()));
             selection.fluids.putAll(this.fluids);
+            selection.tints.putAll(this.tints);
         }
         finally {
             this.blocksLock.readLock().unlock();
@@ -1352,7 +1454,60 @@ MetricProvider {
         finally {
             this.blocksLock.readLock().unlock();
         }
+        this.entitiesLock.readLock().lock();
+        try {
+            if (!this.entities.isEmpty()) {
+                ObjectArrayList<ClipboardEntityChange> entityList = new ObjectArrayList<ClipboardEntityChange>(this.entities.size());
+                for (Holder<EntityStore> holder : this.entities) {
+                    ClipboardEntityChange ec = BlockSelection.toClipboardEntityChange(holder, this.anchorX, this.anchorY, this.anchorZ);
+                    if (ec == null) continue;
+                    entityList.add(ec);
+                }
+                packet.entityChanges = (ClipboardEntityChange[])entityList.toArray(ClipboardEntityChange[]::new);
+            }
+        }
+        finally {
+            this.entitiesLock.readLock().unlock();
+        }
         return packet;
+    }
+
+    @Nullable
+    public static ClipboardEntityChange toClipboardEntityChange(@Nonnull Holder<EntityStore> holder, double anchorX, double anchorY, double anchorZ) {
+        EntityScaleComponent scaleComp;
+        HeadRotation headRot;
+        Vector3f rot;
+        ItemComponent itemComp;
+        ModelComponent modelComp;
+        TransformComponent transform = holder.getComponent(TransformComponent.getComponentType());
+        if (transform == null || transform.getPosition() == null) {
+            return null;
+        }
+        Vector3d pos = transform.getPosition();
+        ClipboardEntityChange ec = new ClipboardEntityChange();
+        ec.x = (float)(pos.getX() - anchorX);
+        ec.y = (float)(pos.getY() - anchorY);
+        ec.z = (float)(pos.getZ() - anchorZ);
+        BlockEntity blockEntityComp = holder.getComponent(BlockEntity.getComponentType());
+        if (blockEntityComp != null) {
+            String key = blockEntityComp.getBlockTypeKey();
+            int n = ec.blockId = key != null ? BlockType.getAssetMap().getIndex(key) : 0;
+        }
+        if ((modelComp = holder.getComponent(ModelComponent.getComponentType())) != null && modelComp.getModel() != null) {
+            ec.model = modelComp.getModel().toPacket();
+        }
+        if ((itemComp = holder.getComponent(ItemComponent.getComponentType())) != null && itemComp.getItemStack() != null) {
+            ec.itemId = itemComp.getItemStack().getItemId();
+        }
+        if ((rot = transform.getRotation()) != null) {
+            ec.bodyOrientation = new Direction(rot.getY(), rot.getX(), rot.getZ());
+        }
+        if ((headRot = holder.getComponent(HeadRotation.getComponentType())) != null && headRot.getRotation() != null) {
+            Vector3f hr = headRot.getRotation();
+            ec.lookOrientation = new Direction(hr.getY(), hr.getX(), hr.getZ());
+        }
+        ec.scale = (scaleComp = holder.getComponent(EntityScaleComponent.getComponentType())) != null ? scaleComp.getScale() : 0.0f;
+        return ec;
     }
 
     @Nonnull
@@ -1412,10 +1567,14 @@ MetricProvider {
             if (blockHolder == null || (blockId = blockHolder.blockId) == 0 || (blockType = blockTypeAssetMap.getAsset(blockId)) == null) continue;
             String id = blockType.getId();
             if (blockHolder.filler != 0) {
+                int fillerZ;
+                int fillerY;
                 int fillerX = FillerBlockUtil.unpackX(blockHolder.filler);
-                int fillerY = FillerBlockUtil.unpackY(blockHolder.filler);
-                int fillerZ = FillerBlockUtil.unpackZ(blockHolder.filler);
-                BlockHolder baseBlockHolder = this.getBlockHolderAtLocalPos(x - fillerX, y - fillerY, z - fillerZ);
+                BlockHolder baseBlockHolder = this.getBlockHolderAtLocalPos(x - fillerX, y - (fillerY = FillerBlockUtil.unpackY(blockHolder.filler)), z - (fillerZ = FillerBlockUtil.unpackZ(blockHolder.filler)));
+                if (baseBlockHolder == null) {
+                    this.addBlockAtLocalPos(x, y, z, 0, 0, 0, 0);
+                    continue;
+                }
                 BlockType baseBlock = blockTypeAssetMap.getAsset(baseBlockHolder.blockId);
                 if (baseBlock == null) {
                     this.addBlockAtLocalPos(x, y, z, 0, 0, 0, 0);
@@ -1437,10 +1596,10 @@ MetricProvider {
                 int worldY = y + y1;
                 int worldZ = z + z1;
                 BlockHolder fillerBlockHolder = this.getBlockHolderAtLocalPos(worldX, worldY, worldZ);
-                BlockType fillerBlock = (BlockType)blockTypeAssetMap.getAsset(fillerBlockHolder.blockId);
+                BlockType fillerBlock = fillerBlockHolder != null ? (BlockType)blockTypeAssetMap.getAsset(fillerBlockHolder.blockId) : null;
                 int filler = FillerBlockUtil.pack(x1, y1, z1);
                 if (fillerBlock == null || !fillerBlock.getId().equals(id) || filler != fillerBlockHolder.filler) {
-                    if (!allowDestructive && fillerBlockHolder.blockId != 0) {
+                    if (!allowDestructive && fillerBlockHolder != null && fillerBlockHolder.blockId != 0) {
                         throw new IllegalArgumentException("Cannot replace " + fillerBlock.getId() + " with " + blockType.getId() + " in order to repair filler\n at " + worldX + ", " + worldY + ", " + worldZ + "\n base " + x + ", " + y + ", " + z);
                     }
                     this.addBlockAtLocalPos(worldX, worldY, worldZ, blockId, blockHolder.rotation, filler, 0);
@@ -1521,6 +1680,11 @@ MetricProvider {
     @FunctionalInterface
     public static interface BlockIterator {
         public void accept(int var1, int var2, int var3, BlockHolder var4);
+    }
+
+    @FunctionalInterface
+    public static interface TintIterator {
+        public void accept(int var1, int var2, int var3);
     }
 
     @FunctionalInterface

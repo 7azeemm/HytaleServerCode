@@ -3,6 +3,7 @@
  */
 package com.hypixel.hytale.server.core.cosmetics.commands;
 
+import com.hypixel.hytale.assetstore.map.IndexedLookupTableAssetMap;
 import com.hypixel.hytale.common.util.StringUtil;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
@@ -14,14 +15,15 @@ import com.hypixel.hytale.server.core.command.system.CommandUtil;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
-import com.hypixel.hytale.server.core.cosmetics.CosmeticRegistry;
 import com.hypixel.hytale.server.core.cosmetics.CosmeticsModule;
 import com.hypixel.hytale.server.core.cosmetics.Emote;
+import com.hypixel.hytale.server.core.cosmetics.EmoteAsset;
 import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 public class EmoteCommand
@@ -36,16 +38,16 @@ extends AbstractPlayerCommand {
 
     @Override
     protected void execute(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
-        String emoteId;
-        CosmeticRegistry cosmeticsRegistry = CosmeticsModule.get().getRegistry();
-        Map<String, Emote> emotes = cosmeticsRegistry.getEmotes();
-        Emote emote = emotes.get(emoteId = (String)this.emoteArg.get(context));
-        if (emote == null) {
+        String emoteId = (String)this.emoteArg.get(context);
+        Map<String, Emote> builtinEmotes = CosmeticsModule.get().getRegistry().getEmotesInGame();
+        IndexedLookupTableAssetMap<String, EmoteAsset> serverEmotes = EmoteAsset.getAssetMap();
+        if (builtinEmotes.get(emoteId) == null && serverEmotes.getAsset(emoteId) == null) {
             context.sendMessage(Message.translation("server.commands.emote.emoteNotFound").param("id", emoteId));
-            context.sendMessage(Message.translation("server.general.failed.didYouMean").param("choices", StringUtil.sortByFuzzyDistance(emoteId, emotes.keySet(), CommandUtil.RECOMMEND_COUNT).toString()));
+            Set allEmoteIdsSet = Set.of(builtinEmotes.keySet(), serverEmotes.getAssetMap().keySet());
+            context.sendMessage(Message.translation("server.general.failed.didYouMean").param("choices", StringUtil.sortByFuzzyDistance(emoteId, allEmoteIdsSet, CommandUtil.RECOMMEND_COUNT).toString()));
             return;
         }
-        AnimationUtils.playAnimation(ref, AnimationSlot.Emote, null, emote.getId(), true, store);
+        AnimationUtils.playAnimation(ref, AnimationSlot.Emote, null, emoteId, true, store);
     }
 }
 

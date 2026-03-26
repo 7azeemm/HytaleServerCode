@@ -14,7 +14,6 @@ import com.hypixel.hytale.protocol.ColorLight;
 import com.hypixel.hytale.protocol.Opacity;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
-import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.LocalCachedChunkAccessor;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
@@ -243,56 +242,51 @@ implements LightCalculation {
     }
 
     @Override
-    public boolean invalidateLightAtBlock(@Nonnull WorldChunk worldChunk, int blockX, int blockY, int blockZ, @Nonnull BlockType blockType, int oldHeight, int newHeight) {
-        int chunkX = worldChunk.getX();
-        int chunkY = blockY >> 5;
-        int chunkZ = worldChunk.getZ();
+    public boolean invalidateLightAtBlock(@Nonnull ChunkStore chunkStore, int blockX, int blockY, int blockZ, @Nonnull BlockType blockType, int oldHeight, int newHeight) {
+        int chunkX = ChunkUtil.chunkCoordinate(blockX);
+        int chunkY = ChunkUtil.chunkCoordinate(blockY);
+        int chunkZ = ChunkUtil.chunkCoordinate(blockZ);
         int oldHeightChunk = oldHeight >> 5;
         int newHeightChunk = newHeight >> 5;
         int from = Math.max(MathUtil.minValue(oldHeightChunk, newHeightChunk, chunkY), 0);
         int to = MathUtil.maxValue(oldHeightChunk, newHeightChunk, chunkY) + 1;
-        boolean handled = this.invalidateLightInChunkSections(worldChunk, from, to);
+        boolean handled = this.invalidateLightInChunkSections(chunkStore, chunkX, chunkZ, from, to);
         this.chunkLightingManager.getLogger().at(Level.FINER).log("updateLightAtBlock(%d, %d, %d, %s): %d, %d, %d", blockX, blockY, blockZ, blockType.getId(), chunkX, chunkY, chunkZ);
         return handled;
     }
 
-    @Override
-    public boolean invalidateLightInChunkSections(@Nonnull WorldChunk worldChunk, int sectionIndexFrom, int sectionIndexTo) {
-        int y;
-        WorldChunk worldChunkTemp;
-        int z;
-        int x;
-        int chunkX = worldChunk.getX();
-        int chunkZ = worldChunk.getZ();
-        World world = this.chunkLightingManager.getWorld();
-        LocalCachedChunkAccessor accessor = LocalCachedChunkAccessor.atChunkCoords(world, chunkX, chunkZ, 1);
-        accessor.overwrite(worldChunk);
-        if (!world.isInThread()) {
-            CompletableFuture.runAsync(accessor::cacheChunksInRadius, world).join();
-        } else {
-            accessor.cacheChunksInRadius();
-        }
-        for (x = chunkX - 1; x <= chunkX + 1; ++x) {
-            for (z = chunkZ - 1; z <= chunkZ + 1; ++z) {
-                worldChunkTemp = accessor.getChunkIfInMemory(x, z);
-                if (worldChunkTemp == null) continue;
-                for (y = sectionIndexTo - 1; y >= sectionIndexFrom; --y) {
-                    BlockSection section = worldChunkTemp.getBlockChunk().getSectionAtIndex(y);
-                    if (worldChunkTemp == worldChunk) {
+    private void invalidateLightingFor(@Nonnull ChunkStore chunkStore, int chunkX, int chunkZ, int sectionIndexFrom, int sectionIndexTo) {
+        for (int x = chunkX - 1; x <= chunkX + 1; ++x) {
+            for (int z = chunkZ - 1; z <= chunkZ + 1; ++z) {
+                for (int y = sectionIndexTo - 1; y >= sectionIndexFrom; --y) {
+                    BlockSection section;
+                    Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReference(x, y, z);
+                    if (sectionRef == null || (section = chunkStore.getStore().getComponent(sectionRef, BlockSection.getComponentType())) == null) continue;
+                    if (x == chunkX && z == chunkZ) {
                         section.invalidateLocalLight();
                     } else {
                         section.invalidateGlobalLight();
                     }
                     if (!BlockChunk.SEND_LOCAL_LIGHTING_DATA && !BlockChunk.SEND_GLOBAL_LIGHTING_DATA) continue;
-                    worldChunkTemp.getBlockChunk().invalidateChunkSection(y);
+                    section.invalidate();
                 }
             }
         }
-        for (x = chunkX - 1; x <= chunkX + 1; ++x) {
-            for (z = chunkZ - 1; z <= chunkZ + 1; ++z) {
-                worldChunkTemp = accessor.getChunkIfInMemory(x, z);
+    }
+
+    @Override
+    public boolean invalidateLightInChunkSections(@Nonnull ChunkStore chunkStore, int chunkX, int chunkZ, int sectionIndexFrom, int sectionIndexTo) {
+        if (!chunkStore.getWorld().isInThread()) {
+            CompletableFuture.runAsync(() -> this.invalidateLightingFor(chunkStore, chunkX, chunkZ, sectionIndexFrom, sectionIndexTo), chunkStore.getWorld()).join();
+        } else {
+            this.invalidateLightingFor(chunkStore, chunkX, chunkZ, sectionIndexFrom, sectionIndexTo);
+        }
+        for (int x = chunkX - 1; x <= chunkX + 1; ++x) {
+            for (int z = chunkZ - 1; z <= chunkZ + 1; ++z) {
+                Ref<ChunkStore> worldChunkTemp = chunkStore.getChunkReference(ChunkUtil.indexChunk(x, z));
                 if (worldChunkTemp == null) continue;
-                for (y = sectionIndexTo - 1; y >= sectionIndexFrom; --y) {
+                for (int y = sectionIndexTo - 1; y >= sectionIndexFrom; --y) {
+                    if (y < 0 || y >= 10) continue;
                     this.chunkLightingManager.addToQueue(new Vector3i(x, y, z));
                 }
             }

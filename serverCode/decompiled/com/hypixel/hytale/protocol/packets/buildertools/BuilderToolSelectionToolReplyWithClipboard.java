@@ -9,6 +9,7 @@ import com.hypixel.hytale.protocol.ToClientPacket;
 import com.hypixel.hytale.protocol.io.ProtocolException;
 import com.hypixel.hytale.protocol.io.ValidationResult;
 import com.hypixel.hytale.protocol.io.VarInt;
+import com.hypixel.hytale.protocol.packets.buildertools.ClipboardEntityChange;
 import com.hypixel.hytale.protocol.packets.interface_.BlockChange;
 import com.hypixel.hytale.protocol.packets.interface_.FluidChange;
 import io.netty.buffer.ByteBuf;
@@ -23,13 +24,15 @@ ToClientPacket {
     public static final boolean IS_COMPRESSED = true;
     public static final int NULLABLE_BIT_FIELD_SIZE = 1;
     public static final int FIXED_BLOCK_SIZE = 1;
-    public static final int VARIABLE_FIELD_COUNT = 2;
-    public static final int VARIABLE_BLOCK_START = 9;
-    public static final int MAX_SIZE = 139264019;
+    public static final int VARIABLE_FIELD_COUNT = 3;
+    public static final int VARIABLE_BLOCK_START = 13;
+    public static final int MAX_SIZE = 0x64000000;
     @Nullable
     public BlockChange[] blocksChange;
     @Nullable
     public FluidChange[] fluidsChange;
+    @Nullable
+    public ClipboardEntityChange[] entityChanges;
 
     @Override
     public int getId() {
@@ -44,14 +47,16 @@ ToClientPacket {
     public BuilderToolSelectionToolReplyWithClipboard() {
     }
 
-    public BuilderToolSelectionToolReplyWithClipboard(@Nullable BlockChange[] blocksChange, @Nullable FluidChange[] fluidsChange) {
+    public BuilderToolSelectionToolReplyWithClipboard(@Nullable BlockChange[] blocksChange, @Nullable FluidChange[] fluidsChange, @Nullable ClipboardEntityChange[] entityChanges) {
         this.blocksChange = blocksChange;
         this.fluidsChange = fluidsChange;
+        this.entityChanges = entityChanges;
     }
 
     public BuilderToolSelectionToolReplyWithClipboard(@Nonnull BuilderToolSelectionToolReplyWithClipboard other) {
         this.blocksChange = other.blocksChange;
         this.fluidsChange = other.fluidsChange;
+        this.entityChanges = other.entityChanges;
     }
 
     @Nonnull
@@ -62,7 +67,7 @@ ToClientPacket {
         BuilderToolSelectionToolReplyWithClipboard obj = new BuilderToolSelectionToolReplyWithClipboard();
         byte nullBits = buf.getByte(offset);
         if ((nullBits & 1) != 0) {
-            int varPos0 = offset + 9 + buf.getIntLE(offset + 1);
+            int varPos0 = offset + 13 + buf.getIntLE(offset + 1);
             int blocksChangeCount = VarInt.peek(buf, varPos0);
             if (blocksChangeCount < 0) {
                 throw ProtocolException.negativeLength("BlocksChange", blocksChangeCount);
@@ -82,7 +87,7 @@ ToClientPacket {
             }
         }
         if ((nullBits & 2) != 0) {
-            int varPos1 = offset + 9 + buf.getIntLE(offset + 5);
+            int varPos1 = offset + 13 + buf.getIntLE(offset + 5);
             int fluidsChangeCount = VarInt.peek(buf, varPos1);
             if (fluidsChangeCount < 0) {
                 throw ProtocolException.negativeLength("FluidsChange", fluidsChangeCount);
@@ -101,6 +106,26 @@ ToClientPacket {
                 elemPos += FluidChange.computeBytesConsumed(buf, elemPos);
             }
         }
+        if ((nullBits & 4) != 0) {
+            int varPos2 = offset + 13 + buf.getIntLE(offset + 9);
+            int entityChangesCount = VarInt.peek(buf, varPos2);
+            if (entityChangesCount < 0) {
+                throw ProtocolException.negativeLength("EntityChanges", entityChangesCount);
+            }
+            if (entityChangesCount > 4096000) {
+                throw ProtocolException.arrayTooLong("EntityChanges", entityChangesCount, 4096000);
+            }
+            varIntLen = VarInt.length(buf, varPos2);
+            if ((long)(varPos2 + varIntLen) + (long)entityChangesCount * 45L > (long)buf.readableBytes()) {
+                throw ProtocolException.bufferTooSmall("EntityChanges", varPos2 + varIntLen + entityChangesCount * 45, buf.readableBytes());
+            }
+            obj.entityChanges = new ClipboardEntityChange[entityChangesCount];
+            elemPos = varPos2 + varIntLen;
+            for (i = 0; i < entityChangesCount; ++i) {
+                obj.entityChanges[i] = ClipboardEntityChange.deserialize(buf, elemPos);
+                elemPos += ClipboardEntityChange.computeBytesConsumed(buf, elemPos);
+            }
+        }
         return obj;
     }
 
@@ -108,10 +133,10 @@ ToClientPacket {
         int i;
         int arrLen;
         byte nullBits = buf.getByte(offset);
-        int maxEnd = 9;
+        int maxEnd = 13;
         if ((nullBits & 1) != 0) {
             int fieldOffset0 = buf.getIntLE(offset + 1);
-            int pos0 = offset + 9 + fieldOffset0;
+            int pos0 = offset + 13 + fieldOffset0;
             arrLen = VarInt.peek(buf, pos0);
             pos0 += VarInt.length(buf, pos0);
             for (i = 0; i < arrLen; ++i) {
@@ -123,7 +148,7 @@ ToClientPacket {
         }
         if ((nullBits & 2) != 0) {
             int fieldOffset1 = buf.getIntLE(offset + 5);
-            int pos1 = offset + 9 + fieldOffset1;
+            int pos1 = offset + 13 + fieldOffset1;
             arrLen = VarInt.peek(buf, pos1);
             pos1 += VarInt.length(buf, pos1);
             for (i = 0; i < arrLen; ++i) {
@@ -131,6 +156,18 @@ ToClientPacket {
             }
             if (pos1 - offset > maxEnd) {
                 maxEnd = pos1 - offset;
+            }
+        }
+        if ((nullBits & 4) != 0) {
+            int fieldOffset2 = buf.getIntLE(offset + 9);
+            int pos2 = offset + 13 + fieldOffset2;
+            arrLen = VarInt.peek(buf, pos2);
+            pos2 += VarInt.length(buf, pos2);
+            for (i = 0; i < arrLen; ++i) {
+                pos2 += ClipboardEntityChange.computeBytesConsumed(buf, pos2);
+            }
+            if (pos2 - offset > maxEnd) {
+                maxEnd = pos2 - offset;
             }
         }
         return maxEnd;
@@ -146,10 +183,15 @@ ToClientPacket {
         if (this.fluidsChange != null) {
             nullBits = (byte)(nullBits | 2);
         }
+        if (this.entityChanges != null) {
+            nullBits = (byte)(nullBits | 4);
+        }
         buf.writeByte(nullBits);
         int blocksChangeOffsetSlot = buf.writerIndex();
         buf.writeIntLE(0);
         int fluidsChangeOffsetSlot = buf.writerIndex();
+        buf.writeIntLE(0);
+        int entityChangesOffsetSlot = buf.writerIndex();
         buf.writeIntLE(0);
         int varBlockStart = buf.writerIndex();
         if (this.blocksChange != null) {
@@ -176,24 +218,43 @@ ToClientPacket {
         } else {
             buf.setIntLE(fluidsChangeOffsetSlot, -1);
         }
+        if (this.entityChanges != null) {
+            buf.setIntLE(entityChangesOffsetSlot, buf.writerIndex() - varBlockStart);
+            if (this.entityChanges.length > 4096000) {
+                throw ProtocolException.arrayTooLong("EntityChanges", this.entityChanges.length, 4096000);
+            }
+            VarInt.write(buf, this.entityChanges.length);
+            for (ClipboardEntityChange clipboardEntityChange : this.entityChanges) {
+                clipboardEntityChange.serialize(buf);
+            }
+        } else {
+            buf.setIntLE(entityChangesOffsetSlot, -1);
+        }
     }
 
     @Override
     public int computeSize() {
-        int size = 9;
+        int size = 13;
         if (this.blocksChange != null) {
             size += VarInt.size(this.blocksChange.length) + this.blocksChange.length * 17;
         }
         if (this.fluidsChange != null) {
             size += VarInt.size(this.fluidsChange.length) + this.fluidsChange.length * 17;
         }
+        if (this.entityChanges != null) {
+            int entityChangesSize = 0;
+            for (ClipboardEntityChange elem : this.entityChanges) {
+                entityChangesSize += elem.computeSize();
+            }
+            size += VarInt.size(this.entityChanges.length) + entityChangesSize;
+        }
         return size;
     }
 
     public static ValidationResult validateStructure(@Nonnull ByteBuf buffer, int offset) {
         int pos;
-        if (buffer.readableBytes() - offset < 9) {
-            return ValidationResult.error("Buffer too small: expected at least 9 bytes");
+        if (buffer.readableBytes() - offset < 13) {
+            return ValidationResult.error("Buffer too small: expected at least 13 bytes");
         }
         byte nullBits = buffer.getByte(offset);
         if ((nullBits & 1) != 0) {
@@ -201,7 +262,7 @@ ToClientPacket {
             if (blocksChangeOffset < 0) {
                 return ValidationResult.error("Invalid offset for BlocksChange");
             }
-            pos = offset + 9 + blocksChangeOffset;
+            pos = offset + 13 + blocksChangeOffset;
             if (pos >= buffer.writerIndex()) {
                 return ValidationResult.error("Offset out of bounds for BlocksChange");
             }
@@ -222,7 +283,7 @@ ToClientPacket {
             if (fluidsChangeOffset < 0) {
                 return ValidationResult.error("Invalid offset for FluidsChange");
             }
-            pos = offset + 9 + fluidsChangeOffset;
+            pos = offset + 13 + fluidsChangeOffset;
             if (pos >= buffer.writerIndex()) {
                 return ValidationResult.error("Offset out of bounds for FluidsChange");
             }
@@ -238,6 +299,31 @@ ToClientPacket {
                 return ValidationResult.error("Buffer overflow reading FluidsChange");
             }
         }
+        if ((nullBits & 4) != 0) {
+            int entityChangesOffset = buffer.getIntLE(offset + 9);
+            if (entityChangesOffset < 0) {
+                return ValidationResult.error("Invalid offset for EntityChanges");
+            }
+            pos = offset + 13 + entityChangesOffset;
+            if (pos >= buffer.writerIndex()) {
+                return ValidationResult.error("Offset out of bounds for EntityChanges");
+            }
+            int entityChangesCount = VarInt.peek(buffer, pos);
+            if (entityChangesCount < 0) {
+                return ValidationResult.error("Invalid array count for EntityChanges");
+            }
+            if (entityChangesCount > 4096000) {
+                return ValidationResult.error("EntityChanges exceeds max length 4096000");
+            }
+            pos += VarInt.length(buffer, pos);
+            for (int i = 0; i < entityChangesCount; ++i) {
+                ValidationResult structResult = ClipboardEntityChange.validateStructure(buffer, pos);
+                if (!structResult.isValid()) {
+                    return ValidationResult.error("Invalid ClipboardEntityChange in EntityChanges[" + i + "]: " + structResult.error());
+                }
+                pos += ClipboardEntityChange.computeBytesConsumed(buffer, pos);
+            }
+        }
         return ValidationResult.OK;
     }
 
@@ -245,6 +331,7 @@ ToClientPacket {
         BuilderToolSelectionToolReplyWithClipboard copy = new BuilderToolSelectionToolReplyWithClipboard();
         copy.blocksChange = this.blocksChange != null ? (BlockChange[])Arrays.stream(this.blocksChange).map(e -> e.clone()).toArray(BlockChange[]::new) : null;
         copy.fluidsChange = this.fluidsChange != null ? (FluidChange[])Arrays.stream(this.fluidsChange).map(e -> e.clone()).toArray(FluidChange[]::new) : null;
+        copy.entityChanges = this.entityChanges != null ? (ClipboardEntityChange[])Arrays.stream(this.entityChanges).map(e -> e.clone()).toArray(ClipboardEntityChange[]::new) : null;
         return copy;
     }
 
@@ -256,13 +343,14 @@ ToClientPacket {
             return false;
         }
         BuilderToolSelectionToolReplyWithClipboard other = (BuilderToolSelectionToolReplyWithClipboard)obj;
-        return Arrays.equals(this.blocksChange, other.blocksChange) && Arrays.equals(this.fluidsChange, other.fluidsChange);
+        return Arrays.equals(this.blocksChange, other.blocksChange) && Arrays.equals(this.fluidsChange, other.fluidsChange) && Arrays.equals(this.entityChanges, other.entityChanges);
     }
 
     public int hashCode() {
         int result = 1;
         result = 31 * result + Arrays.hashCode(this.blocksChange);
         result = 31 * result + Arrays.hashCode(this.fluidsChange);
+        result = 31 * result + Arrays.hashCode(this.entityChanges);
         return result;
     }
 }

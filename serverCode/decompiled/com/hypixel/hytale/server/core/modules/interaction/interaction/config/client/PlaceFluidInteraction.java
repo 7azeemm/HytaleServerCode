@@ -70,7 +70,7 @@ extends SimpleBlockInteraction {
             BlockFace face = BlockFace.fromProtocolFace(context.getClientState().blockFace);
             target.add(face.getDirection());
         }
-        if ((section = world.getChunkStore().getChunkSectionReference(ChunkUtil.chunkCoordinate(target.x), ChunkUtil.chunkCoordinate(target.y), ChunkUtil.chunkCoordinate(target.z))) == null) {
+        if ((section = world.getChunkStore().getChunkSectionReferenceAtBlock(target.x, target.y, target.z)) == null) {
             return;
         }
         FluidSection fluidSectionComponent = store.getComponent(section, FluidSection.getComponentType());

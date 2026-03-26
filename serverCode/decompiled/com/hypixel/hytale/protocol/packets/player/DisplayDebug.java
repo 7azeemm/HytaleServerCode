@@ -34,7 +34,7 @@ ToClientPacket {
     @Nullable
     public Vector3f color;
     public float time;
-    public boolean fade;
+    public byte flags;
     @Nullable
     public float[] frustumProjection;
     public float opacity;
@@ -52,12 +52,12 @@ ToClientPacket {
     public DisplayDebug() {
     }
 
-    public DisplayDebug(@Nonnull DebugShape shape, @Nullable float[] matrix, @Nullable Vector3f color, float time, boolean fade, @Nullable float[] frustumProjection, float opacity) {
+    public DisplayDebug(@Nonnull DebugShape shape, @Nullable float[] matrix, @Nullable Vector3f color, float time, byte flags, @Nullable float[] frustumProjection, float opacity) {
         this.shape = shape;
         this.matrix = matrix;
         this.color = color;
         this.time = time;
-        this.fade = fade;
+        this.flags = flags;
         this.frustumProjection = frustumProjection;
         this.opacity = opacity;
     }
@@ -67,7 +67,7 @@ ToClientPacket {
         this.matrix = other.matrix;
         this.color = other.color;
         this.time = other.time;
-        this.fade = other.fade;
+        this.flags = other.flags;
         this.frustumProjection = other.frustumProjection;
         this.opacity = other.opacity;
     }
@@ -83,7 +83,7 @@ ToClientPacket {
             obj.color = Vector3f.deserialize(buf, offset + 2);
         }
         obj.time = buf.getFloatLE(offset + 14);
-        obj.fade = buf.getByte(offset + 18) != 0;
+        obj.flags = buf.getByte(offset + 18);
         obj.opacity = buf.getFloatLE(offset + 19);
         if ((nullBits & 2) != 0) {
             int varPos0 = offset + 31 + buf.getIntLE(offset + 23);
@@ -168,7 +168,7 @@ ToClientPacket {
             buf.writeZero(12);
         }
         buf.writeFloatLE(this.time);
-        buf.writeByte(this.fade ? 1 : 0);
+        buf.writeByte(this.flags);
         buf.writeFloatLE(this.opacity);
         int matrixOffsetSlot = buf.writerIndex();
         buf.writeIntLE(0);
@@ -270,7 +270,7 @@ ToClientPacket {
         copy.matrix = this.matrix != null ? Arrays.copyOf(this.matrix, this.matrix.length) : null;
         copy.color = this.color != null ? this.color.clone() : null;
         copy.time = this.time;
-        copy.fade = this.fade;
+        copy.flags = this.flags;
         copy.frustumProjection = this.frustumProjection != null ? Arrays.copyOf(this.frustumProjection, this.frustumProjection.length) : null;
         copy.opacity = this.opacity;
         return copy;
@@ -284,7 +284,7 @@ ToClientPacket {
             return false;
         }
         DisplayDebug other = (DisplayDebug)obj;
-        return Objects.equals((Object)this.shape, (Object)other.shape) && Arrays.equals(this.matrix, other.matrix) && Objects.equals(this.color, other.color) && this.time == other.time && this.fade == other.fade && Arrays.equals(this.frustumProjection, other.frustumProjection) && this.opacity == other.opacity;
+        return Objects.equals((Object)this.shape, (Object)other.shape) && Arrays.equals(this.matrix, other.matrix) && Objects.equals(this.color, other.color) && this.time == other.time && this.flags == other.flags && Arrays.equals(this.frustumProjection, other.frustumProjection) && this.opacity == other.opacity;
     }
 
     public int hashCode() {
@@ -293,7 +293,7 @@ ToClientPacket {
         result = 31 * result + Arrays.hashCode(this.matrix);
         result = 31 * result + Objects.hashCode(this.color);
         result = 31 * result + Float.hashCode(this.time);
-        result = 31 * result + Boolean.hashCode(this.fade);
+        result = 31 * result + Byte.hashCode(this.flags);
         result = 31 * result + Arrays.hashCode(this.frustumProjection);
         result = 31 * result + Float.hashCode(this.opacity);
         return result;

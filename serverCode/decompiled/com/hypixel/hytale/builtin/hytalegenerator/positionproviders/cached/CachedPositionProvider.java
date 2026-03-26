@@ -3,7 +3,9 @@
  */
 package com.hypixel.hytale.builtin.hytalegenerator.positionproviders.cached;
 
-import com.hypixel.hytale.builtin.hytalegenerator.VectorUtil;
+import com.hypixel.hytale.builtin.hytalegenerator.bounds.Bounds3d;
+import com.hypixel.hytale.builtin.hytalegenerator.pipe.Control;
+import com.hypixel.hytale.builtin.hytalegenerator.pipe.Pipe;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.PositionProvider;
 import com.hypixel.hytale.builtin.hytalegenerator.positionproviders.cached.CacheThreadMemory;
 import com.hypixel.hytale.math.util.HashUtil;
@@ -19,7 +21,7 @@ extends PositionProvider {
     private final int sectionSize;
     private CacheThreadMemory cache;
 
-    public CachedPositionProvider(@Nonnull PositionProvider positionProvider, int sectionSize, int cacheSize, boolean useInternalThreadData) {
+    public CachedPositionProvider(@Nonnull PositionProvider positionProvider, int sectionSize, int cacheSize) {
         if (sectionSize <= 0 || cacheSize < 0) {
             throw new IllegalArgumentException();
         }
@@ -29,13 +31,13 @@ extends PositionProvider {
     }
 
     @Override
-    public void positionsIn(@Nonnull PositionProvider.Context context) {
+    public void generate(@Nonnull PositionProvider.Context context) {
         this.get(context);
     }
 
     public void get(@Nonnull PositionProvider.Context context) {
-        Vector3i minSection = this.sectionAddress(context.minInclusive);
-        Vector3i maxSection = this.sectionAddress(context.maxExclusive);
+        Vector3i minSection = this.sectionAddress(context.bounds.min);
+        Vector3i maxSection = this.sectionAddress(context.bounds.max);
         Vector3i sectionAddress = minSection.clone();
         sectionAddress.x = minSection.x;
         while (sectionAddress.x <= maxSection.x) {
@@ -47,10 +49,11 @@ extends PositionProvider {
                     Vector3d[] section = this.cache.sections.get(key);
                     if (section == null) {
                         Vector3d sectionMin = this.sectionMin(sectionAddress);
-                        Vector3d sectionMax = sectionMin.clone().add(this.sectionSize, this.sectionSize, this.sectionSize);
+                        Bounds3d sectionBounds = new Bounds3d(sectionMin, sectionMin.clone().add(this.sectionSize, this.sectionSize, this.sectionSize));
                         ArrayList generatedPositions = new ArrayList();
-                        PositionProvider.Context childContext = new PositionProvider.Context(sectionMin, sectionMax, generatedPositions::add, null);
-                        this.positionProvider.positionsIn(childContext);
+                        Pipe.One<Vector3d> pipe = (position, control) -> generatedPositions.add(position);
+                        PositionProvider.Context childContext = new PositionProvider.Context(sectionBounds, pipe, null);
+                        this.positionProvider.generate(childContext);
                         section = new Vector3d[generatedPositions.size()];
                         generatedPositions.toArray(section);
                         this.cache.sections.put(key, section);
@@ -60,9 +63,13 @@ extends PositionProvider {
                             this.cache.sections.remove(removedKey);
                         }
                     }
-                    for (Vector3d position : section) {
-                        if (!VectorUtil.isInside(position, context.minInclusive, context.maxExclusive)) continue;
-                        context.consumer.accept(position.clone());
+                    Control control2 = new Control();
+                    for (Vector3d position2 : section) {
+                        if (!context.bounds.contains(position2)) continue;
+                        if (control2.stop) {
+                            return;
+                        }
+                        context.pipe.accept(position2.clone(), control2);
                     }
                     ++sectionAddress.y;
                 }

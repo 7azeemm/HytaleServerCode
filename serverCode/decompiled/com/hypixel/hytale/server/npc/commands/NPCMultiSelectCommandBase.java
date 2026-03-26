@@ -20,7 +20,7 @@ import com.hypixel.hytale.server.core.util.TargetUtil;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import com.hypixel.hytale.server.npc.commands.NPCWorldCommandBase;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import java.util.HashSet;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -136,7 +136,7 @@ extends NPCWorldCommandBase {
         if (coneAngleDeg == 0.0f) {
             Ref<EntityStore> ref3 = TargetUtil.getTargetEntity(playerRef, range, store);
             if (ref3 != null && store.getComponent(ref3, npcEntityComponentType) != null) {
-                refs = new ArrayList<Ref<EntityStore>>();
+                refs = new ReferenceArrayList<Ref<EntityStore>>();
                 refs.add(ref3);
             }
             eyePosition = Vector3d.ZERO;

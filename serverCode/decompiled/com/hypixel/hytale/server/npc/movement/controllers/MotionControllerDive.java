@@ -158,9 +158,9 @@ extends MotionControllerBase {
                 newPitch = PhysicsMath.normalizeTurnAngle(PhysicsMath.pitchFromDirection(dir.x, dir.y, dir.z));
             } else {
                 translation.assign(Vector3d.ZERO);
-                newHeading = steering.hasYaw() ? steering.getYaw() : heading;
+                newHeading = steering.hasYawOrDirection() ? steering.getYawOrDirection() : heading;
                 steering.clearYaw();
-                newPitch = steering.hasPitch() ? steering.getPitch() : pitch;
+                newPitch = steering.hasPitchOrDirection() ? steering.getPitchOrDirection() : pitch;
                 steering.clearPitch();
             }
             float turnAngle = NPCPhysicsMath.turnAngle(heading, newHeading);

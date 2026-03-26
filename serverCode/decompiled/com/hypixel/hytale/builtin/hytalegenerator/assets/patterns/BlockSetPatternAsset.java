@@ -6,6 +6,7 @@ package com.hypixel.hytale.builtin.hytalegenerator.assets.patterns;
 import com.hypixel.hytale.builtin.hytalegenerator.MaterialSet;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.blockset.MaterialSetAsset;
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.MaterialSetPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -24,7 +25,7 @@ extends PatternAsset {
     @Nonnull
     public Pattern build(@Nonnull PatternAsset.Argument argument) {
         if (super.isSkipped()) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
         MaterialSet blockSet = this.materialSetAsset.build(argument.materialCache);
         return new MaterialSetPattern(blockSet);

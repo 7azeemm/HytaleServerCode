@@ -499,6 +499,21 @@ public class NPCPhysicsMath {
         return Math.sqrt(NPCPhysicsMath.projectedLengthSquared(v, componentSelector));
     }
 
+    public static double dotProductWithSelector(@Nonnull Vector3d p, @Nonnull Vector3d q, @Nonnull Vector3d componentSelector) {
+        return NPCPhysicsMath.dotProduct(p.x, p.y, p.z, q.x, q.y, q.z, componentSelector);
+    }
+
+    public static double distanceWithSelector(@Nonnull Vector3d p, @Nonnull Vector3d q, @Nonnull Vector3d componentSelector) {
+        return Math.sqrt(NPCPhysicsMath.distanceSquaredWithSelector(p, q, componentSelector));
+    }
+
+    public static double distanceSquaredWithSelector(@Nonnull Vector3d p, @Nonnull Vector3d q, @Nonnull Vector3d componentSelector) {
+        double dx = (p.x - q.x) * componentSelector.x;
+        double dy = (p.y - q.y) * componentSelector.y;
+        double dz = (p.z - q.z) * componentSelector.z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     public static int intersectSweptSpheres(@Nonnull Vector3d p1, @Nonnull Vector3d velocity1, @Nonnull Vector3d p2, @Nonnull Vector3d velocity2, double radius, @Nonnull Vector3d componentSelector, double[] results) {
         return NPCPhysicsMath.intersectSweptSpheres(p1.x, p1.y, p1.z, velocity1.x, velocity1.y, velocity1.z, p2.x, p2.y, p2.z, velocity2.x, velocity2.y, velocity2.z, radius, componentSelector, results);
     }

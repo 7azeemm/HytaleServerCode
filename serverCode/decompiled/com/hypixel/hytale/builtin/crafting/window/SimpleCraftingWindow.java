@@ -3,8 +3,8 @@
  */
 package com.hypixel.hytale.builtin.crafting.window;
 
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
 import com.hypixel.hytale.builtin.crafting.component.CraftingManager;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
 import com.hypixel.hytale.builtin.crafting.window.CraftingWindow;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
@@ -14,6 +14,8 @@ import com.hypixel.hytale.protocol.packets.window.CraftRecipeAction;
 import com.hypixel.hytale.protocol.packets.window.TierUpgradeAction;
 import com.hypixel.hytale.protocol.packets.window.WindowAction;
 import com.hypixel.hytale.protocol.packets.window.WindowType;
+import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.item.config.CraftingRecipe;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.windows.MaterialContainerWindow;
@@ -28,8 +30,8 @@ import javax.annotation.Nonnull;
 public class SimpleCraftingWindow
 extends CraftingWindow
 implements MaterialContainerWindow {
-    public SimpleCraftingWindow(@Nonnull BenchState benchState) {
-        super(WindowType.BasicCrafting, benchState);
+    public SimpleCraftingWindow(int x, int y, int z, int rotationIndex, @Nonnull BlockType blockType, @Nonnull BenchBlock benchBlock) {
+        super(WindowType.BasicCrafting, x, y, z, rotationIndex, blockType, benchBlock);
     }
 
     @Override
@@ -45,6 +47,7 @@ implements MaterialContainerWindow {
         }
         World world = store.getExternalData().getWorld();
         if (action instanceof CraftRecipeAction) {
+            boolean accepted;
             CraftRecipeAction craftAction = (CraftRecipeAction)action;
             String recipeId = craftAction.recipeId;
             int quantity = craftAction.quantity;
@@ -52,7 +55,7 @@ implements MaterialContainerWindow {
             if (craftRecipe == null) {
                 PlayerRef playerRef = store.getComponent(ref, PlayerRef.getComponentType());
                 if (playerRef != null) {
-                    playerRef.getPacketHandler().disconnect("Attempted to craft unknown recipe!");
+                    playerRef.getPacketHandler().disconnect(Message.translation("server.general.disconnect.unknownRecipe"));
                 }
                 return;
             }
@@ -62,7 +65,14 @@ implements MaterialContainerWindow {
             }
             CombinedItemContainer combined = playerComponent.getInventory().getCombinedBackpackStorageHotbar();
             CombinedItemContainer playerAndContainerInventory = new CombinedItemContainer(combined, this.getExtraResourcesSection().getItemContainer());
-            boolean accepted = craftRecipe.getTimeSeconds() > 0.0f ? craftingManager.queueCraft(ref, store, this, 0, craftRecipe, quantity, playerAndContainerInventory, CraftingManager.InputRemovalType.NORMAL) : craftingManager.craftItem(ref, store, craftRecipe, quantity, playerAndContainerInventory);
+            if (craftRecipe.getTimeSeconds() > 0.0f) {
+                accepted = craftingManager.queueCraft(ref, store, this, 0, craftRecipe, quantity, playerAndContainerInventory, CraftingManager.InputRemovalType.NORMAL);
+                if (accepted) {
+                    this.updateQueueSize(craftingManager.getRemainingQueueSize());
+                }
+            } else {
+                accepted = craftingManager.craftItem(ref, store, craftRecipe, quantity, playerAndContainerInventory);
+            }
             this.invalidateExtraResources();
             if (accepted) {
                 String completedState = craftRecipe.getTimeSeconds() > 0.0f ? "CraftCompleted" : "CraftCompletedInstant";

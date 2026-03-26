@@ -4,15 +4,20 @@
 package com.hypixel.hytale.server.npc.movement;
 
 import com.hypixel.hytale.math.vector.Vector3d;
+import com.hypixel.hytale.math.vector.Vector3f;
+import com.hypixel.hytale.server.core.modules.physics.util.PhysicsMath;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class Steering {
+    public static final double DIRECTION_VECTOR_MIN_LENGTH_SQUARED = 0.1;
     public static final Steering NULL = new Steering().clear();
     private final Vector3d translation = new Vector3d();
     private double maxDistance = Double.MAX_VALUE;
     private Vector3d maxDistanceComponentSelector;
     private boolean hasTranslation;
+    private final Vector3f directionHint = new Vector3f();
+    private boolean hasDirectionHint;
     private float yaw;
     private boolean hasYaw;
     private float pitch;
@@ -35,6 +40,8 @@ public class Steering {
         this.maxDistance = other.maxDistance;
         this.maxDistanceComponentSelector = other.maxDistanceComponentSelector;
         this.hasTranslation = other.hasTranslation;
+        this.directionHint.assign(other.directionHint);
+        this.hasDirectionHint = other.hasDirectionHint;
         this.yaw = other.yaw;
         this.hasYaw = other.hasYaw;
         this.pitch = other.pitch;
@@ -79,6 +86,12 @@ public class Steering {
         if (!this.translation.equals(steering.translation)) {
             return false;
         }
+        if (this.hasDirectionHint != steering.hasDirectionHint) {
+            return false;
+        }
+        if (!this.directionHint.equals(steering.directionHint)) {
+            return false;
+        }
         if (Double.compare(steering.relativeTurnSpeed, this.relativeTurnSpeed) != 0) {
             return false;
         }
@@ -94,6 +107,8 @@ public class Steering {
         result = 31 * result + (int)(temp ^ temp >>> 32);
         result = 31 * result + this.maxDistanceComponentSelector.hashCode();
         result = 31 * result + (this.hasTranslation ? 1 : 0);
+        result = 31 * result + this.directionHint.hashCode();
+        result = 31 * result + (this.hasDirectionHint ? 1 : 0);
         result = 31 * result + (this.yaw != 0.0f ? Float.floatToIntBits(this.yaw) : 0);
         result = 31 * result + (this.hasYaw ? 1 : 0);
         result = 31 * result + (this.pitch != 0.0f ? Float.floatToIntBits(this.pitch) : 0);
@@ -108,6 +123,8 @@ public class Steering {
         this.translation.assign(Vector3d.ZERO);
         this.maxDistance = Double.MAX_VALUE;
         this.hasTranslation = false;
+        this.directionHint.assign(Vector3f.ZERO);
+        this.hasDirectionHint = false;
         return this;
     }
 
@@ -274,16 +291,85 @@ public class Steering {
         return this.hasTranslation;
     }
 
+    @Nonnull
+    public Vector3f getDirectionHint() {
+        return this.directionHint;
+    }
+
+    public boolean hasDirectionHint() {
+        return this.hasDirectionHint;
+    }
+
+    @Nonnull
+    public Steering setDirectionHint(@Nonnull Vector3d direction, @Nonnull Vector3f rotation, boolean forceOverwrite) {
+        if (!forceOverwrite && this.hasDirectionHint) {
+            return this;
+        }
+        if (direction.squaredLength() < 0.1) {
+            this.directionHint.assign(rotation);
+            this.hasDirectionHint = true;
+            return this;
+        }
+        this.directionHint.setYaw(PhysicsMath.headingFromDirection(direction.x, direction.z));
+        this.directionHint.setPitch(PhysicsMath.pitchFromDirection(direction.x, direction.y, direction.z));
+        this.directionHint.setRoll(rotation.getRoll());
+        this.hasDirectionHint = true;
+        return this;
+    }
+
+    @Nonnull
+    public Steering setDirectionHint(@Nonnull Vector3f rotation) {
+        return this.setDirectionHint(rotation, false);
+    }
+
+    @Nonnull
+    public Steering setDirectionHint(@Nonnull Vector3f rotation, boolean forceOverwrite) {
+        return this.setDirectionHint(this.translation, rotation, forceOverwrite);
+    }
+
     public boolean hasYaw() {
         return this.hasYaw;
+    }
+
+    public boolean hasYawOrDirection() {
+        return this.hasYaw || this.hasDirectionHint;
+    }
+
+    public float getYawOrDirection() {
+        if (this.hasYaw) {
+            return this.yaw;
+        }
+        return this.directionHint.getYaw();
     }
 
     public boolean hasPitch() {
         return this.hasPitch;
     }
 
+    public boolean hasPitchOrDirection() {
+        return this.hasPitch || this.hasDirectionHint;
+    }
+
+    public float getPitchOrDirection() {
+        if (this.hasPitch) {
+            return this.pitch;
+        }
+        return this.directionHint.getPitch();
+    }
+
     public boolean hasRoll() {
         return this.hasRoll;
+    }
+
+    public boolean hasRollOrDirection() {
+        return this.hasRoll || this.hasDirectionHint;
+    }
+
+    public float getRollOrDirection() {
+        if (this.hasRoll) {
+            return this.roll;
+        }
+        return this.directionHint.getRoll();
     }
 
     public double getSpeed() {

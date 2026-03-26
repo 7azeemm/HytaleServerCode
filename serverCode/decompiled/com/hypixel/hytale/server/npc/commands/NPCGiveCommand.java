@@ -33,7 +33,7 @@ extends NPCWorldCommandBase {
         if (item.getArmor() != null) {
             RoleUtils.setArmor(npc, itemName);
         } else {
-            RoleUtils.setItemInHand(npc, itemName);
+            RoleUtils.setItemInHand(ref, npc, itemName, store);
         }
     }
 
@@ -45,7 +45,7 @@ extends NPCWorldCommandBase {
 
         @Override
         protected void execute(@Nonnull CommandContext context, @Nonnull NPCEntity npc, @Nonnull World world, @Nonnull Store<EntityStore> store, @Nonnull Ref<EntityStore> ref) {
-            RoleUtils.setItemInHand(npc, null);
+            RoleUtils.setItemInHand(ref, npc, null, store);
         }
     }
 }

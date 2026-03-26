@@ -33,11 +33,10 @@ import com.hypixel.hytale.server.core.universe.world.chunk.EntityChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ReferenceMap;
+import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.nio.file.FileSystems;
@@ -92,7 +91,7 @@ public class PrefabSaver {
     }
 
     @Nullable
-    private static BlockSelection copyBlocksWithLoadedChunks(@Nonnull CommandSender sender, @Nonnull World world, @Nonnull Vector3i anchorPoint, @Nonnull Vector3i minPoint, @Nonnull Vector3i maxPoint, @Nonnull Vector3i pastePosition, @Nonnull Vector3i originalFileAnchor, @Nonnull PrefabSaverSettings settings, @Nonnull Long2ObjectMap<Ref<ChunkStore>> loadedChunks, int editorBlock, int editorBlockPrefabAir, int editorBlockPrefabAnchor) {
+    private static BlockSelection copyBlocksWithLoadedChunks(@Nonnull CommandSender sender, @Nonnull World world, @Nonnull Vector3i anchorPoint, @Nonnull Vector3i minPoint, @Nonnull Vector3i maxPoint, @Nonnull Vector3i pastePosition, @Nonnull Vector3i originalFileAnchor, @Nonnull PrefabSaverSettings settings, @Nonnull Long2ReferenceMap<Ref<ChunkStore>> loadedChunks, int editorBlock, int editorBlockPrefabAir, int editorBlockPrefabAnchor) {
         ChunkStore chunkStore = world.getChunkStore();
         long start = System.nanoTime();
         int width = maxPoint.x - minPoint.x;
@@ -128,13 +127,12 @@ public class PrefabSaver {
                     int block = sectionComponent.get(x, y, z);
                     int filler = sectionComponent.getFiller(x, y, z);
                     if (settings.isBlocks() && (block != 0 || settings.isEmpty()) && block != editorBlock) {
-                        BlockState blockState;
                         Object holder;
                         if (block == editorBlockPrefabAir) {
                             block = 0;
                         }
-                        if ((holder = worldChunkComponent.getBlockComponentHolder(x, y, z)) != null && (blockState = BlockState.getBlockState((Holder<ChunkStore>)(holder = ((Holder)holder).clone()))) != null) {
-                            blockState.clearPositionForSerialization();
+                        if ((holder = worldChunkComponent.getBlockComponentHolder(x, y, z)) != null) {
+                            holder = ((Holder)holder).clone();
                         }
                         int supportValue = settings.isClearSupportValues() ? 0 : (blockPhysicsComponent != null ? blockPhysicsComponent.get(x, y, z) : 0);
                         selection.addBlockAtWorldPos(x, y, z, block, sectionComponent.getRotationIndex(x, y, z), filler, supportValue, (Holder<ChunkStore>)holder);
@@ -207,7 +205,7 @@ public class PrefabSaver {
     }
 
     @Nonnull
-    private static CompletableFuture<Long2ObjectMap<Ref<ChunkStore>>> preloadChunksInSelectionAsync(@Nonnull ChunkStore chunkStore, @Nonnull Vector3i minPoint, @Nonnull Vector3i maxPoint) {
+    private static CompletableFuture<Long2ReferenceMap<Ref<ChunkStore>>> preloadChunksInSelectionAsync(@Nonnull ChunkStore chunkStore, @Nonnull Vector3i minPoint, @Nonnull Vector3i maxPoint) {
         LongOpenHashSet chunkIndices = new LongOpenHashSet();
         int minChunkX = minPoint.x >> 5;
         int maxChunkX = maxPoint.x >> 5;
@@ -218,15 +216,15 @@ public class PrefabSaver {
                 chunkIndices.add(ChunkUtil.indexChunk(cx, cz));
             }
         }
-        Long2ObjectOpenHashMap loadedChunks = new Long2ObjectOpenHashMap(chunkIndices.size());
+        Long2ReferenceOpenHashMap loadedChunks = new Long2ReferenceOpenHashMap(chunkIndices.size());
         ArrayList<CompletionStage> chunkFutures = new ArrayList<CompletionStage>(chunkIndices.size());
         LongIterator longIterator = chunkIndices.iterator();
         while (longIterator.hasNext()) {
             long chunkIndex = (Long)longIterator.next();
             CompletionStage future = chunkStore.getChunkReferenceAsync(chunkIndex).thenAccept(reference -> {
                 if (reference != null && reference.isValid()) {
-                    Long2ObjectMap long2ObjectMap = loadedChunks;
-                    synchronized (long2ObjectMap) {
+                    Long2ReferenceMap long2ReferenceMap = loadedChunks;
+                    synchronized (long2ReferenceMap) {
                         loadedChunks.put(chunkIndex, reference);
                     }
                 }

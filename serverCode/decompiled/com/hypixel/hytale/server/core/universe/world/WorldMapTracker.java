@@ -59,7 +59,6 @@ public class WorldMapTracker
 implements Tickable {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     public static final float UPDATE_SPEED = 1.0f;
-    public static final int RADIUS_MAX = 512;
     public static final int EMPTY_UPDATE_WORLD_MAP_SIZE = 13;
     private static final int EMPTY_MAP_CHUNK_SIZE = 10;
     private static final int FULL_MAP_CHUNK_SIZE = 23;

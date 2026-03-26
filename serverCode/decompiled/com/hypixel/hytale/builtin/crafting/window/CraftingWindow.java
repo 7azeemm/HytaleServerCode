@@ -7,8 +7,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hypixel.hytale.builtin.adventure.memories.MemoriesGameplayConfig;
 import com.hypixel.hytale.builtin.crafting.CraftingPlugin;
+import com.hypixel.hytale.builtin.crafting.component.BenchBlock;
 import com.hypixel.hytale.builtin.crafting.component.CraftingManager;
-import com.hypixel.hytale.builtin.crafting.state.BenchState;
 import com.hypixel.hytale.builtin.crafting.window.BenchWindow;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
@@ -16,6 +16,8 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.SoundCategory;
 import com.hypixel.hytale.protocol.packets.window.CraftRecipeAction;
 import com.hypixel.hytale.protocol.packets.window.WindowType;
+import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.bench.CraftingBench;
 import com.hypixel.hytale.server.core.asset.type.gameplay.GameplayConfig;
 import com.hypixel.hytale.server.core.asset.type.item.config.CraftingRecipe;
@@ -33,8 +35,8 @@ extends BenchWindow {
     @Nonnull
     protected static final String CRAFT_COMPLETED_INSTANT = "CraftCompletedInstant";
 
-    public CraftingWindow(@Nonnull WindowType windowType, @Nonnull BenchState benchState) {
-        super(windowType, benchState);
+    public CraftingWindow(@Nonnull WindowType windowType, int x, int y, int z, int rotationIndex, @Nonnull BlockType blockType, @Nonnull BenchBlock benchBlock) {
+        super(windowType, x, y, z, rotationIndex, blockType, benchBlock);
         JsonArray categories = new JsonArray();
         CraftingBench.BenchCategory[] benchCategoryArray = this.bench;
         if (benchCategoryArray instanceof CraftingBench) {
@@ -107,7 +109,7 @@ extends BenchWindow {
         if (recipe == null) {
             PlayerRef playerRef = store.getComponent(ref, PlayerRef.getComponentType());
             assert (playerRef != null);
-            playerRef.getPacketHandler().disconnect("Attempted to craft unknown recipe!");
+            playerRef.getPacketHandler().disconnect(Message.translation("server.general.disconnect.unknownRecipe"));
             return false;
         }
         Player playerComponent = store.getComponent(ref, Player.getComponentType());

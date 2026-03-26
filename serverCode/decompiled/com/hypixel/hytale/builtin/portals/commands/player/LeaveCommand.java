@@ -12,6 +12,8 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -39,7 +41,8 @@ extends AbstractPlayerCommand {
             playerRef.sendMessage(MESSAGE_COMMANDS_LEAVE_NOT_IN_PORTAL);
             return;
         }
-        boolean uncursedAny = CursedItems.uncurseAll(playerComponent.getInventory().getCombinedEverything());
+        CombinedItemContainer everythingInventoryComponent = InventoryComponent.getCombined(store, ref, InventoryComponent.EVERYTHING);
+        boolean uncursedAny = CursedItems.uncurseAll(everythingInventoryComponent);
         if (uncursedAny) {
             playerRef.sendMessage(MESSAGE_COMMANDS_LEAVE_UNCURSED_TEMP);
         }

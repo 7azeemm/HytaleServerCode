@@ -36,7 +36,6 @@ import com.hypixel.hytale.server.spawning.wrappers.BeaconSpawnWrapper;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.objects.Object2ByteMap;
 import it.unimi.dsi.fastutil.objects.Object2ByteOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -82,7 +81,7 @@ extends TickingSystem<EntityStore> {
         }
         World world = store.getExternalData().getWorld();
         List<LegacySpawnBeaconEntity> pendingSpawns = localSpawnState.getLocalPendingSpawns();
-        ObjectList existingBeacons = SpatialResource.getThreadLocalReferenceList();
+        List existingBeacons = SpatialResource.getThreadLocalReferenceList();
         for (int index = 0; index < controllers.size(); ++index) {
             Ref<EntityStore> reference = controllers.get(index);
             LocalSpawnController spawnControllerComponent = store.getComponent(reference, this.spawnControllerComponentType);
@@ -142,7 +141,7 @@ extends TickingSystem<EntityStore> {
                 if (!possibleBeacon.spawnParametersMatch(store)) continue;
                 for (j = 0; j < existingBeacons.size(); ++j) {
                     int existingBeaconIndex;
-                    Ref existingBeaconReference = (Ref)existingBeacons.get(j);
+                    Ref existingBeaconReference = existingBeacons.get(j);
                     LegacySpawnBeaconEntity existingBeaconComponent = store.getComponent(existingBeaconReference, this.spawnBeaconComponentType);
                     assert (existingBeaconComponent != null);
                     TransformComponent existingBeaconTransformComponent = store.getComponent(existingBeaconReference, this.transformComponentype);

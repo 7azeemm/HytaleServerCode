@@ -18,10 +18,10 @@ ToServerPacket {
     public static final int PACKET_ID = 413;
     public static final boolean IS_COMPRESSED = false;
     public static final int NULLABLE_BIT_FIELD_SIZE = 0;
-    public static final int FIXED_BLOCK_SIZE = 57;
+    public static final int FIXED_BLOCK_SIZE = 61;
     public static final int VARIABLE_FIELD_COUNT = 0;
-    public static final int VARIABLE_BLOCK_START = 57;
-    public static final int MAX_SIZE = 57;
+    public static final int VARIABLE_BLOCK_START = 61;
+    public static final int MAX_SIZE = 61;
     @Nonnull
     public InteractionType type = InteractionType.Primary;
     public int x;
@@ -41,6 +41,7 @@ ToServerPacket {
     public float raycastDirectionX;
     public float raycastDirectionY;
     public float raycastDirectionZ;
+    public int undoGroupSize;
 
     @Override
     public int getId() {
@@ -55,7 +56,7 @@ ToServerPacket {
     public BuilderToolOnUseInteraction() {
     }
 
-    public BuilderToolOnUseInteraction(@Nonnull InteractionType type, int x, int y, int z, int offsetForPaintModeX, int offsetForPaintModeY, int offsetForPaintModeZ, boolean isAltPlaySculptBrushModDown, boolean isHoldDownInteraction, boolean isDoServerRaytraceForPosition, boolean isShowEditNotifications, int maxLengthToolIgnoreHistory, float raycastOriginX, float raycastOriginY, float raycastOriginZ, float raycastDirectionX, float raycastDirectionY, float raycastDirectionZ) {
+    public BuilderToolOnUseInteraction(@Nonnull InteractionType type, int x, int y, int z, int offsetForPaintModeX, int offsetForPaintModeY, int offsetForPaintModeZ, boolean isAltPlaySculptBrushModDown, boolean isHoldDownInteraction, boolean isDoServerRaytraceForPosition, boolean isShowEditNotifications, int maxLengthToolIgnoreHistory, float raycastOriginX, float raycastOriginY, float raycastOriginZ, float raycastDirectionX, float raycastDirectionY, float raycastDirectionZ, int undoGroupSize) {
         this.type = type;
         this.x = x;
         this.y = y;
@@ -74,6 +75,7 @@ ToServerPacket {
         this.raycastDirectionX = raycastDirectionX;
         this.raycastDirectionY = raycastDirectionY;
         this.raycastDirectionZ = raycastDirectionZ;
+        this.undoGroupSize = undoGroupSize;
     }
 
     public BuilderToolOnUseInteraction(@Nonnull BuilderToolOnUseInteraction other) {
@@ -95,6 +97,7 @@ ToServerPacket {
         this.raycastDirectionX = other.raycastDirectionX;
         this.raycastDirectionY = other.raycastDirectionY;
         this.raycastDirectionZ = other.raycastDirectionZ;
+        this.undoGroupSize = other.undoGroupSize;
     }
 
     @Nonnull
@@ -118,11 +121,12 @@ ToServerPacket {
         obj.raycastDirectionX = buf.getFloatLE(offset + 45);
         obj.raycastDirectionY = buf.getFloatLE(offset + 49);
         obj.raycastDirectionZ = buf.getFloatLE(offset + 53);
+        obj.undoGroupSize = buf.getIntLE(offset + 57);
         return obj;
     }
 
     public static int computeBytesConsumed(@Nonnull ByteBuf buf, int offset) {
-        return 57;
+        return 61;
     }
 
     @Override
@@ -145,16 +149,17 @@ ToServerPacket {
         buf.writeFloatLE(this.raycastDirectionX);
         buf.writeFloatLE(this.raycastDirectionY);
         buf.writeFloatLE(this.raycastDirectionZ);
+        buf.writeIntLE(this.undoGroupSize);
     }
 
     @Override
     public int computeSize() {
-        return 57;
+        return 61;
     }
 
     public static ValidationResult validateStructure(@Nonnull ByteBuf buffer, int offset) {
-        if (buffer.readableBytes() - offset < 57) {
-            return ValidationResult.error("Buffer too small: expected at least 57 bytes");
+        if (buffer.readableBytes() - offset < 61) {
+            return ValidationResult.error("Buffer too small: expected at least 61 bytes");
         }
         return ValidationResult.OK;
     }
@@ -179,6 +184,7 @@ ToServerPacket {
         copy.raycastDirectionX = this.raycastDirectionX;
         copy.raycastDirectionY = this.raycastDirectionY;
         copy.raycastDirectionZ = this.raycastDirectionZ;
+        copy.undoGroupSize = this.undoGroupSize;
         return copy;
     }
 
@@ -190,11 +196,11 @@ ToServerPacket {
             return false;
         }
         BuilderToolOnUseInteraction other = (BuilderToolOnUseInteraction)obj;
-        return Objects.equals((Object)this.type, (Object)other.type) && this.x == other.x && this.y == other.y && this.z == other.z && this.offsetForPaintModeX == other.offsetForPaintModeX && this.offsetForPaintModeY == other.offsetForPaintModeY && this.offsetForPaintModeZ == other.offsetForPaintModeZ && this.isAltPlaySculptBrushModDown == other.isAltPlaySculptBrushModDown && this.isHoldDownInteraction == other.isHoldDownInteraction && this.isDoServerRaytraceForPosition == other.isDoServerRaytraceForPosition && this.isShowEditNotifications == other.isShowEditNotifications && this.maxLengthToolIgnoreHistory == other.maxLengthToolIgnoreHistory && this.raycastOriginX == other.raycastOriginX && this.raycastOriginY == other.raycastOriginY && this.raycastOriginZ == other.raycastOriginZ && this.raycastDirectionX == other.raycastDirectionX && this.raycastDirectionY == other.raycastDirectionY && this.raycastDirectionZ == other.raycastDirectionZ;
+        return Objects.equals((Object)this.type, (Object)other.type) && this.x == other.x && this.y == other.y && this.z == other.z && this.offsetForPaintModeX == other.offsetForPaintModeX && this.offsetForPaintModeY == other.offsetForPaintModeY && this.offsetForPaintModeZ == other.offsetForPaintModeZ && this.isAltPlaySculptBrushModDown == other.isAltPlaySculptBrushModDown && this.isHoldDownInteraction == other.isHoldDownInteraction && this.isDoServerRaytraceForPosition == other.isDoServerRaytraceForPosition && this.isShowEditNotifications == other.isShowEditNotifications && this.maxLengthToolIgnoreHistory == other.maxLengthToolIgnoreHistory && this.raycastOriginX == other.raycastOriginX && this.raycastOriginY == other.raycastOriginY && this.raycastOriginZ == other.raycastOriginZ && this.raycastDirectionX == other.raycastDirectionX && this.raycastDirectionY == other.raycastDirectionY && this.raycastDirectionZ == other.raycastDirectionZ && this.undoGroupSize == other.undoGroupSize;
     }
 
     public int hashCode() {
-        return Objects.hash(new Object[]{this.type, this.x, this.y, this.z, this.offsetForPaintModeX, this.offsetForPaintModeY, this.offsetForPaintModeZ, this.isAltPlaySculptBrushModDown, this.isHoldDownInteraction, this.isDoServerRaytraceForPosition, this.isShowEditNotifications, this.maxLengthToolIgnoreHistory, Float.valueOf(this.raycastOriginX), Float.valueOf(this.raycastOriginY), Float.valueOf(this.raycastOriginZ), Float.valueOf(this.raycastDirectionX), Float.valueOf(this.raycastDirectionY), Float.valueOf(this.raycastDirectionZ)});
+        return Objects.hash(new Object[]{this.type, this.x, this.y, this.z, this.offsetForPaintModeX, this.offsetForPaintModeY, this.offsetForPaintModeZ, this.isAltPlaySculptBrushModDown, this.isHoldDownInteraction, this.isDoServerRaytraceForPosition, this.isShowEditNotifications, this.maxLengthToolIgnoreHistory, Float.valueOf(this.raycastOriginX), Float.valueOf(this.raycastOriginY), Float.valueOf(this.raycastOriginZ), Float.valueOf(this.raycastDirectionX), Float.valueOf(this.raycastDirectionY), Float.valueOf(this.raycastDirectionZ), this.undoGroupSize});
     }
 }
 

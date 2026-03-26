@@ -4,7 +4,6 @@
 package com.hypixel.hytale.server.core;
 
 import com.hypixel.hytale.common.plugin.PluginManifest;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.Options;
 import com.hypixel.hytale.server.core.asset.AssetModule;
 import com.hypixel.hytale.server.core.asset.common.CommonAssetModule;
@@ -36,10 +35,10 @@ import com.hypixel.hytale.server.core.modules.serverplayerlist.ServerPlayerListM
 import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
 import com.hypixel.hytale.server.core.modules.splitvelocity.SplitVelocity;
 import com.hypixel.hytale.server.core.modules.time.TimeModule;
+import com.hypixel.hytale.server.core.modules.voice.VoiceModule;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.connectedblocks.ConnectedBlocksModule;
-import com.hypixel.hytale.server.core.universe.world.meta.BlockStateModule;
 import com.hypixel.hytale.server.core.update.UpdateModule;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -56,7 +55,7 @@ public final class Constants {
     public static final boolean FORCE_NETWORK_FLUSH = OPTION_SET.valueOf(Options.FORCE_NETWORK_FLUSH);
     public static final Path UNIVERSE_PATH = Constants.getUniversePath();
     @Nonnull
-    public static final PluginManifest[] CORE_PLUGINS = new PluginManifest[]{ConsoleModule.MANIFEST, PermissionsModule.MANIFEST, UpdateModule.MANIFEST, FlyCameraModule.MANIFEST, AssetModule.MANIFEST, CommonAssetModule.MANIFEST, CosmeticsModule.MANIFEST, ServerManager.MANIFEST, I18nModule.MANIFEST, ItemModule.MANIFEST, BlockTypeModule.MANIFEST, LegacyModule.MANIFEST, BlockModule.MANIFEST, BlockStateModule.MANIFEST, CollisionModule.MANIFEST, BlockSetModule.MANIFEST, MigrationModule.MANIFEST, BlockHealthModule.MANIFEST, PrefabSpawnerModule.MANIFEST, TimeModule.MANIFEST, AnchorActionModule.MANIFEST, InteractionModule.MANIFEST, EntityModule.MANIFEST, EntityStatsModule.MANIFEST, EntityUIModule.MANIFEST, DamageModule.MANIFEST, SplitVelocity.MANIFEST, StaminaModule.MANIFEST, DebugPlugin.MANIFEST, ProjectileModule.MANIFEST, ServerPlayerListModule.MANIFEST, AccessControlModule.MANIFEST, SingleplayerModule.MANIFEST, Universe.MANIFEST, ConnectedBlocksModule.MANIFEST};
+    public static final PluginManifest[] CORE_PLUGINS = new PluginManifest[]{ConsoleModule.MANIFEST, PermissionsModule.MANIFEST, UpdateModule.MANIFEST, FlyCameraModule.MANIFEST, AssetModule.MANIFEST, CommonAssetModule.MANIFEST, CosmeticsModule.MANIFEST, ServerManager.MANIFEST, I18nModule.MANIFEST, ItemModule.MANIFEST, BlockTypeModule.MANIFEST, LegacyModule.MANIFEST, BlockModule.MANIFEST, CollisionModule.MANIFEST, BlockSetModule.MANIFEST, MigrationModule.MANIFEST, BlockHealthModule.MANIFEST, PrefabSpawnerModule.MANIFEST, TimeModule.MANIFEST, AnchorActionModule.MANIFEST, InteractionModule.MANIFEST, EntityModule.MANIFEST, EntityStatsModule.MANIFEST, EntityUIModule.MANIFEST, DamageModule.MANIFEST, SplitVelocity.MANIFEST, StaminaModule.MANIFEST, DebugPlugin.MANIFEST, ProjectileModule.MANIFEST, ServerPlayerListModule.MANIFEST, VoiceModule.MANIFEST, AccessControlModule.MANIFEST, SingleplayerModule.MANIFEST, Universe.MANIFEST, ConnectedBlocksModule.MANIFEST};
 
     public static void init() {
     }
@@ -78,10 +77,6 @@ public final class Constants {
             return OPTION_SET.valueOf(Options.UNIVERSE);
         }
         return Path.of("universe", new String[0]);
-    }
-
-    public static boolean shouldSkipModValidation() {
-        return OPTION_SET.has(Options.SKIP_MOD_VALIDATION) || HytaleServer.get().getConfig().shouldSkipModValidation();
     }
 }
 

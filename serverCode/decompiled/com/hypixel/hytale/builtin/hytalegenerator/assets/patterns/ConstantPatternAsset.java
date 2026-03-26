@@ -4,7 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.assets.patterns;
 
 import com.hypixel.hytale.builtin.hytalegenerator.assets.patterns.PatternAsset;
-import com.hypixel.hytale.builtin.hytalegenerator.bounds.SpaceSize;
+import com.hypixel.hytale.builtin.hytalegenerator.patterns.ConstantPattern;
 import com.hypixel.hytale.builtin.hytalegenerator.patterns.Pattern;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -17,27 +17,15 @@ extends PatternAsset {
     public static final BuilderCodec<ConstantPatternAsset> CODEC = ((BuilderCodec.Builder)BuilderCodec.builder(ConstantPatternAsset.class, ConstantPatternAsset::new, PatternAsset.ABSTRACT_CODEC).append(new KeyedCodec<Boolean>("Value", Codec.BOOLEAN, true), (asset, value) -> {
         asset.value = value;
     }, value -> value.value).add()).build();
-    private boolean value;
+    private boolean value = false;
 
     @Override
     @Nonnull
     public Pattern build(@Nonnull PatternAsset.Argument argument) {
         if (super.isSkipped()) {
-            return Pattern.noPattern();
+            return ConstantPattern.INSTANCE_FALSE;
         }
-        return new Pattern(){
-
-            @Override
-            public boolean matches(@Nonnull Pattern.Context context) {
-                return ConstantPatternAsset.this.value;
-            }
-
-            @Override
-            @Nonnull
-            public SpaceSize readSpace() {
-                return SpaceSize.empty();
-            }
-        };
+        return this.value ? ConstantPattern.INSTANCE_TRUE : ConstantPattern.INSTANCE_FALSE;
     }
 }
 

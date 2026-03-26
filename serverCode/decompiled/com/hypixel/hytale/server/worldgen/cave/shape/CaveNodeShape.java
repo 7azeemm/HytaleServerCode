@@ -28,7 +28,7 @@ public interface CaveNodeShape {
     public void populateChunk(int var1, ChunkGeneratorExecution var2, Cave var3, CaveNode var4, Random var5);
 
     default public boolean hasGeometry() {
-        return true;
+        return this.getBounds().isValid();
     }
 }
 

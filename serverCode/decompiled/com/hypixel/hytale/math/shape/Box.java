@@ -361,9 +361,9 @@ implements Shape {
         int maxX = MathUtil.floor(x + this.max.getX() + epsilon);
         int maxY = MathUtil.floor(y + this.max.getY() + epsilon);
         int maxZ = MathUtil.floor(z + this.max.getZ() + epsilon);
-        for (int _x = minX; _x <= maxX; ++_x) {
-            for (int _y = minY; _y <= maxY; ++_y) {
-                for (int _z = minZ; _z <= maxZ; ++_z) {
+        for (int _x = minX; _x <= maxX && _x >= minX; ++_x) {
+            for (int _y = minY; _y <= maxY && _y >= minY; ++_y) {
+                for (int _z = minZ; _z <= maxZ && _z >= minZ; ++_z) {
                     if (consumer.test(_x, _y, _z)) continue;
                     return false;
                 }
@@ -380,9 +380,9 @@ implements Shape {
         int maxX = MathUtil.floor(x + this.max.getX() + epsilon);
         int maxY = MathUtil.floor(y + this.max.getY() + epsilon);
         int maxZ = MathUtil.floor(z + this.max.getZ() + epsilon);
-        for (int _x = minX; _x <= maxX; ++_x) {
-            for (int _y = minY; _y <= maxY; ++_y) {
-                for (int _z = minZ; _z <= maxZ; ++_z) {
+        for (int _x = minX; _x <= maxX && _x >= minX; ++_x) {
+            for (int _y = minY; _y <= maxY && _y >= minY; ++_y) {
+                for (int _z = minZ; _z <= maxZ && _z >= minZ; ++_z) {
                     if (consumer.test(_x, _y, _z, t)) continue;
                     return false;
                 }

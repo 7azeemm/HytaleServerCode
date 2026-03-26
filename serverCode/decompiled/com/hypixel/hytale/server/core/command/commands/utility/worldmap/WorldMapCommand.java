@@ -3,12 +3,17 @@
  */
 package com.hypixel.hytale.server.core.command.commands.utility.worldmap;
 
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.commands.utility.worldmap.WorldMapClearMarkersCommand;
 import com.hypixel.hytale.server.core.command.commands.utility.worldmap.WorldMapDiscoverCommand;
 import com.hypixel.hytale.server.core.command.commands.utility.worldmap.WorldMapReloadCommand;
 import com.hypixel.hytale.server.core.command.commands.utility.worldmap.WorldMapUndiscoverCommand;
 import com.hypixel.hytale.server.core.command.commands.utility.worldmap.WorldMapViewRadiusSubCommand;
+import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractCommandCollection;
+import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
+import com.hypixel.hytale.server.core.universe.world.worldmap.provider.chunk.ImageBuilder;
+import javax.annotation.Nonnull;
 
 public class WorldMapCommand
 extends AbstractCommandCollection {
@@ -20,6 +25,22 @@ extends AbstractCommandCollection {
         this.addSubCommand(new WorldMapUndiscoverCommand());
         this.addSubCommand(new WorldMapClearMarkersCommand());
         this.addSubCommand(new WorldMapViewRadiusSubCommand());
+        this.addSubCommand(new QuantizeCommand());
+    }
+
+    private static class QuantizeCommand
+    extends CommandBase {
+        public QuantizeCommand() {
+            super("quantize", "server.commands.worldmap.quantize.desc");
+            this.addAliases("quant", "q");
+        }
+
+        @Override
+        protected void executeSync(@Nonnull CommandContext context) {
+            boolean enabled = ImageBuilder.toggleQuantization();
+            String key = enabled ? "server.commands.worldmap.quantize.enabled" : "server.commands.worldmap.quantize.disabled";
+            context.sendMessage(Message.translation(key));
+        }
     }
 }
 

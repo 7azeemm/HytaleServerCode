@@ -24,6 +24,8 @@ extends AbstractPlayerCommand {
     private static final Message MESSAGE_COMMANDS_EDIT_PREFAB_NOT_IN_EDIT_SESSION = Message.translation("server.commands.editprefab.notInEditSession");
     @Nonnull
     private static final Message MESSAGE_COMMANDS_EDIT_PREFAB_NO_PREFABS_LOADED = Message.translation("server.commands.editprefab.save.noPrefabsLoaded");
+    @Nonnull
+    private static final Message MESSAGE_NOT_IN_EDIT_WORLD = Message.translation("server.commands.editprefab.notInEditWorldWarning");
 
     public PrefabEditSaveUICommand() {
         super("saveui", "server.commands.editprefab.saveui.desc");
@@ -39,6 +41,10 @@ extends AbstractPlayerCommand {
         }
         if (prefabEditSession.getLoadedPrefabMetadata().isEmpty()) {
             context.sendMessage(MESSAGE_COMMANDS_EDIT_PREFAB_NO_PREFABS_LOADED);
+            return;
+        }
+        if (!prefabEditSessionManager.isInEditWorld(playerRef, store)) {
+            context.sendMessage(MESSAGE_NOT_IN_EDIT_WORLD);
             return;
         }
         Player playerComponent = store.getComponent(ref, Player.getComponentType());

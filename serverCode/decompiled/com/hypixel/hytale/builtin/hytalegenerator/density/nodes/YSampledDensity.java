@@ -4,7 +4,7 @@
 package com.hypixel.hytale.builtin.hytalegenerator.density.nodes;
 
 import com.hypixel.hytale.builtin.hytalegenerator.density.Density;
-import com.hypixel.hytale.builtin.hytalegenerator.framework.math.Interpolation;
+import com.hypixel.hytale.builtin.hytalegenerator.math.Interpolation;
 import com.hypixel.hytale.math.vector.Vector3d;
 import javax.annotation.Nonnull;
 
@@ -15,6 +15,7 @@ extends Density {
     private final double sampleDistance;
     private final double sampleDistanceInverse;
     private final double sampleOffset;
+    private final boolean isInterpolated;
     private double value0;
     private double value1;
     private double y0;
@@ -25,12 +26,13 @@ extends Density {
     private final Vector3d rChildPosition;
     private final Density.Context rChildContext;
 
-    public YSampledDensity(@Nonnull Density input, double sampleDistance, double sampleOffset) {
+    public YSampledDensity(@Nonnull Density input, double sampleDistance, double sampleOffset, boolean isInterpolated) {
         assert (sampleDistance > 0.0);
         this.input = input;
         this.sampleDistance = sampleDistance;
         this.sampleDistanceInverse = 1.0 / sampleDistance;
         this.sampleOffset = sampleOffset;
+        this.isInterpolated = isInterpolated;
         this.isEmpty = true;
         this.rChildPosition = new Vector3d();
         this.rChildContext = new Density.Context();
@@ -75,7 +77,13 @@ extends Density {
             }
         }
         double ratio = (context.position.y - this.y0) * this.sampleDistanceInverse;
-        return Interpolation.linear(this.value0, this.value1, ratio);
+        if (this.isInterpolated) {
+            return Interpolation.linear(this.value0, this.value1, ratio);
+        }
+        if (ratio < 0.5) {
+            return this.value0;
+        }
+        return this.value1;
     }
 
     private double toY0(double position) {

@@ -10,24 +10,28 @@ import com.hypixel.hytale.assetstore.map.DefaultAssetMap;
 import com.hypixel.hytale.assetstore.map.JsonAssetWithMap;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
-import com.hypixel.hytale.codec.codecs.map.MapCodec;
+import com.hypixel.hytale.codec.codecs.array.ArrayCodec;
 import com.hypixel.hytale.codec.lookup.MapProvidedMapCodec;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolArg;
-import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolArgGroup;
 import com.hypixel.hytale.protocol.packets.buildertools.BuilderToolState;
 import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.asset.type.buildertool.config.BrushData;
-import com.hypixel.hytale.server.core.asset.type.buildertool.config.BuilderToolData;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.args.BoolArg;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.args.MaskArg;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.args.StringArg;
 import com.hypixel.hytale.server.core.asset.type.buildertool.config.args.ToolArg;
 import com.hypixel.hytale.server.core.asset.type.buildertool.config.args.ToolArgException;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.io.NetworkSerializable;
+import com.hypixel.hytale.server.core.prefab.selection.mask.BlockMask;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.lang.ref.SoftReference;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,33 +41,67 @@ public class BuilderTool
 implements JsonAssetWithMap<String, DefaultAssetMap<String, BuilderTool>>,
 NetworkSerializable<BuilderToolState> {
     public static final String TOOL_DATA_KEY = "ToolData";
-    public static final KeyedCodec<BrushData.Values> BRUSH_DATA_KEY_CODEC = new KeyedCodec<BrushData.Values>("BrushData", BrushData.Values.CODEC);
+    public static final String MATERIAL_KEY = "builtin_Material";
+    public static final String FAVORITE_MATERIALS_KEY = "builtin_FavoriteMaterials";
+    public static final String WIDTH_KEY = "builtin_Width";
+    public static final String HEIGHT_KEY = "builtin_Height";
+    public static final String THICKNESS_KEY = "builtin_Thickness";
+    public static final String CAPPED_KEY = "builtin_Capped";
+    public static final String SHAPE_KEY = "builtin_Shape";
+    public static final String ORIGIN_KEY = "builtin_Origin";
+    public static final String ORIGIN_ROTATION_KEY = "builtin_OriginRotation";
+    public static final String ROTATION_AXIS_KEY = "builtin_RotationAxis";
+    public static final String ROTATION_ANGLE_KEY = "builtin_RotationAngle";
+    public static final String MIRROR_AXIS_KEY = "builtin_MirrorAxis";
+    public static final String ROTATION_FACE_KEY = "builtin_RotationFace";
+    public static final String DENSITY_KEY = "builtin_Density";
+    public static final String SPACING_KEY = "builtin_Spacing";
+    public static final String MASK_KEY = "builtin_Mask";
+    public static final String MASK_ABOVE_KEY = "builtin_MaskAbove";
+    public static final String MASK_NOT_KEY = "builtin_MaskNot";
+    public static final String MASK_BELOW_KEY = "builtin_MaskBelow";
+    public static final String MASK_ADJACENT_KEY = "builtin_MaskAdjacent";
+    public static final String MASK_NEIGHBOR_KEY = "builtin_MaskNeighbor";
+    public static final String MASK_COMMANDS_KEY = "builtin_MaskCommands";
+    public static final String USE_MASK_COMMANDS_KEY = "builtin_UseMaskCommands";
+    public static final String INVERT_MASK_KEY = "builtin_InvertMask";
+    public static HashSet<String> MASK_ARGS = BuilderTool.setMandatoryToolArgs();
     public static final BuilderTool DEFAULT = new BuilderTool();
-    public static final AssetBuilderCodec<String, BuilderTool> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(BuilderTool.class, BuilderTool::new, Codec.STRING, (t, k) -> {
+    public static final AssetBuilderCodec<String, BuilderTool> CODEC = ((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)((AssetBuilderCodec.Builder)AssetBuilderCodec.builder(BuilderTool.class, BuilderTool::new, Codec.STRING, (t, k) -> {
         t.id = k;
     }, t -> t.id, (asset, data) -> {
         asset.data = data;
-    }, asset -> asset.data).addField(new KeyedCodec<String>("Id", Codec.STRING), (builderTool, o) -> {
+    }, asset -> asset.data).append(new KeyedCodec<String>("Id", Codec.STRING), (builderTool, o) -> {
         builderTool.id = o;
-    }, builderTool -> builderTool.id)).addField(new KeyedCodec<Boolean>("IsBrush", Codec.BOOLEAN), (builderTool, o) -> {
+    }, builderTool -> builderTool.id).add()).append(new KeyedCodec<Boolean>("IsBrush", Codec.BOOLEAN), (builderTool, o) -> {
         builderTool.isBrush = o;
-    }, builderTool -> builderTool.isBrush)).addField(new KeyedCodec<String>("BrushConfigurationCommand", Codec.STRING), (builderTool, o) -> {
+    }, builderTool -> builderTool.isBrush).add()).append(new KeyedCodec<String>("BrushConfigurationCommand", Codec.STRING), (builderTool, o) -> {
         builderTool.brushConfigurationCommand = o;
-    }, builderTool -> builderTool.brushConfigurationCommand)).addField(new KeyedCodec("Args", new MapCodec<ToolArg, HashMap>(ToolArg.CODEC, HashMap::new)), (builderTool, s) -> {
-        builderTool.args = s;
-    }, builderTool -> builderTool.args)).addField(new KeyedCodec<BrushData>("BrushData", BrushData.CODEC), (builderTool, o) -> {
-        builderTool.brushData = o;
-    }, builderTool -> builderTool.brushData)).afterDecode(builderTool -> {
-        if (!builderTool.args.isEmpty()) {
-            builderTool.argsCodec = new MapProvidedMapCodec(builderTool.args, ToolArg::getCodec, HashMap::new);
+    }, builderTool -> builderTool.brushConfigurationCommand).add()).append(new KeyedCodec<T[]>("Args", new ArrayCodec<ToolArg>(ToolArg.CODEC, ToolArg[]::new)), (builderTool, s) -> {
+        builderTool.args = new LinkedHashMap<String, ToolArg>();
+        Arrays.stream(s).forEach(arg -> builderTool.args.put(arg.getId(), (ToolArg)arg));
+    }, builderTool -> builderTool.args.values().toArray(new ToolArg[builderTool.args.size()])).add()).afterDecode(builderTool -> {
+        LinkedHashMap<String, ToolArg> allArgs = new LinkedHashMap<String, ToolArg>(builderTool.args);
+        for (String maskKey : MASK_ARGS) {
+            if (allArgs.containsKey(maskKey)) continue;
+            allArgs.put(maskKey, MaskArg.EMPTY);
         }
+        if (!allArgs.containsKey(INVERT_MASK_KEY)) {
+            allArgs.put(INVERT_MASK_KEY, new BoolArg(false));
+        }
+        if (!allArgs.containsKey(USE_MASK_COMMANDS_KEY)) {
+            allArgs.put(USE_MASK_COMMANDS_KEY, new BoolArg(false));
+        }
+        if (!allArgs.containsKey(MASK_COMMANDS_KEY)) {
+            allArgs.put(MASK_COMMANDS_KEY, new StringArg(""));
+        }
+        builderTool.argsCodec = new MapProvidedMapCodec(allArgs, ToolArg::getCodec, HashMap::new);
     })).build();
     private static DefaultAssetMap<String, BuilderTool> ASSET_MAP;
     protected AssetExtraInfo.Data data;
     protected String id;
     protected boolean isBrush;
     protected String brushConfigurationCommand;
-    protected BrushData brushData = BrushData.DEFAULT;
     protected Map<String, ToolArg> args = Collections.emptyMap();
     protected Map<String, Object> defaultToolArgs;
     private MapProvidedMapCodec<Object, ToolArg> argsCodec;
@@ -76,6 +114,17 @@ NetworkSerializable<BuilderToolState> {
         return ASSET_MAP;
     }
 
+    private static HashSet<String> setMandatoryToolArgs() {
+        HashSet<String> argKeys = new HashSet<String>();
+        argKeys.add(MASK_KEY);
+        argKeys.add(MASK_ABOVE_KEY);
+        argKeys.add(MASK_NOT_KEY);
+        argKeys.add(MASK_BELOW_KEY);
+        argKeys.add(MASK_ADJACENT_KEY);
+        argKeys.add(MASK_NEIGHBOR_KEY);
+        return argKeys;
+    }
+
     @Nullable
     public static BuilderTool getActiveBuilderTool(@Nonnull Player player) {
         ItemStack activeItemStack = player.getInventory().getItemInHand();
@@ -83,11 +132,11 @@ NetworkSerializable<BuilderToolState> {
             return null;
         }
         Item item = activeItemStack.getItem();
-        BuilderToolData builderToolData = item.getBuilderToolData();
+        BuilderTool builderToolData = item.getBuilderTool();
         if (builderToolData == null) {
             return null;
         }
-        return builderToolData.getTools()[0];
+        return builderToolData;
     }
 
     @Override
@@ -103,10 +152,6 @@ NetworkSerializable<BuilderToolState> {
         return this.isBrush;
     }
 
-    public BrushData getBrushData() {
-        return this.brushData;
-    }
-
     public Map<String, ToolArg> getArgs() {
         return this.args;
     }
@@ -117,18 +162,12 @@ NetworkSerializable<BuilderToolState> {
 
     @Nonnull
     private Map<String, Object> getDefaultToolArgs(@Nonnull ItemStack itemStack) {
-        BuilderTool builderToolAsset = itemStack.getItem().getBuilderToolData().getTools()[0];
+        BuilderTool builderToolAsset = itemStack.getItem().getBuilderTool();
         Object2ObjectOpenHashMap<String, Object> map = new Object2ObjectOpenHashMap<String, Object>(builderToolAsset.args.size());
         for (Map.Entry<String, ToolArg> entry : builderToolAsset.args.entrySet()) {
             map.put(entry.getKey(), entry.getValue().getValue());
         }
         return map;
-    }
-
-    @Nonnull
-    private BrushData.Values getDefaultBrushArgs(@Nonnull ItemStack itemStack) {
-        BuilderTool builderToolAsset = itemStack.getItem().getBuilderToolData().getTools()[0];
-        return new BrushData.Values(builderToolAsset.brushData);
     }
 
     @Nonnull
@@ -138,12 +177,7 @@ NetworkSerializable<BuilderToolState> {
             Map<String, Object> toolData = (Map<String, Object>)itemStack.getFromMetadataOrNull(TOOL_DATA_KEY, this.argsCodec);
             toolArgs = toolData == null ? this.getDefaultToolArgs(itemStack) : toolData;
         }
-        BrushData.Values brushArgs = null;
-        if (this.isBrush) {
-            BrushData.Values brushData = itemStack.getFromMetadataOrNull(BRUSH_DATA_KEY_CODEC);
-            brushArgs = brushData == null ? this.getDefaultBrushArgs(itemStack) : brushData;
-        }
-        return new ArgData(toolArgs, brushArgs);
+        return new ArgData(toolArgs);
     }
 
     @Nonnull
@@ -152,17 +186,25 @@ NetworkSerializable<BuilderToolState> {
         if (argData.tool() != null) {
             meta.put(TOOL_DATA_KEY, this.argsCodec.encode(argData.tool()));
         }
-        if (this.isBrush) {
-            BRUSH_DATA_KEY_CODEC.put(meta, argData.brush);
-        }
         return new ItemStack(itemId, quantity, meta);
     }
 
     @Nonnull
-    public ItemStack updateArgMetadata(@Nonnull ItemStack itemStack, BuilderToolArgGroup group, @Nonnull String id, @Nullable String value) throws ToolArgException {
+    public ItemStack updateArgMetadata(@Nonnull ItemStack itemStack, @Nonnull String id, @Nullable String value) throws ToolArgException {
         ArgData argData = this.getItemArgData(itemStack);
-        if (group == BuilderToolArgGroup.Brush) {
-            this.brushData.updateArgValue(argData.brush, id, value);
+        if (MASK_ARGS.contains(id) || id.equals(USE_MASK_COMMANDS_KEY) || id.equals(INVERT_MASK_KEY) || id.equals(MASK_COMMANDS_KEY)) {
+            if (value == null) {
+                argData = ArgData.removeToolArg(argData, id);
+            } else if (MASK_ARGS.contains(id)) {
+                BlockMask mask = BlockMask.parse(value);
+                argData = ArgData.setToolArg(argData, id, mask);
+            } else if (id.equals(USE_MASK_COMMANDS_KEY)) {
+                argData = ArgData.setToolArg(argData, id, Boolean.parseBoolean(value));
+            } else if (id.equals(INVERT_MASK_KEY)) {
+                argData = ArgData.setToolArg(argData, id, Boolean.parseBoolean(value));
+            } else if (id.equals(MASK_COMMANDS_KEY)) {
+                argData = ArgData.setToolArg(argData, id, value);
+            }
         } else {
             ToolArg arg = this.args.get(id);
             if (arg == null) {
@@ -192,24 +234,21 @@ NetworkSerializable<BuilderToolState> {
         BuilderToolState packet = new BuilderToolState();
         packet.id = this.id;
         packet.isBrush = this.isBrush;
-        if (this.brushData != null) {
-            packet.brushData = this.brushData.toPacket();
-        }
-        Object2ObjectOpenHashMap<String, BuilderToolArg> map = new Object2ObjectOpenHashMap<String, BuilderToolArg>(this.args.size());
+        LinkedHashMap<String, BuilderToolArg> map = new LinkedHashMap<String, BuilderToolArg>(this.args.size());
         for (Map.Entry<String, ToolArg> entry : this.args.entrySet()) {
             map.put(entry.getKey(), entry.getValue().toPacket());
         }
-        packet.args = map;
+        packet.args = map.values().toArray(new BuilderToolArg[map.values().size()]);
         this.cachedPacket = new SoftReference<BuilderToolState>(packet);
         return packet;
     }
 
     @Nonnull
     public String toString() {
-        return "BuilderTool{id='" + this.id + "', isBrush=" + this.isBrush + ", brushData=" + String.valueOf(this.brushData) + ", args=" + String.valueOf(this.args) + "}";
+        return "BuilderTool{id='" + this.id + "', isBrush=" + this.isBrush + ", args=" + String.valueOf(this.args) + "}";
     }
 
-    public record ArgData(Map<String, Object> tool, BrushData.Values brush) {
+    public record ArgData(Map<String, Object> tool) {
         @Nonnull
         public static ArgData setToolArg(@Nonnull ArgData argData, String argId, Object value) {
             Map<String, Object> tool = argData.tool();
@@ -218,7 +257,7 @@ NetworkSerializable<BuilderToolState> {
             }
             Object2ObjectOpenHashMap<String, Object> newToolArgs = new Object2ObjectOpenHashMap<String, Object>(tool);
             newToolArgs.put(argId, value);
-            return new ArgData(newToolArgs, argData.brush());
+            return new ArgData(newToolArgs);
         }
 
         @Nonnull
@@ -229,13 +268,13 @@ NetworkSerializable<BuilderToolState> {
             }
             Object2ObjectOpenHashMap<String, Object> newToolArgs = new Object2ObjectOpenHashMap<String, Object>(tool);
             newToolArgs.remove(argId);
-            return new ArgData(newToolArgs, argData.brush());
+            return new ArgData(newToolArgs);
         }
 
         @Override
         @Nonnull
         public String toString() {
-            return "ArgData{tool=" + String.valueOf(this.tool) + ", brush=" + String.valueOf(this.brush) + "}";
+            return "ArgData{tool=" + String.valueOf(this.tool) + "}";
         }
     }
 }

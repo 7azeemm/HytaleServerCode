@@ -11,13 +11,11 @@ import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.entity.EntityUtils;
-import com.hypixel.hytale.server.core.entity.LivingEntity;
 import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.inventory.Inventory;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.modules.item.ItemModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -50,14 +48,9 @@ extends ObjectiveCompletion {
         Store<EntityStore> store = world.getEntityStore().getStore();
         boolean showItemNotification = world.getGameplayConfig().getShowItemPickupNotifications();
         objective.forEachParticipant((participantReference, asset, objectiveHistoryData) -> {
-            Entity entity = EntityUtils.getEntity(participantReference, componentAccessor);
-            if (!(entity instanceof LivingEntity)) {
-                return;
-            }
-            LivingEntity livingEntity = (LivingEntity)entity;
-            Inventory inventory = livingEntity.getInventory();
+            CombinedItemContainer hotbarFirstCombinedItemContainer = InventoryComponent.getCombined(componentAccessor, participantReference, InventoryComponent.HOTBAR_FIRST);
             List<ItemStack> itemStacks = ItemModule.get().getRandomItemDrops(asset.getDropListId());
-            SimpleItemContainer.addOrDropItemStacks(store, participantReference, inventory.getCombinedHotbarFirst(), itemStacks);
+            SimpleItemContainer.addOrDropItemStacks(store, participantReference, hotbarFirstCombinedItemContainer, itemStacks);
             Player playerComponent = componentAccessor.getComponent((Ref<EntityStore>)participantReference, Player.getComponentType());
             if (playerComponent != null) {
                 PlayerRef playerRefComponent = componentAccessor.getComponent((Ref<EntityStore>)participantReference, PlayerRef.getComponentType());
